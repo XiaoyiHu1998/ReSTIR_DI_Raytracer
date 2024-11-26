@@ -25,3 +25,4 @@ public:
 std::ostream& operator<<(std::ostream& out, Model &m);
 
 #endif //__MODEL_H__
+
