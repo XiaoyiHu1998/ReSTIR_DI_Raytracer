@@ -33,6 +33,8 @@ public:
 	RenderObject(Model model, Transform transform) :
 		m_Model{ model }, m_Transform{ transform }
 	{}
+
+	bool intersect(const glm::vec3 & orig, const glm::vec3 & dir, float& tnear);
 };
 
 

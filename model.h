@@ -18,6 +18,7 @@ public:
     int nfaces() const;                          // number of triangles
 
     bool ray_triangle_intersect(const int &fi, const glm::vec3 &orig, const glm::vec3 &dir, float &tnear);
+    bool intersect(const glm::vec3 &orig, const glm::vec3 &dir, float &tnear);
 
     const glm::vec3 &point(int i) const;                   // coordinates of the vertex i
     glm::vec3 &point(int i);                   // coordinates of the vertex i
