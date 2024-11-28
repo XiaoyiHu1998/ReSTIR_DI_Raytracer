@@ -37,4 +37,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${SRC_DIR}")
 set(STB_DIR "${LIB_DIR}/stb")
 target_include_directories(${PROJECT_NAME} PRIVATE "${STB_DIR}")
 
+# glm
+set(GLM_DIR "${LIB_DIR}/glm")
+target_include_directories(${PROJECT_NAME} PRIVATE "${GLM_DIR}")
+
 
