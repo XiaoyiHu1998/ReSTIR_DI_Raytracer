@@ -6,10 +6,10 @@
 class BVH : public AccelerationStructure
 {
 private:
-	class BVHNode
+	struct BVHNode
 	{
 		glm::vec3 aabbMin, aabbMax;
-		uint32_t leftFirst, TriangleCount;
+		uint32_t leftFirst, triangleCount;
 	};
 
 	struct Triangle
@@ -46,7 +46,7 @@ private:
 			return false;
 		}
 	};
-
+	
 	std::vector<Triangle> triangles;
 	std::vector<BVHNode> bvhNodes;
 
@@ -58,6 +58,9 @@ public:
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
+private:
+	void UpdateNodeBounds(uint32_t nodeID);
+	void Subdivide(uint32_t nodeID);
 };
 
 
