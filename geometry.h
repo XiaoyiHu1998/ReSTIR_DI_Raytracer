@@ -13,10 +13,10 @@ private:
     T data_[DIM];
 };
 
-typedef vec<2, float> Vec2f;
-typedef vec<3, float> Vec3f;
-typedef vec<3, int  > Vec3i;
-typedef vec<4, float> Vec4f;
+typedef vec<2, float> glm::vec2;
+typedef vec<3, float> glm::vec3;
+typedef vec<3, int  > glm::glm::i32vec3;
+typedef vec<4, float> glm::vec4;
 
 template <typename T> struct vec<2,T> {
     vec() : x(T()), y(T()) {}

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include "model.h"
+#include "glm/gtx/string_cast.hpp"
 
 // fills verts and faces arrays, supposes .obj file to have "f " entries without slashes
 Model::Model(const char *filename) : verts(), faces() {
@@ -19,11 +20,11 @@ Model::Model(const char *filename) : verts(), faces() {
         char trash;
         if (!line.compare(0, 2, "v ")) {
             iss >> trash;
-            Vec3f v;
+            glm::vec3 v;
             for (int i=0;i<3;i++) iss >> v[i];
             verts.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
-            Vec3i f;
+            glm::i32vec3 f;
             int idx, cnt=0;
             iss >> trash;
             while (iss >> idx) {
@@ -35,27 +36,27 @@ Model::Model(const char *filename) : verts(), faces() {
     }
     std::cerr << "# v# " << verts.size() << " f# "  << faces.size() << std::endl;
 
-    Vec3f min, max;
+    glm::vec3 min, max;
     get_bbox(min, max);
 }
 
 // Moller and Trumbore
-bool Model::ray_triangle_intersect(const int &fi, const Vec3f &orig, const Vec3f &dir, float &tnear) {
-    Vec3f edge1 = point(vert(fi,1)) - point(vert(fi,0));
-    Vec3f edge2 = point(vert(fi,2)) - point(vert(fi,0));
-    Vec3f pvec = cross(dir, edge2);
-    float det = edge1*pvec;
+bool Model::ray_triangle_intersect(const int &fi, const glm::vec3 &orig, const glm::vec3 &dir, float &tnear) {
+    glm::vec3 edge1 = point(vert(fi,1)) - point(vert(fi,0));
+    glm::vec3 edge2 = point(vert(fi,2)) - point(vert(fi,0));
+    glm::vec3 pvec = glm::cross(dir, edge2);
+    float det = glm::dot(edge1, pvec);
     if (det<1e-5) return false;
 
-    Vec3f tvec = orig - point(vert(fi,0));
-    float u = tvec*pvec;
+    glm::vec3 tvec = orig - point(vert(fi,0));
+    float u = glm::dot(tvec, pvec);
     if (u < 0 || u > det) return false;
 
-    Vec3f qvec = cross(tvec, edge1);
-    float v = dir*qvec;
+    glm::vec3 qvec = glm::cross(tvec, edge1);
+    float v = glm::dot(dir, qvec);
     if (v < 0 || u + v > det) return false;
 
-    tnear = edge2*qvec * (1./det);
+    tnear = glm::dot(edge2, qvec) * (1./det);
     return tnear>1e-5;
 }
 
@@ -68,7 +69,7 @@ int Model::nfaces() const {
     return (int)faces.size();
 }
 
-void Model::get_bbox(Vec3f &min, Vec3f &max) {
+void Model::get_bbox(glm::vec3 &min, glm::vec3 &max) {
     min = max = verts[0];
     for (int i=1; i<(int)verts.size(); ++i) {
         for (int j=0; j<3; j++) {
@@ -76,15 +77,15 @@ void Model::get_bbox(Vec3f &min, Vec3f &max) {
             max[j] = std::max(max[j], verts[i][j]);
         }
     }
-    std::cerr << "bbox: [" << min << " : " << max << "]" << std::endl;
+    std::cerr << "bbox: [" << glm::to_string(min) << " : " << glm::to_string(max) << "]" << std::endl;
 }
 
-const Vec3f &Model::point(int i) const {
+const glm::vec3 &Model::point(int i) const {
     assert(i>=0 && i<nverts());
     return verts[i];
 }
 
-Vec3f &Model::point(int i) {
+glm::vec3 &Model::point(int i) {
     assert(i>=0 && i<nverts());
     return verts[i];
 }
@@ -96,7 +97,7 @@ int Model::vert(int fi, int li) const {
 
 std::ostream& operator<<(std::ostream& out, Model &m) {
     for (int i=0; i<m.nverts(); i++) {
-        out << "v " << m.point(i) << std::endl;
+        out << "v " << glm::to_string(m.point(i)) << std::endl;
     }
     for (int i=0; i<m.nfaces(); i++) {
         out << "f ";
