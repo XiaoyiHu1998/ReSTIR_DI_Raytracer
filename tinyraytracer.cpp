@@ -5,6 +5,8 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <thread>
+#include <functional>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -40,13 +42,13 @@ struct Sphere {
 
     Sphere(const glm::vec3 &c, const float r, const Material &m) : center(c), radius(r), material(m) {}
 
-    bool ray_intersect(const glm::vec3 &orig, const glm::vec3 &dir, float &t0) const {
+    bool ray_intersect(const glm::vec3& orig, const glm::vec3& dir, float& t0) const {
         glm::vec3 L = center - orig;
         float tca = glm::dot(L, dir);
-        float d2 = glm::dot(L, L) - tca*tca;
-        if (d2 > radius*radius) return false;
-        float thc = sqrtf(radius*radius - d2);
-        t0       = tca - thc;
+        float d2 = glm::dot(L, L) - tca * tca;
+        if (d2 > radius * radius) return false;
+        float thc = sqrtf(radius * radius - d2);
+        t0 = tca - thc;
         float t1 = tca + thc;
         if (t0 < 0) t0 = t1;
         if (t0 < 0) return false;
@@ -54,36 +56,23 @@ struct Sphere {
     }
 };
 
-glm::vec3 reflect(const glm::vec3 &I, const glm::vec3 &N) {
-    return I - N*2.f*(glm::dot(I,N));
+glm::vec3 reflect(const glm::vec3& I, const glm::vec3& N) {
+    return I - N * 2.f * (glm::dot(I, N));
 }
 
-glm::vec3 refract(const glm::vec3 &I, const glm::vec3 &N, const float eta_t, const float eta_i=1.f) { // Snell's law
-    float cosi = - std::max(-1.f, std::min(1.f, glm::dot(I,N)));
-    if (cosi<0) return refract(I, -N, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
+glm::vec3 refract(const glm::vec3& I, const glm::vec3& N, const float eta_t, const float eta_i = 1.f) { // Snell's law
+    float cosi = -std::max(-1.f, std::min(1.f, glm::dot(I, N)));
+    if (cosi < 0) return refract(I, -N, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
     float eta = eta_i / eta_t;
-    float k = 1 - eta*eta*(1 - cosi*cosi);
-    return k<0 ? glm::vec3(1,0,0) : I*eta + N*(eta*cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
+    float k = 1 - eta * eta * (1 - cosi * cosi);
+    return k < 0 ? glm::vec3(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
 }
 
-bool scene_intersect(const glm::vec3 &orig, const glm::vec3 &dir, const std::vector<Sphere> &spheres, std::vector<RenderObject> &renderObjects, glm::vec3 &hit, glm::vec3 &N, Material &material) {
+bool scene_intersect(const glm::vec3& orig, const glm::vec3& dir, const std::vector<Sphere>& spheres, std::vector<RenderObject>& renderObjects, glm::vec3& hit, glm::vec3& N, Material& material) {
     float spheres_dist = std::numeric_limits<float>::max();
-    for (size_t i=0; i < spheres.size(); i++) {
+    for (size_t i = 0; i < spheres.size(); i++) {
         float dist_intersect;
         if (spheres[i].ray_intersect(orig, dir, dist_intersect) && dist_intersect < spheres_dist) {
-            spheres_dist = dist_intersect;
-            hit = orig + dir* dist_intersect;
-            N = glm::normalize(hit - spheres[i].center);
-            material = spheres[i].material;
-        }
-    }
-
-    float objects_dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < renderObjects.size(); i++)
-    {
-        float dist_intersect;
-        if (renderObjects[i].intersect(orig, dir, dist_intersect) && dist_intersect < spheres_dist)
-        {
             spheres_dist = dist_intersect;
             hit = orig + dir * dist_intersect;
             N = glm::normalize(hit - spheres[i].center);
@@ -91,50 +80,65 @@ bool scene_intersect(const glm::vec3 &orig, const glm::vec3 &dir, const std::vec
         }
     }
 
-    float checkerboard_dist = std::numeric_limits<float>::max();
-    if (fabs(dir.y)>1e-3)  {
-        float d = -(orig.y+4)/dir.y; // the checkerboard plane has equation y = -4
-        glm::vec3 pt = orig + dir*d;
-        if (d>0 && fabs(pt.x)<10 && pt.z<-10 && pt.z>-30 && d<spheres_dist) {
-            checkerboard_dist = d;
-            hit = pt;
-            N = glm::vec3(0,1,0);
-            material.diffuse_color = (int(.5*hit.x+1000) + int(.5*hit.z)) & 1 ? glm::vec3(.3, .3, .3) : glm::vec3(.3, .2, .1);
+    for (size_t i = 0; i < renderObjects.size(); i++)
+    {
+        float dist_intersect;
+        if (renderObjects[i].intersect(orig, dir, dist_intersect))
+        {
+            if (dist_intersect < spheres_dist)
+            {
+                spheres_dist = dist_intersect;
+                hit = orig + dir * dist_intersect;
+                N = glm::normalize(hit - spheres[i].center);
+                material = spheres[i].material;
+            }
         }
     }
-    return std::min(spheres_dist, checkerboard_dist)<1000;
+
+    float checkerboard_dist = std::numeric_limits<float>::max();
+    if (fabs(dir.y) > 1e-3) {
+        float d = -(orig.y + 4) / dir.y; // the checkerboard plane has equation y = -4
+        glm::vec3 pt = orig + dir * d;
+        if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < spheres_dist) {
+            checkerboard_dist = d;
+            hit = pt;
+            N = glm::vec3(0, 1, 0);
+            material.diffuse_color = (int(.5 * hit.x + 1000) + int(.5 * hit.z)) & 1 ? glm::vec3(.3, .3, .3) : glm::vec3(.3, .2, .1);
+        }
+    }
+    return std::min(spheres_dist, checkerboard_dist) < 1000;
 }
 
-glm::vec3 cast_ray(const glm::vec3 &orig, const glm::vec3 &dir, const std::vector<Sphere> &spheres, std::vector<RenderObject>& renderObjects, const std::vector<Light> &lights, size_t depth=0) {
+glm::vec3 cast_ray(const glm::vec3& orig, const glm::vec3& dir, const std::vector<Sphere>& spheres, std::vector<RenderObject>& renderObjects, const std::vector<Light>& lights, size_t depth = 0) {
     glm::vec3 point, N;
     Material material;
 
-    if (depth>4 || !scene_intersect(orig, dir, spheres, renderObjects, point, N, material)) {
+    if (depth > 4 || !scene_intersect(orig, dir, spheres, renderObjects, point, N, material)) {
         return glm::vec3(0.2, 0.7, 0.8); // background color
     }
 
     glm::vec3 reflect_dir = glm::normalize(reflect(dir, N));
     glm::vec3 refract_dir = glm::normalize(refract(dir, N, material.refractive_index));
-    glm::vec3 reflect_orig = glm::dot(reflect_dir,N) < 0 ? point - N*1e-3f : point + N*1e-3f; // offset the original point to avoid occlusion by the object itself
-    glm::vec3 refract_orig = glm::dot(refract_dir,N) < 0 ? point - N*1e-3f : point + N*1e-3f;
+    glm::vec3 reflect_orig = glm::dot(reflect_dir, N) < 0 ? point - N * 1e-3f : point + N * 1e-3f; // offset the original point to avoid occlusion by the object itself
+    glm::vec3 refract_orig = glm::dot(refract_dir, N) < 0 ? point - N * 1e-3f : point + N * 1e-3f;
     glm::vec3 reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, renderObjects, lights, depth + 1);
     glm::vec3 refract_color = cast_ray(refract_orig, refract_dir, spheres, renderObjects, lights, depth + 1);
 
     float diffuse_light_intensity = 0, specular_light_intensity = 0;
-    for (size_t i=0; i<lights.size(); i++) {
-        glm::vec3 light_dir      = glm::normalize(lights[i].position - point);
+    for (size_t i = 0; i < lights.size(); i++) {
+        glm::vec3 light_dir = glm::normalize(lights[i].position - point);
         float light_distance = glm::length((lights[i].position - point));
 
-        glm::vec3 shadow_orig = glm::dot(light_dir, N) < 0 ? point - N*1e-3f : point + N*1e-3f; // checking if the point lies in the shadow of the lights[i]
+        glm::vec3 shadow_orig = glm::dot(light_dir, N) < 0 ? point - N * 1e-3f : point + N * 1e-3f; // checking if the point lies in the shadow of the lights[i]
         glm::vec3 shadow_pt, shadow_N;
         Material tmpmaterial;
-        if (scene_intersect(shadow_orig, light_dir, spheres, renderObjects, shadow_pt, shadow_N, tmpmaterial) && glm::length(shadow_pt-shadow_orig) < light_distance)
+        if (scene_intersect(shadow_orig, light_dir, spheres, renderObjects, shadow_pt, shadow_N, tmpmaterial) && glm::length(shadow_pt - shadow_orig) < light_distance)
             continue;
 
-        diffuse_light_intensity  += lights[i].intensity * std::max(0.f, glm::dot(light_dir,N));
+        diffuse_light_intensity += lights[i].intensity * std::max(0.f, glm::dot(light_dir, N));
         specular_light_intensity += powf(std::max(0.f, glm::dot(-reflect(-light_dir, N), dir)), material.specular_exponent) * lights[i].intensity;
     }
-    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + glm::vec3(1., 1., 1.)*specular_light_intensity * material.albedo[1] + reflect_color*material.albedo[2] + refract_color*material.albedo[3];
+    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + glm::vec3(1., 1., 1.) * specular_light_intensity * material.albedo[1] + reflect_color * material.albedo[2] + refract_color * material.albedo[3];
 }
 
 void render(const std::vector<Sphere> &spheres, std::vector<RenderObject> &renderObjects, const std::vector<Light> &lights) {
@@ -143,14 +147,17 @@ void render(const std::vector<Sphere> &spheres, std::vector<RenderObject> &rende
     const float fov      = M_PI/3.;
     std::vector<glm::vec3> framebuffer(width*height);
 
-    #pragma omp parallel for
-    for (size_t j = 0; j<height; j++) { // actual rendering loop
-        for (size_t i = 0; i<width; i++) {
-            float dir_x =  (i + 0.5) -  width/2.;
-            float dir_y = -(j + 0.5) + height/2.;    // this flips the image at the same time
-            float dir_z = -height/(2.*tan(fov/2.));
-            framebuffer[i + j * width] = cast_ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z)), spheres, renderObjects, lights);
+    std::function<void(int)> renderThread = [&](int row) {
+        for (size_t i = 0; i < width; i++) {
+            float dir_x = (i + 0.5) - width / 2.;
+            float dir_y = -(row + 0.5) + height / 2.;    // this flips the image at the same time
+            float dir_z = -height / (2. * tan(fov / 2.));
+            framebuffer[i + row * width] = cast_ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z)), spheres, renderObjects, lights);
         }
+    };
+
+    for (size_t j = 0; j<height; j++) { // actual rendering loop
+        std::thread currentThread = std::thread(renderThread, j);
     }
 
     std::vector<unsigned char> pixmap(width*height*3);
