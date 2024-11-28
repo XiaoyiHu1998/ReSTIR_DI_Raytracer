@@ -146,6 +146,8 @@ void render(const std::vector<Sphere> &spheres, std::vector<RenderObject> &rende
     const int   height   = 768;
     const float fov      = M_PI/3.;
     std::vector<glm::vec3> framebuffer(width*height);
+    std::vector<std::thread> threadPool;
+    threadPool.reserve(height);
 
     std::function<void(int)> renderThread = [&](int row) {
         for (size_t i = 0; i < width; i++) {
@@ -157,7 +159,11 @@ void render(const std::vector<Sphere> &spheres, std::vector<RenderObject> &rende
     };
 
     for (size_t j = 0; j<height; j++) { // actual rendering loop
-        std::thread currentThread = std::thread(renderThread, j);
+        threadPool.emplace_back(std::thread(renderThread, j));
+    }
+
+    for (int i = 0; i < height; i++) {
+        threadPool[i].join();
     }
 
     std::vector<unsigned char> pixmap(width*height*3);
