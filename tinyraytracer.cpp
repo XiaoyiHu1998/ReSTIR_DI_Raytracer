@@ -12,10 +12,11 @@
 #include "stb_image_write.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "glm/glm.hpp"
 
 #include "model.h"
 #include "RenderObject.h"
-#include "glm/glm.hpp"
+#include "BVH.h"
 
 int envmap_width, envmap_height;
 std::vector<glm::vec3> envmap;
