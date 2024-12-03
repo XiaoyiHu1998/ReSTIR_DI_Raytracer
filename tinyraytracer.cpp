@@ -21,6 +21,8 @@
 int envmap_width, envmap_height;
 std::vector<glm::vec3> envmap;
 
+std::unique_ptr<AccelerationStructure> accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
+
 struct Light {
     Light(const glm::vec3 &p, const float i) : position(p), intensity(i) {}
     glm::vec3 position;
@@ -70,11 +72,11 @@ glm::vec3 refract(const glm::vec3& I, const glm::vec3& N, const float eta_t, con
 }
 
 bool scene_intersect(const glm::vec3& orig, const glm::vec3& dir, const std::vector<Sphere>& spheres, std::vector<RenderObject>& renderObjects, glm::vec3& hit, glm::vec3& N, Material& material) {
-    float spheres_dist = std::numeric_limits<float>::max();
+    float primitive_dist = std::numeric_limits<float>::max();
     for (size_t i = 0; i < spheres.size(); i++) {
         float dist_intersect;
-        if (spheres[i].ray_intersect(orig, dir, dist_intersect) && dist_intersect < spheres_dist) {
-            spheres_dist = dist_intersect;
+        if (spheres[i].ray_intersect(orig, dir, dist_intersect) && dist_intersect < primitive_dist) {
+            primitive_dist = dist_intersect;
             hit = orig + dir * dist_intersect;
             N = glm::normalize(hit - spheres[i].center);
             material = spheres[i].material;
@@ -83,15 +85,16 @@ bool scene_intersect(const glm::vec3& orig, const glm::vec3& dir, const std::vec
 
     for (size_t i = 0; i < renderObjects.size(); i++)
     {
-        float dist_intersect;
-        if (renderObjects[i].intersect(orig, dir, dist_intersect))
+        float dist_intersect = std::numeric_limits<float>::max();
+        //if (renderObjects[i].intersect(orig, dir, dist_intersect))
+        if (accelerationStructure->Traverse(orig, dir, dist_intersect))
         {
-            if (dist_intersect < spheres_dist)
+            if (dist_intersect < primitive_dist)
             {
-                spheres_dist = dist_intersect;
+                primitive_dist = dist_intersect;
                 hit = orig + dir * dist_intersect;
                 N = glm::normalize(hit - spheres[i].center);
-                material = spheres[i].material;
+                material = spheres[0].material;
             }
         }
     }
@@ -100,14 +103,14 @@ bool scene_intersect(const glm::vec3& orig, const glm::vec3& dir, const std::vec
     if (fabs(dir.y) > 1e-3) {
         float d = -(orig.y + 4) / dir.y; // the checkerboard plane has equation y = -4
         glm::vec3 pt = orig + dir * d;
-        if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < spheres_dist) {
+        if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < primitive_dist) {
             checkerboard_dist = d;
             hit = pt;
             N = glm::vec3(0, 1, 0);
             material.diffuse_color = (int(.5 * hit.x + 1000) + int(.5 * hit.z)) & 1 ? glm::vec3(.3, .3, .3) : glm::vec3(.3, .2, .1);
         }
     }
-    return std::min(spheres_dist, checkerboard_dist) < 1000;
+    return std::min(primitive_dist, checkerboard_dist) < 1000;
 }
 
 glm::vec3 cast_ray(const glm::vec3& orig, const glm::vec3& dir, const std::vector<Sphere>& spheres, std::vector<RenderObject>& renderObjects, const std::vector<Light>& lights, size_t depth = 0) {
@@ -208,6 +211,10 @@ int main() {
     std::vector<RenderObject> renderObjects;
     RenderObject duck(Model("../duck.obj"), Transform(glm::vec3(0, 0, -10), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1)));
     renderObjects.push_back(duck);
+    accelerationStructure->AddObject(duck);
+    std::cout << "Duck Added" << std::endl;
+    accelerationStructure->Build(false);
+    std::cout << "BVH Built" << std::endl;
 
     std::vector<Light>  lights;
     lights.push_back(Light(glm::vec3(-20, 20,  20), 1.5));
