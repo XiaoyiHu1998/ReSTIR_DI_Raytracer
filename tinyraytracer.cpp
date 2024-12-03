@@ -94,7 +94,7 @@ bool scene_intersect(const glm::vec3& orig, const glm::vec3& dir, const std::vec
                 primitive_dist = dist_intersect;
                 hit = orig + dir * dist_intersect;
                 N = glm::normalize(hit - spheres[i].center);
-                material = spheres[0].material;
+                material = spheres[i].material;
             }
         }
     }
