@@ -9,7 +9,7 @@ BVH::BVH(DebugMode debugMode):
 	m_Triangles = {};
 	m_BvhNodes = {};
 
-	m_BvhNodes.resize(30);
+	m_BvhNodes.resize(1000);
 	m_Triangles.reserve(10000 * 3);
 	m_TriangleIndices.reserve(10000 * 3);
 }
@@ -22,8 +22,6 @@ void BVH::SetDebugMode(DebugMode debugMode)
 bool BVH::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
 {
 	bool hit = TraverseNode(origin, direction, tnear, 0);
-	if (hit)
-		std::cout << "hit: " << hit << std::endl;
 	return hit;
 }
 
@@ -37,7 +35,7 @@ bool BVH::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, floa
 
 	if (node.isLeaf())
 	{
-		std::cout << "primCount: " << node.triangleCount << std::endl;
+		//std::cout << "primCount: " << node.triangleCount << std::endl;
 		for (uint32_t i = 0; i < node.triangleCount; i++)
 		{
 			hit |= m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]].Intersect(origin, direction, tnear);
@@ -149,10 +147,7 @@ void BVH::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
 			i++;
 		}
 		else {
-			uint32_t tempTriangleIndex = m_TriangleIndices[i];
-			m_TriangleIndices[i] = m_TriangleIndices[j];
-			m_TriangleIndices[j] = tempTriangleIndex;
-			j--;
+			std::swap(m_TriangleIndices[i], m_TriangleIndices[j--]);
 		}
 	}
 
@@ -166,9 +161,12 @@ void BVH::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
 	int rightChildIndex = nodesUsed++;
 	if (rightChildIndex > m_BvhNodes.size() - 1)
 	{
-		for (int index = 0; index < rightChildIndex - (m_BvhNodes.size() - 1); index++) {
-			m_BvhNodes.emplace_back(BVHNode());
-		}
+		m_BvhNodes.resize(rightChildIndex);
+	}
+
+	if (node.leftChildOrFirstIndex > 507 || i > 507)
+	{
+		int abcd = 1;
 	}
 
 	m_BvhNodes[leftChildIndex].leftChildOrFirstIndex = node.leftChildOrFirstIndex;
