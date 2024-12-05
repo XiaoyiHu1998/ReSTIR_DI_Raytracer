@@ -73,6 +73,7 @@ bool BVH::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm
 void BVH::AddObject(const RenderObject& object)
 {
 	const Model& model = object.m_Model;
+	//TODO: add transform support
 	int faceCount = model.nfaces();
 
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
