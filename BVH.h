@@ -4,7 +4,7 @@
 #include "AccelerationStructure.h"
 #include "Triangle.h"
 
-class BVH : public AccelerationStructure
+class BVH_BLAS : public AccelerationStructure
 {
 private:
 	struct BVHNode
@@ -25,19 +25,39 @@ private:
 
 	DebugMode m_DebugMode;
 public:
-	BVH(DebugMode debugMode = DebugMode::Off);
-	virtual ~BVH() {}
+	BVH_BLAS(DebugMode debugMode = DebugMode::Off);
+	virtual ~BVH_BLAS() {};
 
 	virtual void SetDebugMode(DebugMode debugMode);
 	virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
+	virtual int ObjectCount() override { return 1; }
 private:
 	void UpdateNodeBounds(uint32_t nodeID);
 	void Subdivide(uint32_t nodeID, uint32_t& nodesUsed);
 	bool TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const uint32_t nodeIndex);
 	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
+};
+
+
+class BVH : public AccelerationStructure
+{
+private:
+	std::vector<std::pair<BVH_BLAS, glm::mat4>> m_BVHObjects;
+	DebugMode m_DebugMode;
+
+public:
+	BVH(DebugMode debubMode);
+	virtual ~BVH() {};
+
+	virtual void SetDebugMode(DebugMode debugMode);
+	virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
+
+	virtual void AddObject(const RenderObject& object) override;
+	virtual void Build(bool useHeuristic) override;
+	virtual int ObjectCount() override { return m_BVHObjects.size(); }
 };
 
 
