@@ -17,11 +17,13 @@
 #include "model.h"
 #include "RenderObject.h"
 #include "BVH.h"
+#include "Octree.h"
 
 int envmap_width, envmap_height;
 std::vector<glm::vec3> envmap;
 
-std::unique_ptr<AccelerationStructure> accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
+std::unique_ptr<AccelerationStructure> accelerationStructure = std::make_unique<Octree>(AccelerationStructure::DebugMode::Off);
+//std::unique_ptr<AccelerationStructure> accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
 
 struct Light {
     Light(const glm::vec3 &p, const float i) : position(p), intensity(i) {}

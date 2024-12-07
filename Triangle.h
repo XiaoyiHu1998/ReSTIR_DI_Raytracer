@@ -12,7 +12,7 @@ struct Triangle
 		centroid = (vertex0 + vertex1 + vertex2) * 0.3333f;
 	}
 
-	bool Intersect(glm::vec3 origin, glm::vec3 direction, float& tnear)
+	bool Intersect(glm::vec3 origin, glm::vec3 direction, float& tnear) const
 	{
 		const glm::vec3 edge1 = vertex1 - vertex0;
 		const glm::vec3 edge2 = vertex2 - vertex0;
