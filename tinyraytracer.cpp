@@ -209,12 +209,12 @@ int main() {
     RenderObject duck = RenderObject(duckModel, Transform(glm::vec3(1), glm::vec3(1), glm::vec3(1)));
     for (int i = 0; i < 10; i++)
     {
-        Transform transform = Transform(glm::vec3(i -1, i, -10 + (i + 1)), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+        Transform transform = Transform(glm::vec3(-10 + 5 * i, -10 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
         duck = RenderObject(duckModel, transform);
         accelerationStructure->AddObject(duck);
         std::cout << "Duck Added" << std::endl;
     }
-    accelerationStructure->Build(false);
+    accelerationStructure->Build(true);
     std::cout << "BVH Built" << std::endl;
 
 
