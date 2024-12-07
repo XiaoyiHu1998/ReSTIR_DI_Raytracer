@@ -17,6 +17,8 @@ public:
 
 	virtual void AddObject(const RenderObject& object) = 0;
 	virtual void Build(bool useHeuristic) = 0;
+
+	virtual int ObjectCount() = 0;
 };
 
 

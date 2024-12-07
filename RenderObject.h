@@ -6,15 +6,14 @@
 
 struct Transform {
 	glm::vec3 translation, rotation, scale;
-	glm::mat4 transformMatrix;
 
 	Transform(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale) :
-		translation{ translation }, rotation{ rotation }, scale{ scale }, transformMatrix{glm::mat4(1)}
+		translation{ translation }, rotation{ rotation }, scale{ scale }
 	{}
 
-	glm::mat4 GetTransformMatrix()
+	glm::mat4 GetTransformMatrix() const
 	{
-		transformMatrix = glm::mat4(1);
+		glm::mat4 transformMatrix = glm::mat4(1);
 		transformMatrix = glm::scale(transformMatrix, scale);
 		transformMatrix = glm::rotate(transformMatrix, rotation[0], glm::vec3(1,0,0));
 		transformMatrix = glm::rotate(transformMatrix, rotation[1], glm::vec3(0,1,0));

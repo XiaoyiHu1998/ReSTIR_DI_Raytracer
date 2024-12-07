@@ -3,7 +3,57 @@
 #include "glm/ext.hpp"
 #include <iostream>
 
-BVH::BVH(DebugMode debugMode):
+BVH::BVH(DebugMode debubMode) :
+	m_DebugMode{ debubMode }
+{
+	m_BVHObjects.reserve(10);
+}
+
+void BVH::SetDebugMode(DebugMode debugMode)
+{
+	m_DebugMode = debugMode;
+
+	for (int i = 0; i < m_BVHObjects.size(); i++)
+	{
+		m_BVHObjects[i].first.SetDebugMode(debugMode);
+	}
+}
+
+bool BVH::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+{
+	bool hit = false;
+
+	for (int i = 0; i < m_BVHObjects.size(); i++)
+	{
+		glm::mat4& inverseTransform = m_BVHObjects[i].second;
+		glm::vec3 originTransformed = glm::vec3(inverseTransform * glm::vec4(origin, 1));
+		glm::vec3 directionTransformed = glm::vec3(inverseTransform * glm::vec4(direction, 0));
+
+		hit |= m_BVHObjects[i].first.Traverse(originTransformed, directionTransformed, tnear);
+	}
+
+	return hit;
+}
+
+void BVH::AddObject(const RenderObject& object)
+{
+	BVH_BLAS newBVH = BVH_BLAS(m_DebugMode);
+	newBVH.AddObject(object);
+
+	glm::mat4 inverseTransformMatrix = glm::inverse(object.m_Transform.GetTransformMatrix());
+
+	m_BVHObjects.emplace_back(std::pair<BVH_BLAS, glm::mat4>(newBVH, inverseTransformMatrix));
+}
+
+void BVH::Build(bool useHeuristic)
+{
+	for (int i = 0; i < m_BVHObjects.size(); i++)
+	{
+		m_BVHObjects[i].first.Build(useHeuristic);
+	}
+}
+
+BVH_BLAS::BVH_BLAS(DebugMode debugMode):
 	m_DebugMode{debugMode}
 {
 	m_Triangles = {};
@@ -14,18 +64,18 @@ BVH::BVH(DebugMode debugMode):
 	m_TriangleIndices.reserve(10000 * 3);
 }
 
-void BVH::SetDebugMode(DebugMode debugMode)
+void BVH_BLAS::SetDebugMode(DebugMode debugMode)
 {
 	m_DebugMode = debugMode;
 }
 
-bool BVH::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool BVH_BLAS::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
 {
 	bool hit = TraverseNode(origin, direction, tnear, 0);
 	return hit;
 }
 
-bool BVH::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const uint32_t nodeIndex)
+bool BVH_BLAS::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const uint32_t nodeIndex)
 {
 	BVHNode& node = m_BvhNodes[nodeIndex];
 	bool hit = false;
@@ -50,7 +100,7 @@ bool BVH::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, floa
 	return hit;
 }
 
-bool BVH::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;
@@ -70,10 +120,9 @@ bool BVH::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm
 	return tmax >= tmin && tmin < tnear && tmax > 0;
 }
 
-void BVH::AddObject(const RenderObject& object)
+void BVH_BLAS::AddObject(const RenderObject& object)
 {
 	const Model& model = object.m_Model;
-	//TODO: add transform support
 	int faceCount = model.nfaces();
 
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
@@ -83,7 +132,7 @@ void BVH::AddObject(const RenderObject& object)
 	}
 }
 
-void BVH::Build(bool useHeuristic)
+void BVH_BLAS::Build(bool useHeuristic)
 {
 	m_TriangleIndices.resize(m_Triangles.size());
 	for (int i = 0; i < m_Triangles.size(); i++) {
@@ -104,7 +153,7 @@ void BVH::Build(bool useHeuristic)
 	std::cout << "Finished Subdividing Root Node" << std::endl;
 }
 
-void BVH::UpdateNodeBounds(uint32_t nodeID)
+void BVH_BLAS::UpdateNodeBounds(uint32_t nodeID)
 {
 	BVHNode& node = m_BvhNodes[nodeID];
 	node.aabbMin = glm::vec3(1e30f);
@@ -124,7 +173,7 @@ void BVH::UpdateNodeBounds(uint32_t nodeID)
 	}
 }
 
-void BVH::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
+void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
 {
 	BVHNode& node = m_BvhNodes[nodeID];
 
