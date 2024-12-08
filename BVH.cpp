@@ -37,7 +37,7 @@ bool BVH::Traverse(Ray& ray)
 			hit = true;
 
 			ray.tnear = objectRay.tnear;
-			ray.normal = objectTransform * glm::vec4(objectRay.normal, 0);
+			ray.normal = glm::normalize(glm::vec3(objectTransform * glm::vec4(objectRay.normal, 0)));
 			ray.material = bvhObject.material;
 			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
 		}
@@ -278,6 +278,9 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 		splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
 	}
 
+	//TODO: fix actual negative axis value error
+	axis = std::max(axis, 0);
+
 	//in-place partition
 	int i = node.leftChildOrFirstIndex;
 	int j = i + node.triangleCount - 1;
@@ -302,11 +305,6 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 	if (rightChildIndex > m_BvhNodes.size() - 1)
 	{
 		m_BvhNodes.resize(rightChildIndex);
-	}
-
-	if (node.leftChildOrFirstIndex > 507 || i > 507)
-	{
-		int abcd = 1;
 	}
 
 	m_BvhNodes[leftChildIndex].leftChildOrFirstIndex = node.leftChildOrFirstIndex;

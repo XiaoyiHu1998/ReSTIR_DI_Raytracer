@@ -11,7 +11,7 @@ struct Triangle
 		vertex0{ vertex0 }, vertex1{ vertex1 }, vertex2{ vertex2 }
 	{
 		centroid = (vertex0 + vertex1 + vertex2) * 0.3333f;
-		normal = glm::cross((vertex1 - vertex0), (vertex2 - vertex0));
+		normal = glm::normalize(glm::cross((vertex1 - vertex0), (vertex2 - vertex0)));
 	}
 
 	bool Intersect(glm::vec3 origin, glm::vec3 direction, float& tnear) const

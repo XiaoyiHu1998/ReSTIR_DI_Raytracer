@@ -19,10 +19,11 @@ void Octree::SetDebugMode(DebugMode debugMode)
 	m_DebugMode = debugMode;
 }
 
-bool Octree::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool Octree::Traverse(Ray& ray)
 {
-	bool hit = TraverseNode(origin, direction, tnear, m_RootNode);
-	return hit;
+	//bool hit = TraverseNode(origin, direction, tnear, m_RootNode);
+	//return hit;
+	return false;
 }
 
 bool Octree::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const OctreeNode node)
