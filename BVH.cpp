@@ -120,6 +120,33 @@ bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear
 	return tmax >= tmin && tmin < tnear && tmax > 0;
 }
 
+float BVH_BLAS::EvaluateSAH(BVHNode& node, int axis, float position)
+{
+	AABB leftBox, rightBox;
+	int leftCount = 0, rightCount = 0;
+
+	for (int i = 0; i < node.triangleCount; i++)
+	{
+		Triangle& triangle = m_Triangles[m_TriangleIndices[i]];
+		if (triangle.centroid[axis] < position)
+		{
+			leftCount++;
+			leftBox.Grow(triangle.vertex0);
+			leftBox.Grow(triangle.vertex1);
+			leftBox.Grow(triangle.vertex2);
+		}
+		else {
+			rightCount++;
+			rightBox.Grow(triangle.vertex0);
+			rightBox.Grow(triangle.vertex1);
+			rightBox.Grow(triangle.vertex2);
+		}
+	}
+
+	float cost = leftCount * leftBox.Area() + rightCount * rightBox.Area();
+	return cost > 0 ? cost : std::numeric_limits<float>().max();
+}
+
 void BVH_BLAS::AddObject(const RenderObject& object)
 {
 	const Model& model = object.m_Model;
@@ -149,7 +176,7 @@ void BVH_BLAS::Build(bool useHeuristic)
 	std::cout << "Finished Building Root Node" << std::endl;
 
 	//recursive subdivision for child nodes
-	Subdivide(rootNodeIndex, nodesUsed);
+	Subdivide(rootNodeIndex, nodesUsed, useHeuristic);
 	std::cout << "Finished Subdividing Root Node" << std::endl;
 }
 
@@ -173,7 +200,7 @@ void BVH_BLAS::UpdateNodeBounds(uint32_t nodeID)
 	}
 }
 
-void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
+void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic)
 {
 	BVHNode& node = m_BvhNodes[nodeID];
 
@@ -181,12 +208,45 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
 	if (node.triangleCount <= 2) 
 		return;
 
+	int axis = -1;
+	float splitPos = 0;
 	//determine split axis and position
-	glm::vec3 extent = node.aabbMax - node.aabbMin;
-	int axis = 0;
-	if (extent.y > extent.x) axis = 1;
-	if (extent.z > extent[axis]) axis = 2;
-	float splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
+	if (useHeuristic) 
+	{
+		float bestCost = std::numeric_limits<float>().max();
+
+		for (int candidateAxis = 0; candidateAxis < 3; candidateAxis++)
+		{
+			for (uint32_t i = 0; i < node.triangleCount; i++)
+			{
+				Triangle& triangle = m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]];
+				float candidatePosition = triangle.centroid[candidateAxis];
+				float candidateCost = EvaluateSAH(node, candidateAxis, candidatePosition);
+				if (candidateCost < bestCost)
+				{
+					bestCost = candidateCost;
+					axis = candidateAxis;
+					splitPos = candidatePosition;
+				}
+			}
+		}
+
+		//early termination if the best children have worse cost than current node
+		glm::vec3 extent = node.aabbMax - node.aabbMin;
+		float parentArea = extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
+		float parentCost = node.triangleCount * parentArea;
+
+		if (bestCost < parentCost)
+			return;
+	}
+	else
+	{
+		axis = 0;
+		glm::vec3 extent = node.aabbMax - node.aabbMin;
+		if (extent.y > extent.x) axis = 1;
+		if (extent.z > extent[axis]) axis = 2;
+		splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
+	}
 
 	//in-place partition
 	int i = node.leftChildOrFirstIndex;
@@ -229,6 +289,6 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed)
 	UpdateNodeBounds(rightChildIndex);
 
 	//recurse
-	Subdivide(leftChildIndex, nodesUsed);
-	Subdivide(rightChildIndex, nodesUsed);
+	Subdivide(leftChildIndex, nodesUsed, useHeuristic);
+	Subdivide(rightChildIndex, nodesUsed, useHeuristic);
 }
