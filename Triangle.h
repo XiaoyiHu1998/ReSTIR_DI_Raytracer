@@ -5,14 +5,16 @@ struct Triangle
 {
 	glm::vec3 vertex0, vertex1, vertex2;
 	glm::vec3 centroid;
+	glm::vec3 normal;
 
 	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2) :
 		vertex0{ vertex0 }, vertex1{ vertex1 }, vertex2{ vertex2 }
 	{
 		centroid = (vertex0 + vertex1 + vertex2) * 0.3333f;
+		normal = glm::cross((vertex1 - vertex0), (vertex2 - vertex0));
 	}
 
-	bool Intersect(glm::vec3 origin, glm::vec3 direction, float& tnear)
+	bool Intersect(glm::vec3 origin, glm::vec3 direction, float& tnear) const
 	{
 		const glm::vec3 edge1 = vertex1 - vertex0;
 		const glm::vec3 edge2 = vertex2 - vertex0;

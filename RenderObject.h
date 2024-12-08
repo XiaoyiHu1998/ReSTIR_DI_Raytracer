@@ -1,8 +1,10 @@
 #ifndef OBJECT_CPP
 #define OBJECT_CPP
 
-#include "model.h"
 #include "glm/glm.hpp"
+
+#include "model.h"
+#include "Material.h"
 
 struct Transform {
 	glm::vec3 translation, rotation, scale;
@@ -28,9 +30,10 @@ class RenderObject {
 public:
 	Model m_Model;
 	Transform m_Transform;
+	Material m_Material;
 
-	RenderObject(Model model, Transform transform) :
-		m_Model{ model }, m_Transform{ transform }
+	RenderObject(Model model, Material material, Transform transform) :
+		m_Model{ model }, m_Material{ material }, m_Transform{ transform }
 	{}
 
 	bool intersect(const glm::vec3 & orig, const glm::vec3 & dir, float& tnear);

@@ -30,7 +30,7 @@ file(GLOB SOURCES
 )
 
 # Executable definition and properties
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES} "Ray.h" "Material.h")
 target_include_directories(${PROJECT_NAME} PRIVATE "${SRC_DIR}")
 
 # STB

@@ -17,46 +17,18 @@
 #include "model.h"
 #include "RenderObject.h"
 #include "BVH.h"
+#include "Ray.h"
+#include "Material.h"
+
+using AccelStruct = std::unique_ptr<AccelerationStructure>;
 
 int envmap_width, envmap_height;
 std::vector<glm::vec3> envmap;
-
-std::unique_ptr<AccelerationStructure> accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
 
 struct Light {
     Light(const glm::vec3 &p, const float i) : position(p), intensity(i) {}
     glm::vec3 position;
     float intensity;
-};
-
-struct Material {
-    Material(const float r, const glm::vec4 &a, const glm::vec3 &color, const float spec) : refractive_index(r), albedo(a), diffuse_color(color), specular_exponent(spec) {}
-    Material() : refractive_index(1), albedo(1,0,0,0), diffuse_color(), specular_exponent() {}
-    float refractive_index;
-    glm::vec4 albedo;
-    glm::vec3 diffuse_color;
-    float specular_exponent;
-};
-
-struct Sphere {
-    glm::vec3 center;
-    float radius;
-    Material material;
-
-    Sphere(const glm::vec3 &c, const float r, const Material &m) : center(c), radius(r), material(m) {}
-
-    bool ray_intersect(const glm::vec3& orig, const glm::vec3& dir, float& t0) const {
-        glm::vec3 L = center - orig;
-        float tca = glm::dot(L, dir);
-        float d2 = glm::dot(L, L) - tca * tca;
-        if (d2 > radius * radius) return false;
-        float thc = sqrtf(radius * radius - d2);
-        t0 = tca - thc;
-        float t1 = tca + thc;
-        if (t0 < 0) t0 = t1;
-        if (t0 < 0) return false;
-        return true;
-    }
 };
 
 glm::vec3 reflect(const glm::vec3& I, const glm::vec3& N) {
@@ -71,77 +43,40 @@ glm::vec3 refract(const glm::vec3& I, const glm::vec3& N, const float eta_t, con
     return k < 0 ? glm::vec3(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
 }
 
-bool scene_intersect(const glm::vec3& orig, const glm::vec3& dir, const std::vector<Sphere>& spheres, std::vector<RenderObject>& renderObjects, glm::vec3& hit, glm::vec3& N, Material& material) {
-    float primitive_dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < spheres.size(); i++) {
-        float dist_intersect;
-        if (spheres[i].ray_intersect(orig, dir, dist_intersect) && dist_intersect < primitive_dist) {
-            primitive_dist = dist_intersect;
-            hit = orig + dir * dist_intersect;
-            N = glm::normalize(hit - spheres[i].center);
-            material = spheres[i].material;
-        }
-    }
-
-    float dist_intersect = std::numeric_limits<float>::max();
-    if (accelerationStructure->Traverse(orig, dir, dist_intersect))
-    {
-        if (dist_intersect < primitive_dist)
-        {
-            primitive_dist = dist_intersect;
-            hit = orig + dir * dist_intersect;
-            N = glm::normalize(hit - spheres[1].center);
-            material = spheres[2].material;
-        }
-    }
-
-    float checkerboard_dist = std::numeric_limits<float>::max();
-    //if (fabs(dir.y) > 1e-3) {
-    //    float d = -(orig.y + 4) / dir.y; // the checkerboard plane has equation y = -4
-    //    glm::vec3 pt = orig + dir * d;
-    //    if (d > 0 && fabs(pt.x) < 10 && pt.z<-10 && pt.z>-30 && d < primitive_dist) {
-    //        checkerboard_dist = d;
-    //        hit = pt;
-    //        N = glm::vec3(0, 1, 0);
-    //        material.diffuse_color = (int(.5 * hit.x + 1000) + int(.5 * hit.z)) & 1 ? glm::vec3(.3, .3, .3) : glm::vec3(.3, .2, .1);
-    //    }
-    //}
-    return std::min(primitive_dist, checkerboard_dist) < 1000;
-}
-
-glm::vec3 cast_ray(const glm::vec3& orig, const glm::vec3& dir, const std::vector<Sphere>& spheres, std::vector<RenderObject>& renderObjects, const std::vector<Light>& lights, size_t depth = 0) {
-    glm::vec3 point, N;
-    Material material;
-
-    if (depth > 4 || !scene_intersect(orig, dir, spheres, renderObjects, point, N, material)) {
+glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const std::vector<Light> lights, uint32_t rayDepth = 0, int maxRayDepth = 8)
+{
+    if (rayDepth > maxRayDepth || !accelerationStructure->Traverse(ray))
         return glm::vec3(0.2, 0.7, 0.8); // background color
-    }
 
-    glm::vec3 reflect_dir = glm::normalize(reflect(dir, N));
-    glm::vec3 refract_dir = glm::normalize(refract(dir, N, material.refractive_index));
-    glm::vec3 reflect_orig = glm::dot(reflect_dir, N) < 0 ? point - N * 1e-3f : point + N * 1e-3f; // offset the original point to avoid occlusion by the object itself
-    glm::vec3 refract_orig = glm::dot(refract_dir, N) < 0 ? point - N * 1e-3f : point + N * 1e-3f;
-    glm::vec3 reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, renderObjects, lights, depth + 1);
-    glm::vec3 refract_color = cast_ray(refract_orig, refract_dir, spheres, renderObjects, lights, depth + 1);
+    glm::vec3 reflect_dir = glm::normalize(reflect(ray.direction, ray.normal));
+    glm::vec3 refract_dir = glm::normalize(refract(ray.direction, ray.normal, ray.material.refractiveIndex));
+    glm::vec3 reflect_orig = glm::dot(reflect_dir, ray.normal) < 0 ? ray.hitLocation - ray.normal * 1e-3f : ray.hitLocation + ray.normal * 1e-3f; // offset the original point to avoid occlusion by the object itself
+    glm::vec3 refract_orig = glm::dot(refract_dir, ray.normal) < 0 ? ray.hitLocation - ray.normal * 1e-3f : ray.hitLocation + ray.normal * 1e-3f;
+    glm::vec3 reflect_color = PathTraceRay(Ray(reflect_orig, reflect_dir), accelerationStructure, lights, rayDepth + 1);
+    glm::vec3 refract_color = PathTraceRay(Ray(refract_orig, refract_dir), accelerationStructure, lights, rayDepth + 1);
 
     float diffuse_light_intensity = 0, specular_light_intensity = 0;
     for (size_t i = 0; i < lights.size(); i++) {
-        glm::vec3 light_dir = glm::normalize(lights[i].position - point);
-        float light_distance = glm::length((lights[i].position - point));
+        glm::vec3 light_dir = glm::normalize(lights[i].position - ray.hitLocation);
+        float light_distance = glm::length((lights[i].position - ray.hitLocation));
 
-        glm::vec3 shadow_orig = glm::dot(light_dir, N) < 0 ? point - N * 1e-3f : point + N * 1e-3f; // checking if the point lies in the shadow of the lights[i]
+        glm::vec3 shadow_orig = glm::dot(light_dir, ray.normal) < 0 ? ray.hitLocation - ray.normal * 1e-3f : ray.hitLocation + ray.normal * 1e-3f; // checking if the point lies in the shadow of the lights[i]
         glm::vec3 shadow_pt, shadow_N;
         Material tmpmaterial;
-        if (scene_intersect(shadow_orig, light_dir, spheres, renderObjects, shadow_pt, shadow_N, tmpmaterial) && glm::length(shadow_pt - shadow_orig) < light_distance)
+        Ray shadowRay(shadow_orig, light_dir);
+        if (accelerationStructure->Traverse(shadowRay) && glm::length(shadowRay.hitLocation - shadowRay.origin) < light_distance)
             continue;
 
-        diffuse_light_intensity += lights[i].intensity * std::max(0.f, glm::dot(light_dir, N));
-        specular_light_intensity += powf(std::max(0.f, glm::dot(-reflect(-light_dir, N), dir)), material.specular_exponent) * lights[i].intensity;
+        diffuse_light_intensity += lights[i].intensity * std::max(0.f, glm::dot(light_dir, ray.normal));
+        specular_light_intensity += powf(std::max(0.f, glm::dot(-reflect(-light_dir, ray.normal), ray.direction)), ray.material.specularExponent) * lights[i].intensity;
     }
-    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + glm::vec3(1., 1., 1.) * specular_light_intensity * material.albedo[1] + reflect_color * material.albedo[2] + refract_color * material.albedo[3];
+
+    return ray.material.diffuseColor * diffuse_light_intensity * ray.material.albedo[0] + glm::vec3(1., 1., 1.) * specular_light_intensity * ray.material.albedo[1] + reflect_color * ray.material.albedo[2] + refract_color * ray.material.albedo[3];
+
+    //TODO: implement path tracing
 }
 
-void render(const std::vector<Sphere> &spheres, std::vector<RenderObject> &renderObjects, const std::vector<Light> &lights) {
+void render(AccelStruct& accelerationStructure, const std::vector<Light> &lights) {
     const int   width    = 1024;
     const int   height   = 768;
     const float fov      = M_PI/3.;
@@ -154,7 +89,7 @@ void render(const std::vector<Sphere> &spheres, std::vector<RenderObject> &rende
             float dir_x = (i + 0.5) - width / 2.;
             float dir_y = -(row + 0.5) + height / 2.;    // this flips the image at the same time
             float dir_z = -height / (2. * tan(fov / 2.));
-            framebuffer[i + row * width] = cast_ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z)), spheres, renderObjects, lights);
+            framebuffer[i + row * width] = PathTraceRay(Ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z))), accelerationStructure, lights);
         }
     };
 
@@ -193,24 +128,27 @@ int main() {
     }
     stbi_image_free(pixmap);
 
-    Material      ivory(1.0, glm::vec4(0.6,  0.3, 0.1, 0.0), glm::vec3(0.4, 0.4, 0.3),   50.);
-    Material      glass(1.5, glm::vec4(0.0,  0.5, 0.1, 0.8), glm::vec3(0.6, 0.7, 0.8),  125.);
-    Material red_rubber(1.0, glm::vec4(0.9,  0.1, 0.0, 0.0), glm::vec3(0.3, 0.1, 0.1),   10.);
-    Material     mirror(1.0, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1425.);
+    Material      ivory(Material::Type::Diffuse, glm::vec4(0.6,  0.3, 0.1, 0.0), glm::vec3(0.4, 0.4, 0.3), 1.0,   50.);
+    Material      glass(Material::Type::Glass, glm::vec4(0.0,  0.5, 0.1, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5,  125.);
+    Material red_rubber(Material::Type::Glossy, glm::vec4(0.9,  0.1, 0.0, 0.0), glm::vec3(0.3, 0.1, 0.1), 1.0,   10.);
+    Material     mirror(Material::Type::Mirror, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
 
-    std::vector<Sphere> spheres;
-    spheres.push_back(Sphere(glm::vec3(-3,    0,   -16), 2,      ivory));
-    spheres.push_back(Sphere(glm::vec3(-1.0, -1.5, -12), 2,      glass));
-    spheres.push_back(Sphere(glm::vec3( 1.5, -0.5, -18), 3, red_rubber));
-    spheres.push_back(Sphere(glm::vec3( 7,    5,   -18), 4,     mirror));
+    std::vector<Material> materials;
+    materials.reserve(4);
+    materials.push_back(ivory);
+    materials.push_back(glass);
+    materials.push_back(red_rubber);
+    materials.push_back(mirror);
+
+    AccelStruct accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
 
     std::vector<RenderObject> renderObjects;
     Model duckModel = Model("../duck.obj");
-    RenderObject duck = RenderObject(duckModel, Transform(glm::vec3(1), glm::vec3(1), glm::vec3(1)));
+    RenderObject duck = RenderObject(duckModel, Material(), Transform(glm::vec3(1), glm::vec3(1), glm::vec3(1)));
     for (int i = 0; i < 10; i++)
     {
-        Transform transform = Transform(glm::vec3(-10 + 5 * i, -10 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-        duck = RenderObject(duckModel, transform);
+        Transform transform = Transform(glm::vec3(-20 + 5 * i, -20 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+        duck = RenderObject(duckModel, materials[i % 4], transform);
         accelerationStructure->AddObject(duck);
         std::cout << "Duck Added" << std::endl;
     }
@@ -223,7 +161,7 @@ int main() {
     lights.push_back(Light(glm::vec3( 30, 50, -25), 1.8));
     lights.push_back(Light(glm::vec3( 30, 20,  30), 1.7));
 
-    render(spheres, renderObjects, lights);
+    render(accelerationStructure, lights);
 
     return 0;
 }

@@ -15,21 +15,32 @@ void BVH::SetDebugMode(DebugMode debugMode)
 
 	for (int i = 0; i < m_BVHObjects.size(); i++)
 	{
-		m_BVHObjects[i].first.SetDebugMode(debugMode);
+		m_BVHObjects[i].bvh.SetDebugMode(debugMode);
 	}
 }
 
-bool BVH::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool BVH::Traverse(Ray& ray)
 {
 	bool hit = false;
 
-	for (int i = 0; i < m_BVHObjects.size(); i++)
+	for (const BVH_Object& bvhObject : m_BVHObjects)
 	{
-		glm::mat4& inverseTransform = m_BVHObjects[i].second;
-		glm::vec3 originTransformed = glm::vec3(inverseTransform * glm::vec4(origin, 1));
-		glm::vec3 directionTransformed = glm::vec3(inverseTransform * glm::vec4(direction, 0));
+		const glm::mat4& inverseTransform = bvhObject.inverseTransform;
+		const glm::mat4& objectTransform = glm::inverse(bvhObject.inverseTransform);
 
-		hit |= m_BVHObjects[i].first.Traverse(originTransformed, directionTransformed, tnear);
+		Ray objectRay;
+		objectRay.origin = glm::vec3(inverseTransform * glm::vec4(ray.origin, 1));
+		objectRay.direction = glm::vec3(inverseTransform * glm::vec4(ray.direction, 0));
+
+		if (bvhObject.bvh.Traverse(objectRay))
+		{
+			hit = true;
+
+			ray.tnear = objectRay.tnear;
+			ray.normal = objectTransform * glm::vec4(objectRay.normal, 0);
+			ray.material = bvhObject.material;
+			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
+		}
 	}
 
 	return hit;
@@ -42,18 +53,18 @@ void BVH::AddObject(const RenderObject& object)
 
 	glm::mat4 inverseTransformMatrix = glm::inverse(object.m_Transform.GetTransformMatrix());
 
-	m_BVHObjects.emplace_back(std::pair<BVH_BLAS, glm::mat4>(newBVH, inverseTransformMatrix));
+	m_BVHObjects.emplace_back(BVH_Object(newBVH, object.m_Material, inverseTransformMatrix));
 }
 
 void BVH::Build(bool useHeuristic)
 {
 	for (int i = 0; i < m_BVHObjects.size(); i++)
 	{
-		m_BVHObjects[i].first.Build(useHeuristic);
+		m_BVHObjects[i].bvh.Build(useHeuristic);
 	}
 }
 
-BVH_BLAS::BVH_BLAS(DebugMode debugMode):
+BVH_BLAS::BVH_BLAS(AccelerationStructure::DebugMode debugMode):
 	m_DebugMode{debugMode}
 {
 	m_Triangles = {};
@@ -64,43 +75,62 @@ BVH_BLAS::BVH_BLAS(DebugMode debugMode):
 	m_TriangleIndices.reserve(10000 * 3);
 }
 
-void BVH_BLAS::SetDebugMode(DebugMode debugMode)
+void BVH_BLAS::SetDebugMode(AccelerationStructure::DebugMode debugMode)
 {
 	m_DebugMode = debugMode;
 }
 
-bool BVH_BLAS::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool BVH_BLAS::Traverse(Ray& ray) const
 {
-	bool hit = TraverseNode(origin, direction, tnear, 0);
-	return hit;
+	return TraverseNode(ray, 0);
 }
 
-bool BVH_BLAS::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const uint32_t nodeIndex)
+bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 {
-	BVHNode& node = m_BvhNodes[nodeIndex];
+	const BVHNode& node = m_BvhNodes[nodeIndex];
 	bool hit = false;
 
-	if (!IntersectAABB(origin, direction, tnear, node.aabbMin, node.aabbMax)) 
+	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax)) 
 		return false;
 
 	if (node.isLeaf())
 	{
-		//std::cout << "primCount: " << node.triangleCount << std::endl;
+		float closestDistance = ray.tnear;
+		glm::vec3 normal = glm::vec3(0);
+		bool hit = false;
+
 		for (uint32_t i = 0; i < node.triangleCount; i++)
 		{
-			hit |= m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]].Intersect(origin, direction, tnear);
+			const Triangle& currentTriangle = m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]];
+			float triangleDistance = std::numeric_limits<float>().max();
+			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
+
+			if (triangleHit && triangleDistance < closestDistance)
+			{
+				closestDistance = triangleDistance;
+				normal = currentTriangle.normal;
+				hit = true;
+			}
 		}
+
+		if (hit)
+		{
+			ray.tnear = closestDistance;
+			ray.normal = normal;
+		}
+
+		return hit;
 	}
 	else
 	{
-		hit |= TraverseNode(origin, direction, tnear, node.leftChildOrFirstIndex);
-		hit |= TraverseNode(origin, direction, tnear, node.leftChildOrFirstIndex + 1);
+		hit |= TraverseNode(ray, node.leftChildOrFirstIndex);
+		hit |= TraverseNode(ray, node.leftChildOrFirstIndex + 1);
 	}
 
 	return hit;
 }
 
-bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax) const
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;
