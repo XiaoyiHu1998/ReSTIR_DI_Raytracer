@@ -26,7 +26,7 @@ private:
 	DebugMode m_DebugMode;
 
 public:
-	Octree(DebugMode debugMode = DebugMode::Off);
+	Octree(DebugMode debugMode = DebugMode::Off, int maxDepth = 32);
 	virtual ~Octree() {}
 
 	virtual void SetDebugMode(DebugMode debugMode);
@@ -34,11 +34,14 @@ public:
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
-private:
+	virtual int ObjectCount() override { return 1; }
 
+	int maxDepth;
+private:
 	void InitRootNode(OctreeNode& root);
-	void Subdivide(OctreeNode& node);
+	void Subdivide(OctreeNode& node, int depth);
 	bool TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax);
+	bool TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis);
 	bool TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const OctreeNode node);
 	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
 };

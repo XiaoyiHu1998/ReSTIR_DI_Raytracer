@@ -3,13 +3,15 @@
 #include "glm/ext.hpp"
 #include <iostream>
 
-Octree::Octree(DebugMode debugMode) :
+Octree::Octree(DebugMode debugMode, int maxDepth) :
 	m_DebugMode{ debugMode }
 {
 	m_Triangles = {};
 	m_Triangles.reserve(10000 * 3);
 
 	m_RootNode = OctreeNode();
+
+	this->maxDepth = maxDepth;
 }
 
 void Octree::SetDebugMode(DebugMode debugMode)
@@ -35,7 +37,7 @@ bool Octree::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, f
 			hit |= m_Triangles[node.triangleIndices[i]].Intersect(origin, direction, tnear);
 	else
 		for (int i = 0; i < 8; i++)
-			hit |= TraverseNode(origin, direction, tnear, node);
+			hit |= TraverseNode(origin, direction, tnear, *node.children[i]);
 
 	return hit;
 }
@@ -81,8 +83,21 @@ void Octree::Build(bool useHeuristic)
 	std::cout << "Finished Building Root Node" << std::endl;
 
 	// recursive subdivision for child nodes
-	Subdivide(m_RootNode);
+	Subdivide(m_RootNode, 0);
 	std::cout << "Finished Subdividing Root Node" << std::endl;
+
+	std::cout << "Bounding box min: " << glm::to_string(m_RootNode.aabbMin) << std::endl;
+	std::cout << "Bounding box max: " << glm::to_string(m_RootNode.aabbMax) << std::endl;
+
+	int count = 0;
+	for (int i = 0; i < m_Triangles.size(); i++)
+	{
+		bool triangleInAABB = TriangleInAABB(m_Triangles[i], m_RootNode.aabbMin, m_RootNode.aabbMax);
+		if(triangleInAABB)
+			count++;
+	}
+	std::cout << "Triangles in AABB: " << count << std::endl;
+	std::cout << "Total triangles: " << m_Triangles.size() << std::endl;
 }
 
 void Octree::InitRootNode(OctreeNode& root)
@@ -114,33 +129,57 @@ void Octree::InitRootNode(OctreeNode& root)
 	root.aabbMin = center - glm::vec3(sideLength * 0.5f);
 }
 
-void Octree::Subdivide(OctreeNode& node)
+void Octree::Subdivide(OctreeNode& node, int depth)
 {
 	// terminate recursion
-	if (node.triangleIndices.size() <= 2)
+	if (node.triangleIndices.size() <= 2 || depth >= maxDepth)
+	{
 		return;
+	}
+
+	if (depth == 1)
+	{
+		std::cout << "Bounding box min: " << glm::to_string(node.aabbMin) << std::endl;
+		std::cout << "Bounding box max: " << glm::to_string(node.aabbMax) << std::endl;
+		std::cout << "Triangle count: " << node.triangleIndices.size() << std::endl;
+	}
 
 	node.isLeaf = false;
 
+	// determine center of node
+	glm::vec3 center = (node.aabbMin + node.aabbMax) * 0.5f;
+
+	// create children
 	for (int i = 0; i < 8; i++)
+	{
 		node.children[i] = new OctreeNode();
 
-	// determine split axis and position
-	glm::vec3 center = (node.aabbMin + node.aabbMax) * 0.5f;
+		float xMin = i & 1 ? center.x : node.aabbMin.x;
+		float xMax = i & 1 ? node.aabbMax.x : center.x;
+		float yMin = i & 2 ? center.y : node.aabbMin.y;
+		float yMax = i & 2 ? node.aabbMax.y : center.y;
+		float zMin = i & 4 ? center.z : node.aabbMin.z;
+		float zMax = i & 4 ? node.aabbMax.z : center.z;
+
+		node.children[i]->aabbMin = glm::vec3(xMin, yMin, zMin);
+		node.children[i]->aabbMax = glm::vec3(xMax, yMax, zMax);
+	}
 
 	for (int i = 0; i < node.triangleIndices.size(); i++)
 		for (int j = 0; j < 8; j++)
 		{
-			OctreeNode* child = node.children[j];
-			if (TriangleInAABB(m_Triangles[node.triangleIndices[i]], child->aabbMin, child->aabbMax))
-				child->triangleIndices.push_back(node.triangleIndices[i]);
+			OctreeNode& child = *node.children[j];
+			if (TriangleInAABB(m_Triangles[node.triangleIndices[i]], child.aabbMin, child.aabbMax))
+			{
+				child.triangleIndices.push_back(node.triangleIndices[i]);
+			}
 		}
 
 	for (int i = 0; i < 8; i++)
-		Subdivide(*node.children[i]);
+		Subdivide(*node.children[i], depth + 1);
 }
 
-// https://omnigoat.github.io/2015/03/09/box-triangle-intersection/
+// https://michael-schwarz.com/research/publ/files/vox-siga10.pdf
 bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax)
 {
 	// triangle bounding box overlap check
@@ -156,7 +195,7 @@ bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabb
 	glm::vec3 edge0 = triangle.vertex1 - triangle.vertex0;
 	glm::vec3 edge1 = triangle.vertex2 - triangle.vertex1;
 	glm::vec3 edge2 = triangle.vertex0 - triangle.vertex2;
-	glm::vec3 n = glm::cross(edge0, -edge2);
+	glm::vec3 n = glm::cross(edge0, edge1);
 
 	auto diagonal = aabbMax - aabbMin;
 
@@ -171,23 +210,40 @@ bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabb
 	if ((glm::dot(n, aabbMin) + d1) * (glm::dot(n, aabbMin) + d2) > 0.f)
 		return false;
 
-	// xy-plane projection overlap check
-	float xym = (n.z < 0 ? -1.f : 1.f);
-
-	glm::vec3 ne0xy = glm::vec3(-edge0.y, edge0.x, 0) * xym;
-	glm::vec3 ne1xy = glm::vec3(-edge1.y, edge1.x, 0) * xym;
-	glm::vec3 ne2xy = glm::vec3(-edge2.y, edge2.x, 0) * xym;
-
-	glm::vec3 v0xy = glm::vec3(triangle.vertex0.x, triangle.vertex0.y, 0);
-	glm::vec3 v1xy = glm::vec3(triangle.vertex1.x, triangle.vertex1.y, 0);
-	glm::vec3 v2xy = glm::vec3(triangle.vertex2.x, triangle.vertex2.y, 0);
-
-	float de0xy = -glm::dot(ne0xy, v0xy) + std::max(0.f, diagonal.x * ne0xy.x) + std::max(0.f, diagonal.y * ne0xy.y);
-	float de1xy = -glm::dot(ne1xy, v1xy) + std::max(0.f, diagonal.x * ne1xy.x) + std::max(0.f, diagonal.y * ne1xy.y);
-	float de2xy = -glm::dot(ne2xy, v2xy) + std::max(0.f, diagonal.x * ne2xy.x) + std::max(0.f, diagonal.y * ne2xy.y);
-
-	glm::vec3 pxy = glm::vec3(aabbMin.x, aabbMax.y, 0);
-
-	if ((glm::dot(ne0xy, pxy) + de0xy) < 0.f || (glm::dot(ne1xy, pxy) + de1xy) < 0.f || (glm::dot(ne2xy, pxy) + de2xy) < 0.f)
+	// xy projection overlap check
+	if (!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 0, 1, 2))
 		return false;
+
+	// yz projection overlap check
+	if(!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 1, 2, 0))
+		return false;
+
+	// xz projection overlap check
+	if (!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 0, 2, 1))
+		return false;
+
+	return true;
+}
+
+bool Octree::TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis)
+{
+	glm::vec3 edge0 = triangle.vertex1 - triangle.vertex0;
+	glm::vec3 edge1 = triangle.vertex2 - triangle.vertex1;
+	glm::vec3 edge2 = triangle.vertex0 - triangle.vertex2;
+
+	float sign = n[nullspaceAxis] < 0 ? -1.f : 1.f;
+
+	glm::vec2 edgeNormal0 = glm::vec2(-edge0[secondAxis], edge0[firstAxis]) * sign;
+	glm::vec2 edgeNormal1 = glm::vec2(-edge1[secondAxis], edge1[firstAxis]) * sign;
+	glm::vec2 edgeNormal2 = glm::vec2(-edge2[secondAxis], edge2[firstAxis]) * sign;
+
+	float d0 = -glm::dot(edgeNormal0, glm::vec2(triangle.vertex0[firstAxis], triangle.vertex0[secondAxis])) + std::max(0.f, diagonal[firstAxis] * edgeNormal0[0]) + std::max(0.f, diagonal[secondAxis] * edgeNormal0[1]);
+	float d1 = -glm::dot(edgeNormal1, glm::vec2(triangle.vertex1[firstAxis], triangle.vertex1[secondAxis])) + std::max(0.f, diagonal[firstAxis] * edgeNormal1[0]) + std::max(0.f, diagonal[secondAxis] * edgeNormal1[1]);
+	float d2 = -glm::dot(edgeNormal2, glm::vec2(triangle.vertex2[firstAxis], triangle.vertex2[secondAxis])) + std::max(0.f, diagonal[firstAxis] * edgeNormal2[0]) + std::max(0.f, diagonal[secondAxis] * edgeNormal2[1]);
+
+	bool condition0 = glm::dot(edgeNormal0, glm::vec2(aabbMin[firstAxis], aabbMin[secondAxis])) + d0 >= 0;
+	bool condition1 = glm::dot(edgeNormal1, glm::vec2(aabbMin[firstAxis], aabbMin[secondAxis])) + d1 >= 0;
+	bool condition2 = glm::dot(edgeNormal2, glm::vec2(aabbMin[firstAxis], aabbMin[secondAxis])) + d2 >= 0;
+
+	return condition0 && condition1 && condition2;
 }
