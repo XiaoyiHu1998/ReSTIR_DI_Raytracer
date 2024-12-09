@@ -3,6 +3,7 @@
 
 #include "lib/glm/glm/glm.hpp"
 
+//TODO: cleanup old stuff
 struct Material
 {
 public:

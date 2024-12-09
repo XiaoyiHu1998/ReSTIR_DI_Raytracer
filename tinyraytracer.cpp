@@ -166,7 +166,7 @@ glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const
         //    break;
     }
 
-    //reflection ray
+    //reflection ray - should NOT hit emmisive objects
     glm::vec3 reflectionDirection = RandomHemisphereDirection(ray.normal, generator, floatDistribution);
     nextRay = Ray(ray.hitLocation, reflectionDirection);
 
