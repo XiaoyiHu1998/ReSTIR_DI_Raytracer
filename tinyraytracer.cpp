@@ -26,6 +26,8 @@ using RandomGenerator = std::default_random_engine;
 using LightDistribution = std::uniform_int_distribution<int>;
 using FloatDistribution = std::uniform_real_distribution<float>;
 
+float EPSILON = 0.00001f;
+
 int envmap_width, envmap_height;
 std::vector<glm::vec3> envmap;
 
@@ -83,25 +85,28 @@ glm::vec3 RandomHemisphereDirection(const glm::vec3& normal, RandomGenerator gen
 
 glm::vec3 TraceShadowRay(const Ray& ray, const AccelStruct& accelerationStructure, const AccelStruct& lights)
 {
-    glm::vec3 lightDirection = lights->RandomTrianglePoint() - ray.hitLocation;
-    Ray shadowRay = Ray(ray.hitLocation, lightDirection);
+    RandomLightPoint lightPoint = lights->RandomTrianglePoint(); // in object space!
+    glm::vec3 lightPointWorldSpace = glm::vec3(glm::vec4(lightPoint.point, 1) * glm::inverse(lightPoint.objectInverseTransform)); // in world space
+    glm::vec3 lightDirection = lightPointWorldSpace - ray.hitLocation;
+    Ray shadowRay = Ray(ray.hitLocation + EPSILON * glm::normalize(lightDirection), lightDirection);
     
     //Check if light shines towards ray.hitLocation surface
     float lightDistance = glm::length(lightDirection);
     lightDirection /= lightDistance; //normalisation
-    float cosO = glm::dot(-lightDirection, shadowRay.normal);
+    float cosO = glm::dot(-lightDirection, lightPoint.normal); //dit moet light normal zijn, niet blocking object normal
     float cosI = glm::dot(lightDirection, ray.normal);
     if (cosO <= 0 || cosI <= 0)
         return glm::vec3(0);
     
     //Check if light is blocked by object
-    if (!accelerationStructure->Traverse(shadowRay))
+    if (accelerationStructure->Traverse(shadowRay))
         return glm::vec3(0);
     
     //Light contribution to surface
     glm::vec3 BRDF = ray.material.color / std::_Pi;
-    float solidAngle = (shadowRay.objectArea * cosO) / (lightDistance * lightDistance);
-    return BRDF * shadowRay.material.color * solidAngle * cosI;
+    float solidAngle = (lightPoint.area * cosO) / (lightDistance * lightDistance); //shadowray area wanner het light area moet zijn
+    //return BRDF * lightPoint.color * solidAngle * cosI; // shadowray color wanneer light color moet zijn
+    return glm::vec3(1);
 }
 
 glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const AccelStruct& lights, uint32_t rayDepth = 0, int maxRayDepth = 8)
@@ -125,7 +130,8 @@ glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const
         case Material::Type::Emmisive:
             return ray.material.emittance;
         case Material::Type::Mirror:
-            nextRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
+            glm::vec3 nextRayDirection = reflect(ray.direction, ray.normal);
+            nextRay = Ray(ray.hitLocation + EPSILON * glm::normalize(nextRayDirection), nextRayDirection);
             return ray.material.albedo * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth, maxRayDepth);
         //case Material::Type::Dielectric: // Glass
         //    Ray reflectionRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
@@ -135,13 +141,14 @@ glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const
 
     //reflection ray - should NOT hit emmisive objects
     glm::vec3 reflectionDirection = RandomHemisphereDirection(ray.normal, generator, floatDistribution);
-    nextRay = Ray(ray.hitLocation, reflectionDirection);
+    nextRay = Ray(ray.hitLocation + EPSILON * glm::normalize(reflectionDirection), reflectionDirection);
 
     //update throughput
     glm::vec3 BRDF = ray.material.color / std::_Pi;
     float cosI = glm::dot(reflectionDirection, ray.normal);
 
-    return shadowRayColor + 2.0f * std::_Pi * BRDF * cosI * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth + 1, maxRayDepth);
+    //return shadowRayColor + 2.0f * std::_Pi * BRDF * cosI * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth + 1, maxRayDepth);
+    return shadowRayColor;
 }
 
 void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
@@ -159,8 +166,8 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
             float dir_z = -height / (2. * tan(fov / 2.));
 
             glm::vec3 framebufferPixelValue = glm::vec3(0);
-            for(int sample = 0; sample < 50; sample++)
-                framebufferPixelValue += PathTraceRay(Ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z))), accelerationStructure, lights) / 50;
+            for(int sample = 0; sample < 1; sample++)
+                framebufferPixelValue += PathTraceRay(Ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z))), accelerationStructure, lights) / 1;
             
             framebuffer[i + row * width] = framebufferPixelValue;
         }
@@ -206,7 +213,7 @@ int main() {
     Material red_rubber(Material::Type::Dielectric, glm::vec4(0.9,  0.1, 0.0, 0.0), glm::vec3(0.3, 0.1, 0.1), 1.0,   10.);
     Material     mirror(Material::Type::Mirror, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
     Material   emmisive(Material::Type::Emmisive, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
-    emmisive.emittance = glm::vec3(1.0, 1.0, 1.0);
+    emmisive.emittance = glm::vec3(std::numeric_limits<float>().max(), std::numeric_limits<float>().max(), std::numeric_limits<float>().max());
 
     std::vector<Material> materials;
     materials.reserve(4);
@@ -224,7 +231,7 @@ int main() {
     RenderObject duck = RenderObject(duckModel, Material(), Transform(glm::vec3(1), glm::vec3(1), glm::vec3(1)));
     for (int i = 0; i < 10; i++)
     {
-        Transform transform = Transform(glm::vec3(-22 + 5 * i, -23 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+        Transform transform = Transform(glm::vec3(-22 + 5 * i, -23 + i * 5, -10), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
         duck = RenderObject(duckModel, materials[i % 5], transform);
         if (i % 5 == 4)
         {

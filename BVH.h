@@ -52,7 +52,7 @@ public:
 	~BVH_BLAS() {};
 
 	bool Traverse(Ray& ray) const;
-	glm::vec3 RandomTrianglePoint() const;
+	TrianglePoint RandomTrianglePoint() const;
 
 	void AddObject(const RenderObject& object, const glm::mat4& transform);
 	void Build(bool useHeuristic);
@@ -60,7 +60,7 @@ public:
 	void SetDebugMode(AccelerationStructure::DebugMode debugMode);
 	int ObjectCount() { return 1; }
 
-	float Area() { return m_Area; }
+	float Area() const { return m_Area; }
 private:
 	void UpdateNodeBounds(uint32_t nodeID);
 	void Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic);
@@ -92,7 +92,7 @@ public:
 	virtual ~BVH() {};
 
 	virtual bool Traverse(Ray& ray) override;
-	virtual glm::vec3 RandomTrianglePoint() const override;
+	virtual RandomLightPoint RandomTrianglePoint() const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;

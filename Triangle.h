@@ -4,6 +4,16 @@
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
+struct TrianglePoint
+{
+	glm::vec3 point;
+	glm::vec3 normal;
+
+	TrianglePoint(const glm::vec3& point, const glm::vec3& normal) :
+		point{ point }, normal{ normal }
+	{}
+};
+
 struct Triangle
 {
 	glm::vec3 vertex0, vertex1, vertex2;

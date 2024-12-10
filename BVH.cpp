@@ -46,13 +46,13 @@ bool BVH::Traverse(Ray& ray)
 	return hit;
 }
 
-glm::vec3 BVH::RandomTrianglePoint() const
+RandomLightPoint BVH::RandomTrianglePoint() const
 {
 	std::srand(std::time(nullptr));
 	int randomBVHObjectIndex = std::rand() % m_BVHObjects.size();
 	const BVH_Object& randomBVHObject = m_BVHObjects[randomBVHObjectIndex];
-	
-	return randomBVHObject.bvh.RandomTrianglePoint();
+	TrianglePoint& trianglePoint = randomBVHObject.bvh.RandomTrianglePoint();
+	return RandomLightPoint(trianglePoint.point, randomBVHObject.material.color, randomBVHObject.bvh.Area(), trianglePoint.normal, randomBVHObject.inverseTransform);
 }
 
 void BVH::AddObject(const RenderObject& object)
@@ -94,7 +94,7 @@ bool BVH_BLAS::Traverse(Ray& ray) const
 	return TraverseNode(ray, 0);
 }
 
-glm::vec3 BVH_BLAS::RandomTrianglePoint() const
+TrianglePoint BVH_BLAS::RandomTrianglePoint() const
 {
 	std::srand(std::time(nullptr));
 	
@@ -106,7 +106,9 @@ glm::vec3 BVH_BLAS::RandomTrianglePoint() const
 	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
 	float weightVertex2 = maxWeightVertex1 - weightVertex1;
 	
-	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+	glm::vec3 trianglePoint = weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+	glm::vec3 normal = randomTriangle.normal;
+	return TrianglePoint(trianglePoint, normal);
 }
 
 bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
