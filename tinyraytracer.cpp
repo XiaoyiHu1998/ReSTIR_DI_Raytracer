@@ -81,74 +81,41 @@ glm::vec3 RandomHemisphereDirection(const glm::vec3& normal, RandomGenerator gen
     return randomDirection;
 }
 
-glm::vec3 TraceShadowRay(const Ray& ray, const AccelStruct& accelerationStructure, const std::vector<Light> lights, RandomGenerator generator, LightDistribution lightIndexDistribution)
+glm::vec3 TraceShadowRay(const Ray& ray, const AccelStruct& accelerationStructure, const AccelStruct& lights)
 {
-    Light randomLight = lights[lightIndexDistribution(generator)];
-    glm::vec3 lightPosition = randomLight.position;
-    glm::vec3 lightDirection = lightPosition - ray.hitLocation;
+    glm::vec3 lightDirection = lights->RandomTrianglePoint() - ray.hitLocation;
     Ray shadowRay = Ray(ray.hitLocation, lightDirection);
-
+    
     //Check if light shines towards ray.hitLocation surface
     float lightDistance = glm::length(lightDirection);
     lightDirection /= lightDistance; //normalisation
-    float cosO = glm::dot(-lightDirection, -lightDirection); //TODO: add light normal support for area lights and emmisive objects
+    float cosO = glm::dot(-lightDirection, shadowRay.normal);
     float cosI = glm::dot(lightDirection, ray.normal);
     if (cosO <= 0 || cosI <= 0)
         return glm::vec3(0);
-
+    
     //Check if light is blocked by object
     if (!accelerationStructure->Traverse(shadowRay))
         return glm::vec3(0);
-
+    
     //Light contribution to surface
-    glm::vec3 BRDF = ray.material.diffuseColor / std::_Pi;
-    float solidAngle = (0.00000001f * cosO) / (lightDistance / lightDistance); //TODO: Add Area to light sources
-    return BRDF * randomLight.color * solidAngle * cosI;
+    glm::vec3 BRDF = ray.material.color / std::_Pi;
+    float solidAngle = (shadowRay.objectArea * cosO) / (lightDistance * lightDistance);
+    return BRDF * shadowRay.material.color * solidAngle * cosI;
 }
 
-glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const std::vector<Light> lights, uint32_t rayDepth = 0, int maxRayDepth = 8)
+glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const AccelStruct& lights, uint32_t rayDepth = 0, int maxRayDepth = 8)
 {
-    //// Old tinyRaytracer rendering code
-    //if (rayDepth > maxRayDepth || !accelerationStructure->Traverse(ray))
-    //    return glm::vec3(0.2, 0.7, 0.8); // background color
-    //
-    //glm::vec3 reflect_dir = glm::normalize(reflect(ray.direction, ray.normal));
-    //glm::vec3 refract_dir = glm::normalize(refract(ray.direction, ray.normal, ray.material.refractiveIndex));
-    //glm::vec3 reflect_orig = glm::dot(reflect_dir, ray.normal) < 0 ? ray.hitLocation - ray.normal * 1e-3f : ray.hitLocation + ray.normal * 1e-3f; // offset the original point to avoid occlusion by the object itself
-    //glm::vec3 refract_orig = glm::dot(refract_dir, ray.normal) < 0 ? ray.hitLocation - ray.normal * 1e-3f : ray.hitLocation + ray.normal * 1e-3f;
-    //glm::vec3 reflect_color = PathTraceRay(Ray(reflect_orig, reflect_dir), accelerationStructure, lights, rayDepth + 1);
-    //glm::vec3 refract_color = PathTraceRay(Ray(refract_orig, refract_dir), accelerationStructure, lights, rayDepth + 1);
-    //
-    //float diffuse_light_intensity = 0, specular_light_intensity = 0;
-    //for (size_t i = 0; i < lights.size(); i++) {
-    //    glm::vec3 light_dir = glm::normalize(lights[i].position - ray.hitLocation);
-    //    float light_distance = glm::length((lights[i].position - ray.hitLocation));
-    //
-    //    glm::vec3 shadow_orig = glm::dot(light_dir, ray.normal) < 0 ? ray.hitLocation - ray.normal * 1e-3f : ray.hitLocation + ray.normal * 1e-3f; // checking if the point lies in the shadow of the lights[i]
-    //    glm::vec3 shadow_pt, shadow_N;
-    //    Material tmpmaterial;
-    //    Ray shadowRay(shadow_orig, light_dir);
-    //    if (accelerationStructure->Traverse(shadowRay) && glm::length(shadowRay.hitLocation - shadowRay.origin) < light_distance)
-    //        continue;
-    //
-    //    diffuse_light_intensity += lights[i].intensity * std::max(0.f, glm::dot(light_dir, ray.normal));
-    //    specular_light_intensity += powf(std::max(0.f, glm::dot(-reflect(-light_dir, ray.normal), ray.direction)), ray.material.specularExponent) * lights[i].intensity;
-    //}
-    //
-    //return ray.material.diffuseColor * diffuse_light_intensity * ray.material.albedo_old[0] + glm::vec3(1., 1., 1.) * specular_light_intensity * ray.material.albedo_old[1] + reflect_color * ray.material.albedo_old[2] + refract_color * ray.material.albedo_old[3];
-
-    // Path tracing
     if (rayDepth > maxRayDepth || !accelerationStructure->Traverse(ray))
         return glm::vec3(0.2, 0.7, 0.8); // background color
 
     std::default_random_engine generator;
     FloatDistribution floatDistribution(0.0f, 1.0f);
-    LightDistribution lightIndexDistribution(0, lights.size() - 1);
 
     //TODO: Add emmisive objects
     
-    //Shadowray
-    glm::vec3 shadowRayColor = TraceShadowRay(ray, accelerationStructure, lights, generator, lightIndexDistribution);
+    // Shadowray
+    glm::vec3 shadowRayColor = TraceShadowRay(ray, accelerationStructure, lights);
 
     // Hitlocation contribution
     // Material type cases
@@ -171,13 +138,13 @@ glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const
     nextRay = Ray(ray.hitLocation, reflectionDirection);
 
     //update throughput
-    glm::vec3 BRDF = ray.material.diffuseColor / std::_Pi;
+    glm::vec3 BRDF = ray.material.color / std::_Pi;
     float cosI = glm::dot(reflectionDirection, ray.normal);
 
-    return 2.0f * std::_Pi * BRDF * cosI * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth + 1, maxRayDepth);
+    return shadowRayColor + 2.0f * std::_Pi * BRDF * cosI * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth + 1, maxRayDepth);
 }
 
-void render(AccelStruct& accelerationStructure, const std::vector<Light> &lights) {
+void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
     const int   width    = 1024;
     const int   height   = 768;
     const float fov      = M_PI/3.;
@@ -190,7 +157,12 @@ void render(AccelStruct& accelerationStructure, const std::vector<Light> &lights
             float dir_x = (i + 0.5) - width / 2.;
             float dir_y = -(row + 0.5) + height / 2.;    // this flips the image at the same time
             float dir_z = -height / (2. * tan(fov / 2.));
-            framebuffer[i + row * width] = PathTraceRay(Ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z))), accelerationStructure, lights);
+
+            glm::vec3 framebufferPixelValue = glm::vec3(0);
+            for(int sample = 0; sample < 50; sample++)
+                framebufferPixelValue += PathTraceRay(Ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z))), accelerationStructure, lights) / 50;
+            
+            framebuffer[i + row * width] = framebufferPixelValue;
         }
     };
 
@@ -242,9 +214,10 @@ int main() {
     materials.push_back(glass);
     materials.push_back(red_rubber);
     materials.push_back(mirror);
-    //materials.push_back(emmisive);
+    materials.push_back(emmisive);
 
     AccelStruct accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
+    AccelStruct lights = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
 
     std::vector<RenderObject> renderObjects;
     Model duckModel = Model("../duck.obj");
@@ -252,18 +225,16 @@ int main() {
     for (int i = 0; i < 10; i++)
     {
         Transform transform = Transform(glm::vec3(-22 + 5 * i, -23 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-        duck = RenderObject(duckModel, materials[i % 4], transform);
+        duck = RenderObject(duckModel, materials[i % 5], transform);
+        if (i % 5 == 4)
+        {
+            lights->AddObject(duck);
+        }
         accelerationStructure->AddObject(duck);
         std::cout << "Duck Added" << std::endl;
     }
     accelerationStructure->Build(true);
     std::cout << "BVH Built" << std::endl;
-
-
-    std::vector<Light>  lights;
-    lights.push_back(Light(glm::vec3(-20, 20,  20), 1.5));
-    lights.push_back(Light(glm::vec3( 30, 50, -25), 1.8));
-    lights.push_back(Light(glm::vec3( 30, 20,  30), 1.7));
 
     render(accelerationStructure, lights);
 

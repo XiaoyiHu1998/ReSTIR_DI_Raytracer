@@ -1,6 +1,9 @@
 #ifndef TRIANGLE_HPP
 #define TRIANGLE_HPP
 
+#include "glm/glm.hpp"
+#include "glm/ext.hpp"
+
 struct Triangle
 {
 	glm::vec3 vertex0, vertex1, vertex2;
@@ -12,6 +15,20 @@ struct Triangle
 	{
 		centroid = (vertex0 + vertex1 + vertex2) * 0.3333f;
 		normal = glm::normalize(glm::cross((vertex1 - vertex0), (vertex2 - vertex0)));
+	}
+
+	float Area()
+	{
+		glm::vec3 edge1 = vertex1 - vertex0;
+		glm::vec3 edge2 = vertex2 - vertex1;
+		float lengthEdge1 = glm::length(edge1);
+		float lengthEdge2 = glm::length(edge2);
+
+		float dotProduct = glm::dot(edge1, edge2);
+		float cosTheta = dotProduct / (lengthEdge1 * lengthEdge2);
+		float sinTheta = glm::sqrt(1 - cosTheta * cosTheta);
+
+		return 0.5f * lengthEdge1 * lengthEdge2 * sinTheta;
 	}
 
 	bool Intersect(glm::vec3 origin, glm::vec3 direction, float& tnear) const

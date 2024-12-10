@@ -1,6 +1,9 @@
 #ifndef BVH_HPP
 #define BVH_HPP
 
+#include "glm/glm.hpp"
+#include "glm/ext.hpp"
+
 #include "AccelerationStructure.h"
 #include "Triangle.h"
 #include "Material.h"
@@ -41,18 +44,23 @@ private:
 	std::vector<BVHNode> m_BvhNodes;
 	std::vector<Triangle> m_Triangles;
 	std::vector<uint32_t> m_TriangleIndices;
+	float m_Area;
 
 	AccelerationStructure::DebugMode m_DebugMode;
 public:
 	BVH_BLAS(AccelerationStructure::DebugMode debugMode = AccelerationStructure::DebugMode::Off);
 	~BVH_BLAS() {};
 
-	void SetDebugMode(AccelerationStructure::DebugMode debugMode);
 	bool Traverse(Ray& ray) const;
+	glm::vec3 RandomTrianglePoint() const;
 
-	void AddObject(const RenderObject& object);
+	void AddObject(const RenderObject& object, const glm::mat4& transform);
 	void Build(bool useHeuristic);
+
+	void SetDebugMode(AccelerationStructure::DebugMode debugMode);
 	int ObjectCount() { return 1; }
+
+	float Area() { return m_Area; }
 private:
 	void UpdateNodeBounds(uint32_t nodeID);
 	void Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic);
@@ -83,11 +91,13 @@ public:
 	BVH(DebugMode debubMode);
 	virtual ~BVH() {};
 
-	virtual void SetDebugMode(DebugMode debugMode);
 	virtual bool Traverse(Ray& ray) override;
+	virtual glm::vec3 RandomTrianglePoint() const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
+
+	virtual void SetDebugMode(DebugMode debugMode);
 	virtual int ObjectCount() override { return m_BVHObjects.size(); }
 };
 

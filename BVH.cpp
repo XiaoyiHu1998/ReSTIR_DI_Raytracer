@@ -1,7 +1,7 @@
-#include "BVH.h"
-#include "glm/glm.hpp"
-#include "glm/ext.hpp"
 #include <iostream>
+#include <random>
+
+#include "BVH.h"
 
 BVH::BVH(DebugMode debubMode) :
 	m_DebugMode{ debubMode }
@@ -46,10 +46,19 @@ bool BVH::Traverse(Ray& ray)
 	return hit;
 }
 
+glm::vec3 BVH::RandomTrianglePoint() const
+{
+	std::srand(std::time(nullptr));
+	int randomBVHObjectIndex = std::rand() % m_BVHObjects.size();
+	const BVH_Object& randomBVHObject = m_BVHObjects[randomBVHObjectIndex];
+	
+	return randomBVHObject.bvh.RandomTrianglePoint();
+}
+
 void BVH::AddObject(const RenderObject& object)
 {
 	BVH_BLAS newBVH = BVH_BLAS(m_DebugMode);
-	newBVH.AddObject(object);
+	newBVH.AddObject(object, object.m_Transform.GetTransformMatrix());
 
 	glm::mat4 inverseTransformMatrix = glm::inverse(object.m_Transform.GetTransformMatrix());
 
@@ -85,6 +94,21 @@ bool BVH_BLAS::Traverse(Ray& ray) const
 	return TraverseNode(ray, 0);
 }
 
+glm::vec3 BVH_BLAS::RandomTrianglePoint() const
+{
+	std::srand(std::time(nullptr));
+	
+	int randomTriangleIndex = std::rand() % m_Triangles.size();
+	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
+	
+	float weightVertex0 = ((float(std::rand()) / RAND_MAX)) + 1;
+	float maxWeightVertex1 = 1.0f - weightVertex0;
+	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
+	float weightVertex2 = maxWeightVertex1 - weightVertex1;
+	
+	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+}
+
 bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 {
 	const BVHNode& node = m_BvhNodes[nodeIndex];
@@ -117,6 +141,7 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 		{
 			ray.tnear = closestDistance;
 			ray.normal = normal;
+			ray.objectArea = m_Area;
 		}
 
 		return hit;
@@ -177,15 +202,22 @@ float BVH_BLAS::EvaluateSAH(BVHNode& node, int axis, float position)
 	return cost > 0 ? cost : std::numeric_limits<float>().max();
 }
 
-void BVH_BLAS::AddObject(const RenderObject& object)
+void BVH_BLAS::AddObject(const RenderObject& object, const glm::mat4& transform)
 {
 	const Model& model = object.m_Model;
 	int faceCount = model.nfaces();
 
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
 
-	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) { 
 		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
+		
+		//Add transformed triangle area
+		//Triangle& faceTriangle = m_Triangles[faceIndex];
+		//Triangle transformedTriangle = Triangle(glm::vec3(transform * glm::vec4(faceTriangle.vertex0, 0)),
+		//										glm::vec3(transform * glm::vec4(faceTriangle.vertex1, 0)),
+		//										glm::vec3(transform * glm::vec4(faceTriangle.vertex2, 0)));
+		//m_Area += transformedTriangle.Area();
 	}
 }
 
