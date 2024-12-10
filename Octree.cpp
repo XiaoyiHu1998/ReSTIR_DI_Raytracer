@@ -26,24 +26,24 @@ bool Octree::Traverse(Ray& ray)
 	return false;
 }
 
-bool Octree::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const OctreeNode node)
+bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 {
 	bool hit = false;
 
-	if (!IntersectAABB(origin, direction, tnear, node.aabbMin, node.aabbMax))
+	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax))
 		return false;
 
 	if (node.isLeaf)
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
-			hit |= m_Triangles[node.triangleIndices[i]].Intersect(origin, direction, tnear);
+			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
 	else
 		for (int i = 0; i < 8; i++)
-			hit |= TraverseNode(origin, direction, tnear, *node.children[i]);
+			hit |= TraverseNode(ray, *node.children[i]);
 
 	return hit;
 }
 
-bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;

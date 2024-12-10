@@ -30,7 +30,7 @@ public:
 	virtual ~KdTree() {}
 
 	virtual void SetDebugMode(DebugMode debugMode);
-	virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
+	virtual bool Traverse(Ray& ray) override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
@@ -42,8 +42,8 @@ private:
 	void Subdivide(KdTreeNode& node, int depth);
 	bool TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax);
 	bool TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis);
-	bool TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const KdTreeNode node);
-	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
+	bool TraverseNode(Ray& ray, const KdTreeNode node);
+	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
 };
 
 

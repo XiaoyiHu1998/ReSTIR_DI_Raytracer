@@ -43,8 +43,8 @@ private:
 	void Subdivide(OctreeNode& node, int depth);
 	bool TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax);
 	bool TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis);
-	bool TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const OctreeNode node);
-	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
+	bool TraverseNode(Ray& ray, const OctreeNode node);
+	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
 };
 
 

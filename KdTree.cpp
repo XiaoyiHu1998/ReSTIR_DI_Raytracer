@@ -19,30 +19,30 @@ void KdTree::SetDebugMode(DebugMode debugMode)
 	m_DebugMode = debugMode;
 }
 
-bool KdTree::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool KdTree::Traverse(Ray& ray)
 {
-	bool hit = TraverseNode(origin, direction, tnear, m_RootNode);
+	bool hit = TraverseNode(ray, m_RootNode);
 	return hit;
 }
 
-bool KdTree::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const KdTreeNode node)
+bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 {
 	bool hit = false;
 
-	if (!IntersectAABB(origin, direction, tnear, node.aabbMin, node.aabbMax))
+	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax))
 		return false;
 
 	if (node.isLeaf)
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
-			hit |= m_Triangles[node.triangleIndices[i]].Intersect(origin, direction, tnear);
+			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
 	else
 		for (int i = 0; i < 2; i++)
-			hit |= TraverseNode(origin, direction, tnear, *node.children[i]);
+			hit |= TraverseNode(ray, *node.children[i]);
 
 	return hit;
 }
 
-bool KdTree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool KdTree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;

@@ -155,7 +155,7 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 	return hit;
 }
 
-bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax) const
+bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax) const
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;

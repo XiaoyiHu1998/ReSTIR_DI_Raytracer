@@ -65,7 +65,7 @@ private:
 	void UpdateNodeBounds(uint32_t nodeID);
 	void Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic);
 	bool TraverseNode(Ray& ray, const uint32_t nodeIndex) const;
-	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax) const;
+	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax) const;
 	float EvaluateSAH(BVHNode& node, int axis, float position);
 };
 
