@@ -23,13 +23,10 @@ private:
 	std::vector<Triangle> m_Triangles;
 	OctreeNode m_RootNode;
 
-	DebugMode m_DebugMode;
-
 public:
-	Octree(DebugMode debugMode = DebugMode::Off, int maxDepth = 32);
+	Octree(int maxDepth = 32);
 	virtual ~Octree() {}
 
-	virtual void SetDebugMode(DebugMode debugMode);
 	//virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
 	virtual bool Traverse(Ray& ray) override;
 

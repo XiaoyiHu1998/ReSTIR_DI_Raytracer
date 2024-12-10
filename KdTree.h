@@ -23,13 +23,10 @@ private:
 	std::vector<Triangle> m_Triangles;
 	KdTreeNode m_RootNode;
 
-	DebugMode m_DebugMode;
-
 public:
-	KdTree(DebugMode debugMode = DebugMode::Off, int maxDepth = 32);
+	KdTree(int maxDepth = 32);
 	virtual ~KdTree() {}
 
-	virtual void SetDebugMode(DebugMode debugMode);
 	virtual bool Traverse(Ray& ray) override;
 
 	virtual void AddObject(const RenderObject& object) override;

@@ -3,8 +3,7 @@
 #include "glm/ext.hpp"
 #include <iostream>
 
-Octree::Octree(DebugMode debugMode, int maxDepth) :
-	m_DebugMode{ debugMode }
+Octree::Octree(int maxDepth)
 {
 	m_Triangles = {};
 	m_Triangles.reserve(10000 * 3);
@@ -12,11 +11,6 @@ Octree::Octree(DebugMode debugMode, int maxDepth) :
 	m_RootNode = OctreeNode();
 
 	this->maxDepth = maxDepth;
-}
-
-void Octree::SetDebugMode(DebugMode debugMode)
-{
-	m_DebugMode = debugMode;
 }
 
 bool Octree::Traverse(Ray& ray)
@@ -30,12 +24,19 @@ bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 {
 	bool hit = false;
 
+	ray.boxIntersectionCount++;
+
 	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax))
 		return false;
 
+	ray.traversalSteps++;
+
 	if (node.isLeaf)
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
+		{
 			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
+			ray.intersectionCount++;
+		}
 	else
 		for (int i = 0; i < 8; i++)
 			hit |= TraverseNode(ray, *node.children[i]);

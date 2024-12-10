@@ -20,17 +20,19 @@ struct Ray
 
 	//Debug information
 	int intersectionCount;
+	int boxIntersectionCount;
+	int traversalSteps;
 
 	Ray() :
 		direction{ glm::vec3(0) }, origin{ glm::vec3(0) },
 		objectArea{ 0 }, tnear{ std::numeric_limits<float>().max() }, hitLocation{ glm::vec3(0) }, normal{ glm::vec3(0) },
-		material{ Material() }, intersectionCount{ 0 }
+		material{ Material() }, intersectionCount{ 0 }, traversalSteps{ 0 }
 	{}
 
 	Ray(glm::vec3 origin, glm::vec3 direction) :
 		origin{ origin }, direction{ direction },
 		objectArea{ 0 }, tnear{ std::numeric_limits<float>().max() }, hitLocation{ glm::vec3(0) }, normal{ glm::vec3(0) },
-		material{ Material() }, intersectionCount{ 0 }
+		material{ Material() }, intersectionCount{ 0 }, traversalSteps{ 0 }
 	{}
 };
 

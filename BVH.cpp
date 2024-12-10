@@ -3,20 +3,9 @@
 
 #include "BVH.h"
 
-BVH::BVH(DebugMode debubMode) :
-	m_DebugMode{ debubMode }
+BVH::BVH()
 {
 	m_BVHObjects.reserve(10);
-}
-
-void BVH::SetDebugMode(DebugMode debugMode)
-{
-	m_DebugMode = debugMode;
-
-	for (int i = 0; i < m_BVHObjects.size(); i++)
-	{
-		m_BVHObjects[i].bvh.SetDebugMode(debugMode);
-	}
 }
 
 bool BVH::Traverse(Ray& ray)
@@ -57,7 +46,7 @@ glm::vec3 BVH::RandomTrianglePoint() const
 
 void BVH::AddObject(const RenderObject& object)
 {
-	BVH_BLAS newBVH = BVH_BLAS(m_DebugMode);
+	BVH_BLAS newBVH = BVH_BLAS();
 	newBVH.AddObject(object, object.m_Transform.GetTransformMatrix());
 
 	glm::mat4 inverseTransformMatrix = glm::inverse(object.m_Transform.GetTransformMatrix());
@@ -73,8 +62,7 @@ void BVH::Build(bool useHeuristic)
 	}
 }
 
-BVH_BLAS::BVH_BLAS(AccelerationStructure::DebugMode debugMode):
-	m_DebugMode{debugMode}
+BVH_BLAS::BVH_BLAS()
 {
 	m_Triangles = {};
 	m_BvhNodes = {};
@@ -82,11 +70,6 @@ BVH_BLAS::BVH_BLAS(AccelerationStructure::DebugMode debugMode):
 	m_BvhNodes.resize(1000);
 	m_Triangles.reserve(10000 * 3);
 	m_TriangleIndices.reserve(10000 * 3);
-}
-
-void BVH_BLAS::SetDebugMode(AccelerationStructure::DebugMode debugMode)
-{
-	m_DebugMode = debugMode;
 }
 
 bool BVH_BLAS::Traverse(Ray& ray) const
@@ -114,8 +97,12 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 	const BVHNode& node = m_BvhNodes[nodeIndex];
 	bool hit = false;
 
+	ray.boxIntersectionCount++;
+
 	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax)) 
 		return false;
+
+	ray.traversalSteps++;
 
 	if (node.isLeaf())
 	{
@@ -128,6 +115,7 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 			const Triangle& currentTriangle = m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]];
 			float triangleDistance = std::numeric_limits<float>().max();
 			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
+			ray.intersectionCount++;
 
 			if (triangleHit && triangleDistance < closestDistance)
 			{
@@ -211,7 +199,6 @@ void BVH_BLAS::AddObject(const RenderObject& object, const glm::mat4& transform)
 
 	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) { 
 		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
-		
 		//Add transformed triangle area
 		//Triangle& faceTriangle = m_Triangles[faceIndex];
 		//Triangle transformedTriangle = Triangle(glm::vec3(transform * glm::vec4(faceTriangle.vertex0, 0)),

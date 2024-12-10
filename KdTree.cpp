@@ -3,8 +3,7 @@
 #include "glm/ext.hpp"
 #include <iostream>
 
-KdTree::KdTree(DebugMode debugMode, int maxDepth) :
-	m_DebugMode{ debugMode }
+KdTree::KdTree(int maxDepth)
 {
 	m_Triangles = {};
 	m_Triangles.reserve(10000 * 3);
@@ -12,11 +11,6 @@ KdTree::KdTree(DebugMode debugMode, int maxDepth) :
 	m_RootNode = KdTreeNode();
 
 	this->maxDepth = maxDepth;
-}
-
-void KdTree::SetDebugMode(DebugMode debugMode)
-{
-	m_DebugMode = debugMode;
 }
 
 bool KdTree::Traverse(Ray& ray)
@@ -29,12 +23,19 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 {
 	bool hit = false;
 
+	ray.boxIntersectionCount++;
+
 	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax))
 		return false;
 
+	ray.traversalSteps++;
+
 	if (node.isLeaf)
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
+		{
 			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
+			ray.intersectionCount++;
+		}
 	else
 		for (int i = 0; i < 2; i++)
 			hit |= TraverseNode(ray, *node.children[i]);

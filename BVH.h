@@ -45,10 +45,8 @@ private:
 	std::vector<Triangle> m_Triangles;
 	std::vector<uint32_t> m_TriangleIndices;
 	float m_Area;
-
-	AccelerationStructure::DebugMode m_DebugMode;
 public:
-	BVH_BLAS(AccelerationStructure::DebugMode debugMode = AccelerationStructure::DebugMode::Off);
+	BVH_BLAS();
 	~BVH_BLAS() {};
 
 	bool Traverse(Ray& ray) const;
@@ -57,7 +55,6 @@ public:
 	void AddObject(const RenderObject& object, const glm::mat4& transform);
 	void Build(bool useHeuristic);
 
-	void SetDebugMode(AccelerationStructure::DebugMode debugMode);
 	int ObjectCount() { return 1; }
 
 	float Area() { return m_Area; }
@@ -85,10 +82,9 @@ class BVH : public AccelerationStructure
 {
 private:
 	std::vector<BVH_Object> m_BVHObjects;
-	DebugMode m_DebugMode;
 
 public:
-	BVH(DebugMode debubMode);
+	BVH();
 	virtual ~BVH() {};
 
 	virtual bool Traverse(Ray& ray) override;
@@ -97,7 +93,6 @@ public:
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
 
-	virtual void SetDebugMode(DebugMode debugMode);
 	virtual int ObjectCount() override { return m_BVHObjects.size(); }
 };
 

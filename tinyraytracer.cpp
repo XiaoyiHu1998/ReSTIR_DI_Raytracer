@@ -216,8 +216,8 @@ int main() {
     materials.push_back(mirror);
     materials.push_back(emmisive);
 
-    AccelStruct accelerationStructure = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
-    AccelStruct lights = std::make_unique<BVH>(AccelerationStructure::DebugMode::Off);
+    AccelStruct accelerationStructure = std::make_unique<BVH>();
+    AccelStruct lights = std::make_unique<BVH>();
 
     std::vector<RenderObject> renderObjects;
     Model duckModel = Model("../duck.obj");
