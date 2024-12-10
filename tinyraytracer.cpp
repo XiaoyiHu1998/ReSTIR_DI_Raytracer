@@ -29,215 +29,290 @@ using FloatDistribution = std::uniform_real_distribution<float>;
 int envmap_width, envmap_height;
 std::vector<glm::vec3> envmap;
 
-struct Light {
-    Light(const glm::vec3& p, const float i) : position(p), intensity(i), color(glm::vec3(0.8, 0.2, 0.2) * intensity) {}
-    glm::vec3 position;
-    glm::vec3 color;
-    float intensity;
+struct Light
+{
+	Light(const glm::vec3& p, const float i) : position(p), intensity(i), color(glm::vec3(0.8, 0.2, 0.2)* intensity) {}
+	glm::vec3 position;
+	glm::vec3 color;
+	float intensity;
 };
 
-glm::vec3 reflect(const glm::vec3& I, const glm::vec3& N) {
-    return I - N * 2.f * (glm::dot(I, N));
+glm::vec3 reflect(const glm::vec3& I, const glm::vec3& N)
+{
+	return I - N * 2.f * (glm::dot(I, N));
 }
 
-glm::vec3 refract(const glm::vec3& I, const glm::vec3& N, const float eta_t, const float eta_i = 1.f) { // Snell's law
-    float cosi = -std::max(-1.f, std::min(1.f, glm::dot(I, N)));
-    if (cosi < 0) return refract(I, -N, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
-    float eta = eta_i / eta_t;
-    float k = 1 - eta * eta * (1 - cosi * cosi);
-    return k < 0 ? glm::vec3(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
+glm::vec3 refract(const glm::vec3& I, const glm::vec3& N, const float eta_t, const float eta_i = 1.f)
+{ // Snell's law
+	float cosi = -std::max(-1.f, std::min(1.f, glm::dot(I, N)));
+	if (cosi < 0) return refract(I, -N, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
+	float eta = eta_i / eta_t;
+	float k = 1 - eta * eta * (1 - cosi * cosi);
+	return k < 0 ? glm::vec3(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
 }
 
 uint32_t PCGHash(uint32_t& seed)
 {
-    uint32_t state = seed * 747796405u + 2891336453u;
-    uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return (word >> 22u) ^ word;
+	uint32_t state = seed * 747796405u + 2891336453u;
+	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
 }
 
 float RandomFloat(uint32_t& seed)
 {
-    return float(PCGHash(seed)) / float(std::numeric_limits<uint32_t>().max());
+	return float(PCGHash(seed)) / float(std::numeric_limits<uint32_t>().max());
 }
 
 glm::vec3 UnitSphereVector(uint32_t& seed)
 {
-    glm::vec3 unitsphereVector = glm::vec3(RandomFloat(seed) - 0.5f, RandomFloat(seed) - 0.5f, RandomFloat(seed) - 0.5f);
-    return glm::normalize(unitsphereVector);
+	glm::vec3 unitsphereVector = glm::vec3(RandomFloat(seed) - 0.5f, RandomFloat(seed) - 0.5f, RandomFloat(seed) - 0.5f);
+	return glm::normalize(unitsphereVector);
 }
 
 glm::vec3 RandomHemisphereDirection(const glm::vec3& normal, RandomGenerator generator, FloatDistribution floatDistribution)
 {
-    uint32_t seed = static_cast<uint32_t>(floatDistribution(generator) * std::numeric_limits<uint32_t>().max());
-    glm::vec3 randomDirection = UnitSphereVector(seed);
-    int attempt = 0;
+	uint32_t seed = static_cast<uint32_t>(floatDistribution(generator) * std::numeric_limits<uint32_t>().max());
+	glm::vec3 randomDirection = UnitSphereVector(seed);
+	int attempt = 0;
 
-    while (glm::dot(randomDirection, normal) <= 0 && attempt < 40)
-    {
-        randomDirection = UnitSphereVector(seed);
-        attempt++;
-    }
+	while (glm::dot(randomDirection, normal) <= 0 && attempt < 40)
+	{
+		randomDirection = UnitSphereVector(seed);
+		attempt++;
+	}
 
-    return randomDirection;
+	return randomDirection;
 }
 
 glm::vec3 TraceShadowRay(const Ray& ray, const AccelStruct& accelerationStructure, const AccelStruct& lights)
 {
-    glm::vec3 lightDirection = lights->RandomTrianglePoint() - ray.hitLocation;
-    Ray shadowRay = Ray(ray.hitLocation, lightDirection);
-    
-    //Check if light shines towards ray.hitLocation surface
-    float lightDistance = glm::length(lightDirection);
-    lightDirection /= lightDistance; //normalisation
-    float cosO = glm::dot(-lightDirection, shadowRay.normal);
-    float cosI = glm::dot(lightDirection, ray.normal);
-    if (cosO <= 0 || cosI <= 0)
-        return glm::vec3(0);
-    
-    //Check if light is blocked by object
-    if (!accelerationStructure->Traverse(shadowRay))
-        return glm::vec3(0);
-    
-    //Light contribution to surface
-    glm::vec3 BRDF = ray.material.color / std::_Pi;
-    float solidAngle = (shadowRay.objectArea * cosO) / (lightDistance * lightDistance);
-    return BRDF * shadowRay.material.color * solidAngle * cosI;
+	glm::vec3 lightDirection = lights->RandomTrianglePoint() - ray.hitLocation;
+	Ray shadowRay = Ray(ray.hitLocation, lightDirection);
+
+	//Check if light shines towards ray.hitLocation surface
+	float lightDistance = glm::length(lightDirection);
+	lightDirection /= lightDistance; //normalisation
+	float cosO = glm::dot(-lightDirection, shadowRay.normal);
+	float cosI = glm::dot(lightDirection, ray.normal);
+	if (cosO <= 0 || cosI <= 0)
+		return glm::vec3(0);
+
+	//Check if light is blocked by object
+	if (!accelerationStructure->Traverse(shadowRay))
+		return glm::vec3(0);
+
+	//Light contribution to surface
+	glm::vec3 BRDF = ray.material.color / M_PI;
+	float solidAngle = (shadowRay.objectArea * cosO) / (lightDistance * lightDistance);
+	return BRDF * shadowRay.material.color * solidAngle * cosI;
 }
 
 glm::vec3 PathTraceRay(Ray& ray, const AccelStruct& accelerationStructure, const AccelStruct& lights, uint32_t rayDepth = 0, int maxRayDepth = 8)
 {
-    if (rayDepth > maxRayDepth || !accelerationStructure->Traverse(ray))
-        return glm::vec3(0.2, 0.7, 0.8); // background color
+	if (rayDepth > maxRayDepth || !accelerationStructure->Traverse(ray))
+		return glm::vec3(0.2, 0.7, 0.8); // background color
 
-    std::default_random_engine generator;
-    FloatDistribution floatDistribution(0.0f, 1.0f);
+	std::default_random_engine generator;
+	FloatDistribution floatDistribution(0.0f, 1.0f);
 
-    //TODO: Add emmisive objects
-    
-    // Shadowray
-    glm::vec3 shadowRayColor = TraceShadowRay(ray, accelerationStructure, lights);
+	//TODO: Add emmisive objects
 
-    // Hitlocation contribution
-    // Material type cases
-    Ray nextRay;
-    switch (ray.material.type)
-    {
-        case Material::Type::Emmisive:
-            return ray.material.emittance;
-        case Material::Type::Mirror:
-            nextRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
-            return ray.material.albedo * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth, maxRayDepth);
-        //case Material::Type::Dielectric: // Glass
-        //    Ray reflectionRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
-        //    //TODO: handle Fresnel proportion based choice between reflecting and transmitting light
-        //    break;
-    }
+	// Shadowray
+	glm::vec3 shadowRayColor = TraceShadowRay(ray, accelerationStructure, lights);
 
-    //reflection ray - should NOT hit emmisive objects
-    glm::vec3 reflectionDirection = RandomHemisphereDirection(ray.normal, generator, floatDistribution);
-    nextRay = Ray(ray.hitLocation, reflectionDirection);
+	// Hitlocation contribution
+	// Material type cases
+	Ray nextRay;
+	switch (ray.material.type)
+	{
+	case Material::Type::Emmisive:
+		return ray.material.emittance;
+	case Material::Type::Mirror:
+		nextRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
+		return ray.material.albedo * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth, maxRayDepth);
+		//case Material::Type::Dielectric: // Glass
+		//    Ray reflectionRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
+		//    //TODO: handle Fresnel proportion based choice between reflecting and transmitting light
+		//    break;
+	}
 
-    //update throughput
-    glm::vec3 BRDF = ray.material.color / std::_Pi;
-    float cosI = glm::dot(reflectionDirection, ray.normal);
+	//reflection ray - should NOT hit emmisive objects
+	glm::vec3 reflectionDirection = RandomHemisphereDirection(ray.normal, generator, floatDistribution);
+	nextRay = Ray(ray.hitLocation, reflectionDirection);
 
-    return shadowRayColor + 2.0f * std::_Pi * BRDF * cosI * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth + 1, maxRayDepth);
+	//update throughput
+	glm::vec3 BRDF = ray.material.color / M_PI;
+	float cosI = glm::dot(reflectionDirection, ray.normal);
+
+	return shadowRayColor + 2.0f * M_PI * BRDF * cosI * PathTraceRay(nextRay, accelerationStructure, lights, rayDepth + 1, maxRayDepth);
 }
 
-void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
-    const int   width    = 1024;
-    const int   height   = 768;
-    const float fov      = M_PI/3.;
-    std::vector<glm::vec3> framebuffer(width*height);
-    std::vector<std::thread> threadPool;
-    threadPool.reserve(height);
-
-    std::function<void(int)> renderThread = [&](int row) {
-        for (size_t i = 0; i < width; i++) {
-            float dir_x = (i + 0.5) - width / 2.;
-            float dir_y = -(row + 0.5) + height / 2.;    // this flips the image at the same time
-            float dir_z = -height / (2. * tan(fov / 2.));
-
-            glm::vec3 framebufferPixelValue = glm::vec3(0);
-            for(int sample = 0; sample < 50; sample++)
-                framebufferPixelValue += PathTraceRay(Ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z))), accelerationStructure, lights) / 50;
-            
-            framebuffer[i + row * width] = framebufferPixelValue;
-        }
-    };
-
-    for (size_t j = 0; j<height; j++) { // actual rendering loop
-        threadPool.emplace_back(std::thread(renderThread, j));
-    }
-
-    for (int i = 0; i < height; i++) {
-        threadPool[i].join();
-    }
-
-    std::vector<unsigned char> pixmap(width*height*3);
-    for (size_t i = 0; i < height*width; ++i) {
-        glm::vec3 &c = framebuffer[i];
-        float max = std::max(c[0], std::max(c[1], c[2]));
-        if (max>1) c = c*(1.f/max);
-        for (size_t j = 0; j<3; j++) {
-            pixmap[i*3+j] = (unsigned char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
-        }
-    }
-    stbi_write_jpg("out.jpg", width, height, 3, pixmap.data(), 100);
+void OutputImage(const std::vector<glm::vec3> framebuffer, const int width, const int height, std::string filename)
+{
+	std::vector<unsigned char> pixmap(width * height * 3);
+	for (size_t i = 0; i < height * width; ++i)
+	{
+		glm::vec3 c = framebuffer[i];
+		float max = std::max(c[0], std::max(c[1], c[2]));
+		if (max > 1) c = c * (1.f / max);
+		for (size_t j = 0; j < 3; j++)
+		{
+			pixmap[i * 3 + j] = (unsigned char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
+		}
+	}
+	stbi_write_jpg(filename.c_str(), width, height, 3, pixmap.data(), 100);
 }
 
-int main() {
-    int n = -1;
-    unsigned char *pixmap = stbi_load("../envmap.jpg", &envmap_width, &envmap_height, &n, 0);
-    if (!pixmap || 3!=n) {
-        std::cerr << "Error: can not load the environment map" << std::endl;
-        return -1;
-    }
-    envmap = std::vector<glm::vec3>(envmap_width*envmap_height);
-    for (int j = envmap_height-1; j>=0 ; j--) {
-        for (int i = 0; i<envmap_width; i++) {
-            envmap[i+j*envmap_width] = glm::vec3(pixmap[(i+j*envmap_width)*3+0], pixmap[(i+j*envmap_width)*3+1], pixmap[(i+j*envmap_width)*3+2])*(1/255.f);
-        }
-    }
-    stbi_image_free(pixmap);
+// adapted from https://axonflux.com/handy-rgb-to-hsl-and-rgb-to-hsv-color-model-c
+static glm::vec3 HsvToRgb(float h, float s, float v)
+{
+	float r, g, b;
 
-    Material      ivory(Material::Type::Dielectric, glm::vec4(0.6,  0.3, 0.1, 0.0), glm::vec3(0.4, 0.4, 0.3), 1.0,   50.);
-    Material      glass(Material::Type::Dielectric, glm::vec4(0.0,  0.5, 0.1, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5,  125.);
-    Material red_rubber(Material::Type::Dielectric, glm::vec4(0.9,  0.1, 0.0, 0.0), glm::vec3(0.3, 0.1, 0.1), 1.0,   10.);
-    Material     mirror(Material::Type::Mirror, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
-    Material   emmisive(Material::Type::Emmisive, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
-    emmisive.emittance = glm::vec3(1.0, 1.0, 1.0);
+	int i = std::floor(h * 6);
+	float f = h * 6 - i;
+	float p = v * (1 - s);
+	float q = v * (1 - f * s);
+	float t = v * (1 - (1 - f) * s);
 
-    std::vector<Material> materials;
-    materials.reserve(4);
-    materials.push_back(ivory);
-    materials.push_back(glass);
-    materials.push_back(red_rubber);
-    materials.push_back(mirror);
-    materials.push_back(emmisive);
+	switch (i % 6)
+	{
+	case 0: r = v, g = t, b = p; break;
+	case 1: r = q, g = v, b = p; break;
+	case 2: r = p, g = v, b = t; break;
+	case 3: r = p, g = q, b = v; break;
+	case 4: r = t, g = p, b = v; break;
+	case 5: r = v, g = p, b = q; break;
+	}
 
-    AccelStruct accelerationStructure = std::make_unique<BVH>();
-    AccelStruct lights = std::make_unique<BVH>();
+	return glm::vec3(r, g, b);
+}
 
-    std::vector<RenderObject> renderObjects;
-    Model duckModel = Model("../duck.obj");
-    RenderObject duck = RenderObject(duckModel, Material(), Transform(glm::vec3(1), glm::vec3(1), glm::vec3(1)));
-    for (int i = 0; i < 10; i++)
-    {
-        Transform transform = Transform(glm::vec3(-22 + 5 * i, -23 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-        duck = RenderObject(duckModel, materials[i % 5], transform);
-        if (i % 5 == 4)
-        {
-            lights->AddObject(duck);
-        }
-        accelerationStructure->AddObject(duck);
-        std::cout << "Duck Added" << std::endl;
-    }
-    accelerationStructure->Build(true);
-    std::cout << "BVH Built" << std::endl;
+void render(AccelStruct& accelerationStructure, const AccelStruct& lights)
+{
+	const int   width = 1024;
+	const int   height = 768;
+	const float fov = M_PI / 3.;
+	std::vector<glm::vec3> framebuffer(width * height);
+	std::vector<Ray*> debugbuffer(width * height);
+	std::vector<std::thread> threadPool;
+	threadPool.reserve(height);
 
-    render(accelerationStructure, lights);
+	std::function<void(int)> renderThread = [&](int row)
+		{
+			for (size_t i = 0; i < width; i++)
+			{
+				float dir_x = (i + 0.5) - width / 2.;
+				float dir_y = -(row + 0.5) + height / 2.;    // this flips the image at the same time
+				float dir_z = -height / (2. * tan(fov / 2.));
 
-    return 0;
+				glm::vec3 framebufferPixelValue = glm::vec3(0);
+				for (int sample = 0; sample < 50; sample++)
+				{
+					Ray ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z)));
+					framebufferPixelValue += PathTraceRay(ray, accelerationStructure, lights, 0, 1) / 50;
+					if (sample == 0)
+					{
+						debugbuffer[i + row * width] = &ray;
+					}
+				}
+
+				framebuffer[i + row * width] = framebufferPixelValue;
+			}
+		};
+
+	for (size_t j = 0; j < height; j++)
+	{ // actual rendering loop
+		threadPool.emplace_back(std::thread(renderThread, j));
+	}
+
+	for (int i = 0; i < height; i++)
+	{
+		threadPool[i].join();
+	}
+
+	// save the output image to file
+	OutputImage(framebuffer, width, height, "output.jpg");
+
+	// create debug images to visualize the ray intersections, box intersections, and traversal steps
+	std::vector<glm::vec3> rayIntersectionsImage(width * height);
+	std::vector<glm::vec3> boxIntersectionsImage(width * height);
+	std::vector<glm::vec3> traversalStepsImage(width * height);
+
+	auto valueToDebugColor = [](float value, float minValue, float maxValue, float minHue = 0.46f, float maxHue = 0.f)
+		{
+			float clampedValue = std::max(minValue, std::min(maxValue, value));
+			float hue = minHue + (maxHue - minHue) * (clampedValue - minValue) / (maxValue - minValue);
+			return HsvToRgb(hue, 1.f, 1.f);
+		};
+
+	for (int i = 0; i < width * height; i++)
+	{
+		rayIntersectionsImage[i] = valueToDebugColor(debugbuffer[i]->intersectionCount, 0, 10);
+		boxIntersectionsImage[i] = valueToDebugColor(debugbuffer[i]->boxIntersectionCount, 0, 10);
+		traversalStepsImage[i] = valueToDebugColor(debugbuffer[i]->traversalSteps, 0, 10);
+	}
+
+	OutputImage(rayIntersectionsImage, width, height, "rayIntersections.jpg");
+	OutputImage(boxIntersectionsImage, width, height, "boxIntersections.jpg");
+	OutputImage(traversalStepsImage, width, height, "traversalSteps.jpg");
+}
+
+int main()
+{
+	int n = -1;
+	unsigned char* pixmap = stbi_load("../envmap.jpg", &envmap_width, &envmap_height, &n, 0);
+	if (!pixmap || 3 != n)
+	{
+		std::cerr << "Error: can not load the environment map" << std::endl;
+		return -1;
+	}
+	envmap = std::vector<glm::vec3>(envmap_width * envmap_height);
+	for (int j = envmap_height - 1; j >= 0; j--)
+	{
+		for (int i = 0; i < envmap_width; i++)
+		{
+			envmap[i + j * envmap_width] = glm::vec3(pixmap[(i + j * envmap_width) * 3 + 0], pixmap[(i + j * envmap_width) * 3 + 1], pixmap[(i + j * envmap_width) * 3 + 2]) * (1 / 255.f);
+		}
+	}
+	stbi_image_free(pixmap);
+
+	Material      ivory(Material::Type::Dielectric, glm::vec4(0.6, 0.3, 0.1, 0.0), glm::vec3(0.4, 0.4, 0.3), 1.0, 50.);
+	Material      glass(Material::Type::Dielectric, glm::vec4(0.0, 0.5, 0.1, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5, 125.);
+	Material red_rubber(Material::Type::Dielectric, glm::vec4(0.9, 0.1, 0.0, 0.0), glm::vec3(0.3, 0.1, 0.1), 1.0, 10.);
+	Material     mirror(Material::Type::Mirror, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+	Material   emmisive(Material::Type::Emmisive, glm::vec4(0.0, 10.0, 0.8, 0.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+	emmisive.emittance = glm::vec3(1.0, 1.0, 1.0);
+
+	std::vector<Material> materials;
+	materials.reserve(4);
+	materials.push_back(ivory);
+	materials.push_back(glass);
+	materials.push_back(red_rubber);
+	materials.push_back(mirror);
+	materials.push_back(emmisive);
+
+	AccelStruct accelerationStructure = std::make_unique<BVH>();
+	AccelStruct lights = std::make_unique<BVH>();
+
+	std::vector<RenderObject> renderObjects;
+	Model duckModel = Model("../duck.obj");
+	RenderObject duck = RenderObject(duckModel, Material(), Transform(glm::vec3(1), glm::vec3(1), glm::vec3(1)));
+	for (int i = 0; i < 5; i++)
+	{
+		Transform transform = Transform(glm::vec3(-22 + 5 * i, -23 + i * 5, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+		duck = RenderObject(duckModel, materials[i % 5], transform);
+		if (i % 5 == 4)
+		{
+			lights->AddObject(duck);
+		}
+		accelerationStructure->AddObject(duck);
+		std::cout << "Duck Added" << std::endl;
+	}
+	accelerationStructure->Build(true);
+	std::cout << "BVH Built" << std::endl;
+
+	render(accelerationStructure, lights);
+
+	return 0;
 }
 
