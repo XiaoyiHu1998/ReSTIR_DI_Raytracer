@@ -30,7 +30,8 @@ public:
 	virtual ~Octree() {}
 
 	virtual void SetDebugMode(DebugMode debugMode);
-	virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
+	//virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
+	virtual bool Traverse(Ray& ray) override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;

@@ -1,7 +1,7 @@
-#include "BVH.h"
-#include "glm/glm.hpp"
-#include "glm/ext.hpp"
 #include <iostream>
+#include <random>
+
+#include "BVH.h"
 
 BVH::BVH(DebugMode debubMode) :
 	m_DebugMode{ debubMode }
@@ -15,45 +15,65 @@ void BVH::SetDebugMode(DebugMode debugMode)
 
 	for (int i = 0; i < m_BVHObjects.size(); i++)
 	{
-		m_BVHObjects[i].first.SetDebugMode(debugMode);
+		m_BVHObjects[i].bvh.SetDebugMode(debugMode);
 	}
 }
 
-bool BVH::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool BVH::Traverse(Ray& ray)
 {
 	bool hit = false;
 
-	for (int i = 0; i < m_BVHObjects.size(); i++)
+	for (const BVH_Object& bvhObject : m_BVHObjects)
 	{
-		glm::mat4& inverseTransform = m_BVHObjects[i].second;
-		glm::vec3 originTransformed = glm::vec3(inverseTransform * glm::vec4(origin, 1));
-		glm::vec3 directionTransformed = glm::vec3(inverseTransform * glm::vec4(direction, 0));
+		const glm::mat4& inverseTransform = bvhObject.inverseTransform;
+		const glm::mat4& objectTransform = glm::inverse(bvhObject.inverseTransform);
 
-		hit |= m_BVHObjects[i].first.Traverse(originTransformed, directionTransformed, tnear);
+		Ray objectRay;
+		objectRay.origin = glm::vec3(inverseTransform * glm::vec4(ray.origin, 1));
+		objectRay.direction = glm::vec3(inverseTransform * glm::vec4(ray.direction, 0));
+
+		if (bvhObject.bvh.Traverse(objectRay))
+		{
+			hit = true;
+
+			ray.tnear = objectRay.tnear;
+			ray.normal = glm::normalize(glm::vec3(objectTransform * glm::vec4(objectRay.normal, 0)));
+			ray.material = bvhObject.material;
+			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
+		}
 	}
 
 	return hit;
 }
 
+glm::vec3 BVH::RandomTrianglePoint() const
+{
+	std::srand(std::time(nullptr));
+	int randomBVHObjectIndex = std::rand() % m_BVHObjects.size();
+	const BVH_Object& randomBVHObject = m_BVHObjects[randomBVHObjectIndex];
+	
+	return randomBVHObject.bvh.RandomTrianglePoint();
+}
+
 void BVH::AddObject(const RenderObject& object)
 {
 	BVH_BLAS newBVH = BVH_BLAS(m_DebugMode);
-	newBVH.AddObject(object);
+	newBVH.AddObject(object, object.m_Transform.GetTransformMatrix());
 
 	glm::mat4 inverseTransformMatrix = glm::inverse(object.m_Transform.GetTransformMatrix());
 
-	m_BVHObjects.emplace_back(std::pair<BVH_BLAS, glm::mat4>(newBVH, inverseTransformMatrix));
+	m_BVHObjects.emplace_back(BVH_Object(newBVH, object.m_Material, inverseTransformMatrix));
 }
 
 void BVH::Build(bool useHeuristic)
 {
 	for (int i = 0; i < m_BVHObjects.size(); i++)
 	{
-		m_BVHObjects[i].first.Build(useHeuristic);
+		m_BVHObjects[i].bvh.Build(useHeuristic);
 	}
 }
 
-BVH_BLAS::BVH_BLAS(DebugMode debugMode):
+BVH_BLAS::BVH_BLAS(AccelerationStructure::DebugMode debugMode):
 	m_DebugMode{debugMode}
 {
 	m_Triangles = {};
@@ -64,43 +84,78 @@ BVH_BLAS::BVH_BLAS(DebugMode debugMode):
 	m_TriangleIndices.reserve(10000 * 3);
 }
 
-void BVH_BLAS::SetDebugMode(DebugMode debugMode)
+void BVH_BLAS::SetDebugMode(AccelerationStructure::DebugMode debugMode)
 {
 	m_DebugMode = debugMode;
 }
 
-bool BVH_BLAS::Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear)
+bool BVH_BLAS::Traverse(Ray& ray) const
 {
-	bool hit = TraverseNode(origin, direction, tnear, 0);
-	return hit;
+	return TraverseNode(ray, 0);
 }
 
-bool BVH_BLAS::TraverseNode(const glm::vec3& origin, const glm::vec3& direction, float& tnear, const uint32_t nodeIndex)
+glm::vec3 BVH_BLAS::RandomTrianglePoint() const
 {
-	BVHNode& node = m_BvhNodes[nodeIndex];
+	std::srand(std::time(nullptr));
+	
+	int randomTriangleIndex = std::rand() % m_Triangles.size();
+	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
+	
+	float weightVertex0 = ((float(std::rand()) / RAND_MAX)) + 1;
+	float maxWeightVertex1 = 1.0f - weightVertex0;
+	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
+	float weightVertex2 = maxWeightVertex1 - weightVertex1;
+	
+	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+}
+
+bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
+{
+	const BVHNode& node = m_BvhNodes[nodeIndex];
 	bool hit = false;
 
-	if (!IntersectAABB(origin, direction, tnear, node.aabbMin, node.aabbMax)) 
+	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax)) 
 		return false;
 
 	if (node.isLeaf())
 	{
-		//std::cout << "primCount: " << node.triangleCount << std::endl;
+		float closestDistance = ray.tnear;
+		glm::vec3 normal = glm::vec3(0);
+		bool hit = false;
+
 		for (uint32_t i = 0; i < node.triangleCount; i++)
 		{
-			hit |= m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]].Intersect(origin, direction, tnear);
+			const Triangle& currentTriangle = m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]];
+			float triangleDistance = std::numeric_limits<float>().max();
+			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
+
+			if (triangleHit && triangleDistance < closestDistance)
+			{
+				closestDistance = triangleDistance;
+				normal = currentTriangle.normal;
+				hit = true;
+			}
 		}
+
+		if (hit)
+		{
+			ray.tnear = closestDistance;
+			ray.normal = normal;
+			ray.objectArea = m_Area;
+		}
+
+		return hit;
 	}
 	else
 	{
-		hit |= TraverseNode(origin, direction, tnear, node.leftChildOrFirstIndex);
-		hit |= TraverseNode(origin, direction, tnear, node.leftChildOrFirstIndex + 1);
+		hit |= TraverseNode(ray, node.leftChildOrFirstIndex);
+		hit |= TraverseNode(ray, node.leftChildOrFirstIndex + 1);
 	}
 
 	return hit;
 }
 
-bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool BVH_BLAS::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float& tnear, glm::vec3 aabbMin, glm::vec3 aabbMax) const
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;
@@ -147,15 +202,22 @@ float BVH_BLAS::EvaluateSAH(BVHNode& node, int axis, float position)
 	return cost > 0 ? cost : std::numeric_limits<float>().max();
 }
 
-void BVH_BLAS::AddObject(const RenderObject& object)
+void BVH_BLAS::AddObject(const RenderObject& object, const glm::mat4& transform)
 {
 	const Model& model = object.m_Model;
 	int faceCount = model.nfaces();
 
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
 
-	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) { 
 		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
+		
+		//Add transformed triangle area
+		//Triangle& faceTriangle = m_Triangles[faceIndex];
+		//Triangle transformedTriangle = Triangle(glm::vec3(transform * glm::vec4(faceTriangle.vertex0, 0)),
+		//										glm::vec3(transform * glm::vec4(faceTriangle.vertex1, 0)),
+		//										glm::vec3(transform * glm::vec4(faceTriangle.vertex2, 0)));
+		//m_Area += transformedTriangle.Area();
 	}
 }
 
@@ -248,6 +310,9 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 		splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
 	}
 
+	//TODO: fix actual negative axis value error
+	axis = std::max(axis, 0);
+
 	//in-place partition
 	int i = node.leftChildOrFirstIndex;
 	int j = i + node.triangleCount - 1;
@@ -272,11 +337,6 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 	if (rightChildIndex > m_BvhNodes.size() - 1)
 	{
 		m_BvhNodes.resize(rightChildIndex);
-	}
-
-	if (node.leftChildOrFirstIndex > 507 || i > 507)
-	{
-		int abcd = 1;
 	}
 
 	m_BvhNodes[leftChildIndex].leftChildOrFirstIndex = node.leftChildOrFirstIndex;
