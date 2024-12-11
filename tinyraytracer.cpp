@@ -453,7 +453,7 @@ void GenerateScene2(AccelStruct& accelerationStructure, AccelStruct& lights)
     for (int i = 0; i < 10; i++)
     {
         transform = Transform(glm::vec3(-30 + 6.0f * i, -9, -30), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-        RenderObject object = RenderObject(duckModel, materials[i % 5], transform);
+        RenderObject object = RenderObject(duckSubdividedModel, materials[i % 5], transform);
         if (i % 5 == 4)
         {
             lights->AddObject(object);
@@ -463,7 +463,7 @@ void GenerateScene2(AccelStruct& accelerationStructure, AccelStruct& lights)
     }
     transform.scale = glm::vec3(40, 40, 40);
     RenderObject ceilingObject = RenderObject(planeModel, ceiling, Transform(glm::vec3(0, 10, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
-    RenderObject bigDuck = RenderObject(duckModel, red_rubber, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject bigDuck = RenderObject(duckSubdividedModel, red_rubber, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
     RenderObject floorObject = RenderObject(planeModel, ivory, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
 
     lights->AddObject(ceilingObject);
@@ -540,8 +540,8 @@ int main() {
     AccelStruct accelerationStructure = std::make_unique<BVH>();
     AccelStruct lights = std::make_unique<BVH>();
 
-    //GenerateScene1(accelerationStructure, lights);
-    GenerateScene2(accelerationStructure, lights);
+    GenerateScene1(accelerationStructure, lights);
+    //GenerateScene2(accelerationStructure, lights);
     //GenerateScene3(accelerationStructure, lights);
 
     accelerationStructure->Build(true);
