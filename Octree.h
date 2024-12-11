@@ -3,6 +3,7 @@
 
 #include "AccelerationStructure.h"
 #include "Triangle.h"
+#include "Utils.h"
 
 class Octree : public AccelerationStructure
 {
@@ -24,12 +25,12 @@ private:
 	OctreeNode m_RootNode;
 
 public:
-	Octree(int maxDepth = 32);
+	Octree(int maxDepth = 16);
 	virtual ~Octree() {}
 
 	//virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
 	virtual bool Traverse(Ray& ray) override;
-	virtual glm::vec3 RandomTrianglePoint() const override;
+	virtual RandomLightPoint RandomTrianglePoint(uint32_t& seed) const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;

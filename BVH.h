@@ -7,6 +7,7 @@
 #include "AccelerationStructure.h"
 #include "Triangle.h"
 #include "Material.h"
+#include "Utils.h"
 
 class BVH_BLAS
 {
@@ -50,14 +51,14 @@ public:
 	~BVH_BLAS() {};
 
 	bool Traverse(Ray& ray) const;
-	glm::vec3 RandomTrianglePoint() const;
+	TrianglePoint RandomTrianglePoint(uint32_t& seed) const;
 
 	void AddObject(const RenderObject& object, const glm::mat4& transform);
 	void Build(bool useHeuristic);
 
 	int ObjectCount() { return 1; }
 
-	float Area() { return m_Area; }
+	float Area() const { return m_Area; }
 private:
 	void UpdateNodeBounds(uint32_t nodeID);
 	void Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic);
@@ -88,7 +89,7 @@ public:
 	virtual ~BVH() {};
 
 	virtual bool Traverse(Ray& ray) override;
-	virtual glm::vec3 RandomTrianglePoint() const override;
+	virtual RandomLightPoint RandomTrianglePoint(uint32_t& seed) const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;

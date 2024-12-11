@@ -3,6 +3,7 @@
 
 #include "AccelerationStructure.h"
 #include "Triangle.h"
+#include "Utils.h"
 
 class KdTree : public AccelerationStructure
 {
@@ -29,7 +30,7 @@ public:
 	virtual ~KdTree() {}
 
 	virtual bool Traverse(Ray& ray) override;
-	virtual glm::vec3 RandomTrianglePoint() const override;
+	virtual RandomLightPoint RandomTrianglePoint(uint32_t& seed) const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;

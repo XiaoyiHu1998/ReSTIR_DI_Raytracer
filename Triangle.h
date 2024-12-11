@@ -4,20 +4,34 @@
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
+#include "Material.h"
+
+struct TrianglePoint
+{
+	glm::vec3 point;
+	glm::vec3 normal;
+
+	TrianglePoint(const glm::vec3& point, const glm::vec3& normal) :
+		point{ point }, normal{ normal }
+	{}
+};
+
 struct Triangle
 {
 	glm::vec3 vertex0, vertex1, vertex2;
 	glm::vec3 centroid;
 	glm::vec3 normal;
+	Material material;
+	glm::mat4 transformMatrix;
 
-	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2) :
-		vertex0{ vertex0 }, vertex1{ vertex1 }, vertex2{ vertex2 }
+	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2, Material material = Material(), glm::mat4 transformMatrix = glm::mat4(1)) :
+		vertex0{ vertex0 }, vertex1{ vertex1 }, vertex2{ vertex2 }, material{ material }, transformMatrix{ transformMatrix }
 	{
 		centroid = (vertex0 + vertex1 + vertex2) * 0.3333f;
 		normal = glm::normalize(glm::cross((vertex1 - vertex0), (vertex2 - vertex0)));
 	}
 
-	float Area()
+	float Area() const
 	{
 		glm::vec3 edge1 = vertex1 - vertex0;
 		glm::vec3 edge2 = vertex2 - vertex1;

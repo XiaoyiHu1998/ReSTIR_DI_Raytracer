@@ -24,12 +24,12 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 {
 	bool hit = false;
 
-	ray.boxIntersectionCount++;
+	ray.nodeIntersectionTestCount++;
 
 	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax))
 		return false;
 
-	ray.traversalSteps++;
+	ray.nodeIntersectionCount++;
 
 	if (node.isLeaf)
 	{
@@ -42,13 +42,14 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 			const Triangle& currentTriangle = m_Triangles[node.triangleIndices[i]];
 			float triangleDistance = std::numeric_limits<float>().max();
 			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
-			ray.intersectionCount++;
+			ray.triangleIntersectionTestCount++;
 
 			if (triangleHit && triangleDistance < closestDistance)
 			{
 				closestDistance = triangleDistance;
 				normal = currentTriangle.normal;
 				hit = true;
+				ray.triangleIntersectionCount++;
 			}
 		}
 
@@ -56,6 +57,8 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 		{
 			ray.tnear = closestDistance;
 			ray.normal = normal;
+			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
+			ray.hitCount++;
 		}
 
 		return hit;
@@ -69,19 +72,21 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 	return hit;
 }
 
-glm::vec3 KdTree::RandomTrianglePoint() const
+RandomLightPoint KdTree::RandomTrianglePoint(uint32_t& seed) const
 {
-	std::srand(std::time(nullptr));
-
-	int randomTriangleIndex = std::rand() % m_Triangles.size();
+	int randomTriangleIndex = Utils::RandomInt(0, m_Triangles.size() - 1, seed);
 	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
 
-	float weightVertex0 = ((float(std::rand()) / RAND_MAX)) + 1;
+	float weightVertex0 = Utils::RandomFloat(seed);
 	float maxWeightVertex1 = 1.0f - weightVertex0;
-	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
+	float weightVertex1 = Utils::RandomFloat(seed) * maxWeightVertex1;
 	float weightVertex2 = maxWeightVertex1 - weightVertex1;
 
-	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+	glm::vec3 randomPoint = weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+	glm::mat4 transformMatrix = randomTriangle.transformMatrix;
+	Material material = randomTriangle.material;
+
+	return RandomLightPoint(randomPoint, randomTriangle.material.emittedRadiance, 1, randomTriangle.normal, glm::inverse(randomTriangle.transformMatrix));
 }
 
 bool KdTree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
@@ -108,11 +113,16 @@ void KdTree::AddObject(const RenderObject& object)
 {
 	const Model& model = object.m_Model;
 	int faceCount = model.nfaces();
-
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
 
+	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1), object.m_Transform.scale);
 	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++)
-		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
+	{
+		glm::vec3 vertex0 = scaleMatrix * glm::vec4(model.point(model.vert(faceIndex, 0)), 1);
+		glm::vec3 vertex1 = scaleMatrix * glm::vec4(model.point(model.vert(faceIndex, 1)), 1);
+		glm::vec3 vertex2 = scaleMatrix * glm::vec4(model.point(model.vert(faceIndex, 2)), 1);
+		m_Triangles.emplace_back(Triangle(vertex0, vertex1, vertex2, object.m_Material, object.m_Transform.GetTransformMatrix()));
+	}
 }
 
 void KdTree::Build(bool useHeuristic)
