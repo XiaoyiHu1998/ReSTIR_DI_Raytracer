@@ -7,14 +7,14 @@
 struct RandomLightPoint
 {
 	const glm::vec3 point;
-	const glm::vec3 color;
+	const glm::vec3 emittedRadiance;
 	const glm::vec3 normal;
 	const float area;
 
 	const glm::mat4 objectInverseTransform;
 
-	RandomLightPoint(glm::vec3 point, glm::vec3 color, float area, glm::vec3 normal, glm::mat4 objectInverseTransform) :
-		point{ point }, color{ color }, area{ area }, normal{ normal }, objectInverseTransform { objectInverseTransform }
+	RandomLightPoint(glm::vec3 point, glm::vec3 emittedRadiance, float area, glm::vec3 normal, glm::mat4 objectInverseTransform) :
+		point{ point }, emittedRadiance{ emittedRadiance }, area{ area }, normal{ normal }, objectInverseTransform { objectInverseTransform }
 	{}
 };
 

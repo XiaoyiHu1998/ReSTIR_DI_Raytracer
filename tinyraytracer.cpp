@@ -73,7 +73,7 @@ void OutputImage(const std::vector<glm::vec3> framebuffer, const int width, cons
 // adapted from https://axonflux.com/handy-rgb-to-hsl-and-rgb-to-hsv-color-model-c
 glm::vec3 HsvToRgb(float h, float s, float v)
 {
-    float r, g, b;
+    float r = 0, g = 0, b = 0;
 
     int i = std::floor(h * 6);
     float f = h * 6 - i;
@@ -92,6 +92,18 @@ glm::vec3 HsvToRgb(float h, float s, float v)
     }
 
     return glm::vec3(r, g, b);
+}
+
+float SchlicksApproximation(float refractionIndex, glm::vec3 incidence, glm::vec3 normal)
+{
+    float F0Top = (refractionIndex - 1) * (refractionIndex - 1);
+    float F0Bottom = (refractionIndex + 1) * (refractionIndex + 1);
+    float F0 = F0Top / F0Bottom;
+
+    float lastTermInside = 1 - (glm::dot(normal, incidence));
+    float lastTerm = lastTermInside * lastTermInside * lastTermInside * lastTermInside * lastTermInside;
+
+    return F0 + (1 - F0) * lastTerm;
 }
 
 glm::vec3 reflect(const glm::vec3& I, const glm::vec3& N) {
@@ -174,8 +186,32 @@ glm::vec3 PathTraceRay(Ray& ray, bool prevHitMirrorDielectric, const AccelStruct
         case Material::Type::Mirror:
             nextRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
             return ray.material.albedo * PathTraceRay(nextRay, true, accelerationStructure, lights, seed, rayDepth + 1, maxRayDepth);
-        //case Material::Type::Dielectric:
-        //    return glm::vec3(0);
+        case Material::Type::Dielectric:
+            float fresnelReflectance = SchlicksApproximation(ray.material.refractiveIndex, ray.direction, ray.normal);
+            float randomValue = Utils::RandomFloat(seed) * 0.9999f;
+
+            //reflect
+            if (randomValue < fresnelReflectance)
+            {
+                nextRay = Ray(ray.hitLocation, reflect(ray.direction, ray.normal));
+                return ray.material.albedo * PathTraceRay(nextRay, true, accelerationStructure, lights, seed, rayDepth + 1, maxRayDepth);
+            }
+            //refract
+            else 
+            {
+                float refractiveIndex1 = ray.material.refractiveIndex, refractiveIndex2 = ray.prevHitMaterial.refractiveIndex;
+                glm::vec3 normal = ray.normal;
+                
+                bool exitingMedium = glm::dot(glm::normalize(ray.direction), glm::normalize(ray.normal)) < 0;
+                if (exitingMedium)
+                {
+                    std::swap(refractiveIndex1, refractiveIndex2);
+                    normal = -normal;
+                }
+                
+                nextRay = Ray(ray.hitLocation, refract(ray.direction, ray.normal, ray.material.refractiveIndex));
+                return ray.material.albedo * PathTraceRay(nextRay, true, accelerationStructure, lights, seed, rayDepth + 1, maxRayDepth);
+            }   
     }
 
     glm::vec3 directLighting = BRDF * TraceDirectLight(ray, accelerationStructure, lights, seed);
@@ -201,7 +237,7 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
     threadPool.reserve(height);
 
     std::function<void(int)> renderThread = [&](int row) {
-        float sampleCount = 1;
+        float sampleCount = 10.0f;
         for (size_t i = 0; i < width; i++) {
             glm::vec3 framebufferPixelValue = glm::vec3(0);
             uint32_t seed = (row * width + i) * 10000;
@@ -252,11 +288,21 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
         return HsvToRgb(hue, 1.f, 1.f);
     };
 
-    long long int minTriangleIntersectionCount = 0;
-    long long int minTriangleIntersectionTestCount = 0;
-    long long int minNodeIntersectionCount = 0;
-    long long int minNodeIntersectionTestCount = 0;
-    long long int minHitCount = 0;
+    auto min = [](long long int left, long long int right)
+    {
+        return left < right ? left : right;
+    };
+
+    auto max = [](long long int left, long long int right)
+    {
+        return left > right ? left : right;
+    };
+
+    long long int minTriangleIntersectionCount = std::numeric_limits<long long int>().max();
+    long long int minTriangleIntersectionTestCount = std::numeric_limits<long long int>().max();
+    long long int minNodeIntersectionCount = std::numeric_limits<long long int>().max();
+    long long int minNodeIntersectionTestCount = std::numeric_limits<long long int>().max();
+    long long int minHitCount = std::numeric_limits<long long int>().max();
 
     long long int maxTriangleIntersectionCount = 0;
     long long int maxTriangleIntersectionTestCount = 0;
@@ -273,17 +319,17 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
     {
         DebugInfo debugInfo = debugbuffer[i];
 
-        minTriangleIntersectionCount        = std::min(minTriangleIntersectionCount, debugInfo.triangleIntersectionCount);
-        minTriangleIntersectionTestCount    = std::min(minTriangleIntersectionTestCount, debugInfo.triangleIntersectionTestCount);
-        minNodeIntersectionCount            = std::min(minNodeIntersectionCount, debugInfo.nodeIntersectionCount);
-        minNodeIntersectionTestCount        = std::min(minNodeIntersectionTestCount, debugInfo.nodeIntersectionTestCount);
-        minHitCount                         = std::min(minHitCount, debugInfo.hitCount);
+        minTriangleIntersectionCount        = min(minTriangleIntersectionCount, debugInfo.triangleIntersectionCount);
+        minTriangleIntersectionTestCount    = min(minTriangleIntersectionTestCount, debugInfo.triangleIntersectionTestCount);
+        minNodeIntersectionCount            = min(minNodeIntersectionCount, debugInfo.nodeIntersectionCount);
+        minNodeIntersectionTestCount        = min(minNodeIntersectionTestCount, debugInfo.nodeIntersectionTestCount);
+        minHitCount                         = min(minHitCount, debugInfo.hitCount);
 
-        maxTriangleIntersectionCount        = std::max(maxTriangleIntersectionCount, debugInfo.triangleIntersectionCount);
-        maxTriangleIntersectionTestCount    = std::max(maxTriangleIntersectionTestCount, debugInfo.triangleIntersectionTestCount);
-        maxNodeIntersectionCount            = std::max(maxNodeIntersectionCount, debugInfo.nodeIntersectionCount);
-        maxNodeIntersectionTestCount        = std::max(maxNodeIntersectionTestCount, debugInfo.nodeIntersectionTestCount);
-        maxHitCount                         = std::max(maxHitCount, debugInfo.hitCount);
+        maxTriangleIntersectionCount        = max(maxTriangleIntersectionCount, debugInfo.triangleIntersectionCount);
+        maxTriangleIntersectionTestCount    = max(maxTriangleIntersectionTestCount, debugInfo.triangleIntersectionTestCount);
+        maxNodeIntersectionCount            = max(maxNodeIntersectionCount, debugInfo.nodeIntersectionCount);
+        maxNodeIntersectionTestCount        = max(maxNodeIntersectionTestCount, debugInfo.nodeIntersectionTestCount);
+        maxHitCount                         = max(maxHitCount, debugInfo.hitCount);
 
         TotalTriangleIntersectionCount      += debugInfo.triangleIntersectionCount;
         TotalTriangleIntersectionTestCount  += debugInfo.triangleIntersectionTestCount;
@@ -292,23 +338,23 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
         TotalHitCount                       += debugInfo.hitCount;
     }
 
-    std::cout << "MinTriangleIntersectionCount: " << maxTriangleIntersectionCount << std::endl;
-    std::cout << "MinTriangleIntersectionTestCount: " << maxTriangleIntersectionTestCount << std::endl;
-    std::cout << "MinNodeIntersectionCount: " << maxNodeIntersectionCount << std::endl;
-    std::cout << "MinNodeIntersectionTestCount: " << maxNodeIntersectionTestCount << std::endl;
-    std::cout << "MinHitCount: " << maxHitCount << std::endl;
+    std::cout << "MinTriangleIntersectionCount: "       << minTriangleIntersectionCount << std::endl;
+    std::cout << "MinTriangleIntersectionTestCount: "   << minTriangleIntersectionTestCount << std::endl;
+    std::cout << "MinNodeIntersectionCount: "           << minNodeIntersectionCount << std::endl;
+    std::cout << "MinNodeIntersectionTestCount: "       << minNodeIntersectionTestCount << std::endl;
+    std::cout << "MinHitCount: "                        << minHitCount << std::endl;
 
-    std::cout << "MaxTriangleIntersectionCount: " << maxTriangleIntersectionCount << std::endl;
-    std::cout << "MaxTriangleIntersectionTestCount: " << maxTriangleIntersectionTestCount << std::endl;
-    std::cout << "MaxNodeIntersectionCount: " << maxNodeIntersectionCount << std::endl;
-    std::cout << "MaxNodeIntersectionTestCount: " << maxNodeIntersectionTestCount << std::endl;
-    std::cout << "MaxHitCount: " << maxHitCount << std::endl;
+    std::cout << "MaxTriangleIntersectionCount: "       << maxTriangleIntersectionCount << std::endl;
+    std::cout << "MaxTriangleIntersectionTestCount: "   << maxTriangleIntersectionTestCount << std::endl;
+    std::cout << "MaxNodeIntersectionCount: "           << maxNodeIntersectionCount << std::endl;
+    std::cout << "MaxNodeIntersectionTestCount: "       << maxNodeIntersectionTestCount << std::endl;
+    std::cout << "MaxHitCount: "                        << maxHitCount << std::endl;
 
-    std::cout << "TotalTriangleIntersectionCount: " << TotalTriangleIntersectionCount << std::endl;
+    std::cout << "TotalTriangleIntersectionCount: "     << TotalTriangleIntersectionCount << std::endl;
     std::cout << "TotalTriangleIntersectionTestCount: " << TotalTriangleIntersectionTestCount << std::endl;
-    std::cout << "TotalNodeIntersectionCount: " << TotalNodeIntersectionCount << std::endl;
-    std::cout << "TotalNodeIntersectionTestCount: " << TotalNodeIntersectionTestCount << std::endl;
-    std::cout << "TotalHitCount: " << TotalHitCount << std::endl;
+    std::cout << "TotalNodeIntersectionCount: "         << TotalNodeIntersectionCount << std::endl;
+    std::cout << "TotalNodeIntersectionTestCount: "     << TotalNodeIntersectionTestCount << std::endl;
+    std::cout << "TotalHitCount: "                      << TotalHitCount << std::endl;
 
     for (int i = 0; i < width * height; i++)
     {
@@ -326,6 +372,156 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights) {
     OutputImage(hitCountImage, width, height, "nodeHitCount.jpg");
 }
 
+// high poly ducks stacked in front of eachother
+void GenerateScene1(AccelStruct& accelerationStructure, AccelStruct& lights)
+{
+    Material      ivory(Material::Type::Dielectric, glm::vec3(0.4, 0.4, 0.3), glm::vec3(0.4, 0.4, 0.3), 1.0, 50.);
+    Material      glass(Material::Type::Dielectric, glm::vec3(0.6, 0.7, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5, 125.);
+    Material red_rubber(Material::Type::Dielectric, glm::vec3(0.3, 0.1, 0.1), glm::vec3(0.3, 0.1, 0.1), 1.0, 10.);
+    Material     mirror(Material::Type::Mirror, glm::vec3(0.8), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    Material   emissiveDuck(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    Material   ceiling(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    emissiveDuck.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
+    ceiling.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    std::vector<Material> materials;
+    materials.reserve(4);
+    materials.push_back(ivory);
+    materials.push_back(glass);
+    materials.push_back(red_rubber);
+    materials.push_back(mirror);
+    materials.push_back(emissiveDuck);
+
+    std::vector<RenderObject> renderObjects;
+    Model duckModel = Model("../duck.obj");
+    Model duck1Model = Model("../duck1.obj");
+    Model duck2Model = Model("../duck2.obj");
+    Model duckSubdividedModel = Model("../duck_subdivided.obj");
+    Model sphereModel = Model("../sphere.obj");
+    Model planeModel = Model("../plane.obj");
+    Transform transform = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(0));
+    for (int i = 0; i < 10; i++)
+    {
+        transform = Transform(glm::vec3(-20 + 2.0f * i, -9, -30 + 2 * i), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+        RenderObject object = RenderObject(duckSubdividedModel, materials[i % 5], transform);
+        if (i % 5 == 4)
+        {
+            lights->AddObject(object);
+        }
+        accelerationStructure->AddObject(object);
+        std::cout << "Object Added" << std::endl;
+    }
+    transform.scale = glm::vec3(40, 40, 40);
+    RenderObject ceilingObject = RenderObject(planeModel, ceiling, Transform(glm::vec3(0, 10, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject bigDuck = RenderObject(duckSubdividedModel, red_rubber, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject floorObject = RenderObject(planeModel, ivory, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+
+    lights->AddObject(ceilingObject);
+    accelerationStructure->AddObject(ceilingObject);
+    accelerationStructure->AddObject(bigDuck);
+    accelerationStructure->AddObject(floorObject);
+}
+
+// high poly ducks next to each other
+void GenerateScene2(AccelStruct& accelerationStructure, AccelStruct& lights)
+{
+    Material      ivory(Material::Type::Dielectric, glm::vec3(0.4, 0.4, 0.3), glm::vec3(0.4, 0.4, 0.3), 1.0, 50.);
+    Material      glass(Material::Type::Dielectric, glm::vec3(0.6, 0.7, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5, 125.);
+    Material red_rubber(Material::Type::Dielectric, glm::vec3(0.3, 0.1, 0.1), glm::vec3(0.3, 0.1, 0.1), 1.0, 10.);
+    Material     mirror(Material::Type::Mirror, glm::vec3(0.8), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    Material   emissiveDuck(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    Material   ceiling(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    emissiveDuck.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
+    ceiling.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    std::vector<Material> materials;
+    materials.reserve(4);
+    materials.push_back(ivory);
+    materials.push_back(glass);
+    materials.push_back(red_rubber);
+    materials.push_back(mirror);
+    materials.push_back(emissiveDuck);
+
+    std::vector<RenderObject> renderObjects;
+    Model duckModel = Model("../duck.obj");
+    Model duck1Model = Model("../duck1.obj");
+    Model duck2Model = Model("../duck2.obj");
+    Model duckSubdividedModel = Model("../duck_subdivided.obj");
+    Model sphereModel = Model("../sphere.obj");
+    Model planeModel = Model("../plane.obj");
+    Transform transform = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(0));
+    for (int i = 0; i < 10; i++)
+    {
+        transform = Transform(glm::vec3(-30 + 6.0f * i, -9, -30), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+        RenderObject object = RenderObject(duckModel, materials[i % 5], transform);
+        if (i % 5 == 4)
+        {
+            lights->AddObject(object);
+        }
+        accelerationStructure->AddObject(object);
+        std::cout << "Object Added" << std::endl;
+    }
+    transform.scale = glm::vec3(40, 40, 40);
+    RenderObject ceilingObject = RenderObject(planeModel, ceiling, Transform(glm::vec3(0, 10, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject bigDuck = RenderObject(duckModel, red_rubber, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject floorObject = RenderObject(planeModel, ivory, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+
+    lights->AddObject(ceilingObject);
+    accelerationStructure->AddObject(ceilingObject);
+    accelerationStructure->AddObject(bigDuck);
+    accelerationStructure->AddObject(floorObject);
+}
+
+// high poly ducks next to each other
+void GenerateScene3(AccelStruct& accelerationStructure, AccelStruct& lights)
+{
+    Material      ivory(Material::Type::Dielectric, glm::vec3(0.4, 0.4, 0.3), glm::vec3(0.4, 0.4, 0.3), 1.0, 50.);
+    Material      glass(Material::Type::Dielectric, glm::vec3(0.6, 0.7, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5, 125.);
+    Material red_rubber(Material::Type::Dielectric, glm::vec3(0.3, 0.1, 0.1), glm::vec3(0.3, 0.1, 0.1), 1.0, 10.);
+    Material     mirror(Material::Type::Mirror, glm::vec3(0.8), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    Material   emissiveDuck(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    Material   ceiling(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
+    emissiveDuck.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
+    ceiling.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    std::vector<Material> materials;
+    materials.reserve(4);
+    materials.push_back(ivory);
+    materials.push_back(glass);
+    materials.push_back(red_rubber);
+    materials.push_back(mirror);
+    materials.push_back(emissiveDuck);
+
+    std::vector<RenderObject> renderObjects;
+    Model duckModel = Model("../duck.obj");
+    Model duck1Model = Model("../duck1.obj");
+    Model duck2Model = Model("../duck2.obj");
+    Model duckSubdividedModel = Model("../duck_subdivided.obj");
+    Model sphereModel = Model("../sphere.obj");
+    Model planeModel = Model("../plane.obj");
+    Transform transform = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(0));
+    for (int i = 0; i < 10; i++)
+    {
+        transform = Transform(glm::vec3(-20 + 5.0f * i, -9, -15), glm::vec3(0, 0, 0), glm::vec3(0.5f, 0.5f, 0.5f));
+        RenderObject object = RenderObject(duckSubdividedModel, materials[i % 5], transform);
+        if (i % 5 == 4)
+        {
+            lights->AddObject(object);
+        }
+        accelerationStructure->AddObject(object);
+        std::cout << "Object Added" << std::endl;
+    }
+    transform.scale = glm::vec3(40, 40, 40);
+    RenderObject ceilingObject = RenderObject(planeModel, ceiling, Transform(glm::vec3(0, 10, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject bigDuck = RenderObject(duckSubdividedModel, red_rubber, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    RenderObject floorObject = RenderObject(planeModel, ivory, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+
+    lights->AddObject(ceilingObject);
+    accelerationStructure->AddObject(ceilingObject);
+    accelerationStructure->AddObject(bigDuck);
+    accelerationStructure->AddObject(floorObject);
+}
+
 int main() {
     int n = -1;
     unsigned char *pixmap = stbi_load("../envmap.jpg", &envmap_width, &envmap_height, &n, 0);
@@ -341,51 +537,15 @@ int main() {
     }
     stbi_image_free(pixmap);
 
-    Material      ivory(Material::Type::Dielectric, glm::vec3(0.4, 0.4, 0.3), glm::vec3(0.4, 0.4, 0.3), 1.0,   50.);
-    Material      glass(Material::Type::Dielectric, glm::vec3(0.6, 0.7, 0.8), glm::vec3(0.6, 0.7, 0.8), 1.5,  125.);
-    Material red_rubber(Material::Type::Dielectric, glm::vec3(0.3, 0.1, 0.1), glm::vec3(0.3, 0.1, 0.1), 1.0,   10.);
-    Material     mirror(Material::Type::Mirror, glm::vec3(0.8), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
-    Material   emissiveDuck(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
-    Material   ceiling(Material::Type::Emmisive, glm::vec3(1.0, 1.0, 1.0), glm::vec3(1.0, 1.0, 1.0), 1.0, 1425.);
-    emissiveDuck.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
-    ceiling.emittedRadiance = glm::vec3(1.0f, 1.0f, 1.0f);
-
-    std::vector<Material> materials;
-    materials.reserve(4);
-    materials.push_back(ivory);
-    materials.push_back(glass);
-    materials.push_back(red_rubber);
-    materials.push_back(mirror);
-    materials.push_back(emissiveDuck);
-
     AccelStruct accelerationStructure = std::make_unique<BVH>();
     AccelStruct lights = std::make_unique<BVH>();
 
-    std::vector<RenderObject> renderObjects;
-    Model duckModel = Model("../duck.obj");
-    Model sphereModel = Model("../sphere.obj");
-    Model planeModel = Model("../plane.obj");
-    Transform transform = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(0));
-    for (int i = 0; i < 10; i++)
-    {
-        transform = Transform(glm::vec3(-22 + 5 * i, -9, -40), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-        RenderObject object = RenderObject(duckModel, materials[i % 5], transform);
-        if (i % 5 == 4)
-        {
-            lights->AddObject(object);
-        }
-        accelerationStructure->AddObject(object);
-        std::cout << "Duck Added" << std::endl;
-    }
-    transform.scale = glm::vec3(40, 40, 40);
-    RenderObject ceilingObject = RenderObject(planeModel, ceiling, Transform(glm::vec3(0, 10, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
-    RenderObject floorObject = RenderObject(duckModel, mirror, Transform(glm::vec3(0, -20, -40), glm::vec3(0, 0, 0), glm::vec3(40, 40, 40)));
+    //GenerateScene1(accelerationStructure, lights);
+    GenerateScene2(accelerationStructure, lights);
+    //GenerateScene3(accelerationStructure, lights);
 
-    //lights->AddObject(ceilingObject);
-    //accelerationStructure->AddObject(ceilingObject);
-    accelerationStructure->AddObject(floorObject);
-
-    accelerationStructure->Build(true);
+    accelerationStructure->Build(false);
+    lights->Build(false);
     std::cout << "AccelerationStructure Built" << std::endl;
 
     render(accelerationStructure, lights);

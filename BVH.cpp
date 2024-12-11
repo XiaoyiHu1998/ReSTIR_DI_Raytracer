@@ -28,6 +28,7 @@ bool BVH::Traverse(Ray& ray)
 
 			ray.tnear = objectRay.tnear;
 			ray.normal = glm::normalize(glm::vec3(objectTransform * glm::vec4(objectRay.normal, 0)));
+			ray.prevHitMaterial = ray.material;
 			ray.material = bvhObject.material;
 			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
 		}
@@ -265,6 +266,7 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 
 	int axis = -1;
 	float splitPos = 0;
+	glm::vec3 extent = node.aabbMax - node.aabbMin;
 	//determine split axis and position
 	if (useHeuristic) 
 	{
@@ -287,9 +289,11 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 		}
 
 		//early termination if the best children have worse cost than current node
-		glm::vec3 extent = node.aabbMax - node.aabbMin;
 		float parentArea = extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
 		float parentCost = node.triangleCount * parentArea;
+
+		//TODO: fix actual negative axis value error
+		axis = std::max(axis, 0);
 
 		if (bestCost < parentCost)
 			return;
@@ -297,14 +301,11 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 	else
 	{
 		axis = 0;
-		glm::vec3 extent = node.aabbMax - node.aabbMin;
 		if (extent.y > extent.x) axis = 1;
 		if (extent.z > extent[axis]) axis = 2;
 		splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
 	}
 
-	//TODO: fix actual negative axis value error
-	axis = std::max(axis, 0);
 
 	//in-place partition
 	int i = node.leftChildOrFirstIndex;

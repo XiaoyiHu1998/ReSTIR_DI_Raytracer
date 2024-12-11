@@ -17,6 +17,7 @@ struct Ray
 	glm::vec3 hitLocation;
 	glm::vec3 normal;
 	Material material;
+	Material prevHitMaterial;
 
 	//Debug information
 	int triangleIntersectionCount;
