@@ -2,6 +2,7 @@
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 #include <iostream>
+#include <random>
 
 KdTree::KdTree(int maxDepth)
 {
@@ -41,6 +42,21 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 			hit |= TraverseNode(ray, *node.children[i]);
 
 	return hit;
+}
+
+glm::vec3 KdTree::RandomTrianglePoint() const
+{
+	std::srand(std::time(nullptr));
+
+	int randomTriangleIndex = std::rand() % m_Triangles.size();
+	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
+
+	float weightVertex0 = ((float(std::rand()) / RAND_MAX)) + 1;
+	float maxWeightVertex1 = 1.0f - weightVertex0;
+	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
+	float weightVertex2 = maxWeightVertex1 - weightVertex1;
+
+	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
 }
 
 bool KdTree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)

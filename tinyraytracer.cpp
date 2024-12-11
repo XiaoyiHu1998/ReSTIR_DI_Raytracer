@@ -18,6 +18,8 @@
 #include "model.h"
 #include "RenderObject.h"
 #include "BVH.h"
+#include "KdTree.h"
+#include "Octree.h"
 #include "Ray.h"
 #include "Material.h"
 
@@ -292,8 +294,8 @@ int main()
 	materials.push_back(mirror);
 	materials.push_back(emmisive);
 
-	AccelStruct accelerationStructure = std::make_unique<BVH>();
-	AccelStruct lights = std::make_unique<BVH>();
+	AccelStruct accelerationStructure = std::make_unique<Octree>();
+	AccelStruct lights = std::make_unique<Octree>();
 
 	std::vector<RenderObject> renderObjects;
 	Model duckModel = Model("../duck.obj");

@@ -2,6 +2,7 @@
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 #include <iostream>
+#include <random>
 
 Octree::Octree(int maxDepth)
 {
@@ -15,9 +16,8 @@ Octree::Octree(int maxDepth)
 
 bool Octree::Traverse(Ray& ray)
 {
-	//bool hit = TraverseNode(origin, direction, tnear, m_RootNode);
-	//return hit;
-	return false;
+	bool hit = TraverseNode(ray, m_RootNode);
+	return hit;
 }
 
 bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
@@ -32,16 +32,33 @@ bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 	ray.traversalSteps++;
 
 	if (node.isLeaf)
+	{
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
 		{
 			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
 			ray.intersectionCount++;
 		}
+	}
 	else
 		for (int i = 0; i < 8; i++)
 			hit |= TraverseNode(ray, *node.children[i]);
 
 	return hit;
+}
+
+glm::vec3 Octree::RandomTrianglePoint() const
+{
+	std::srand(std::time(nullptr));
+
+	int randomTriangleIndex = std::rand() % m_Triangles.size();
+	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
+
+	float weightVertex0 = ((float(std::rand()) / RAND_MAX)) + 1;
+	float maxWeightVertex1 = 1.0f - weightVertex0;
+	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
+	float weightVertex2 = maxWeightVertex1 - weightVertex1;
+
+	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
 }
 
 bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
@@ -67,12 +84,18 @@ bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, g
 void Octree::AddObject(const RenderObject& object)
 {
 	const Model& model = object.m_Model;
+	const glm::mat4 transform = object.m_Transform.GetTransformMatrix();
 	int faceCount = model.nfaces();
 
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
 
 	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++)
-		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
+	{
+		glm::vec3 vertex0 = glm::vec3(glm::vec4(model.point(model.vert(faceIndex, 0)), 1) * transform);
+		glm::vec3 vertex1 = glm::vec3(glm::vec4(model.point(model.vert(faceIndex, 1)), 1) * transform);
+		glm::vec3 vertex2 = glm::vec3(glm::vec4(model.point(model.vert(faceIndex, 2)), 1) * transform);
+		m_Triangles.emplace_back(Triangle(vertex0, vertex1, vertex2));
+	}
 }
 
 void Octree::Build(bool useHeuristic)

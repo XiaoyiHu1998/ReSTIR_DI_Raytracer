@@ -28,6 +28,7 @@ public:
 	virtual ~KdTree() {}
 
 	virtual bool Traverse(Ray& ray) override;
+	virtual glm::vec3 RandomTrianglePoint() const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;

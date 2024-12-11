@@ -15,7 +15,7 @@ private:
 		bool isLeaf;
 
 		OctreeNode() :
-			aabbMin{ glm::vec3(0) }, aabbMax{ glm::vec3(0) }, triangleIndices{ {} }, isLeaf{ true }
+			aabbMin{ glm::vec3(0) }, aabbMax{ glm::vec3(0) }, triangleIndices{ std::vector<uint32_t>() }, isLeaf{ true }
 		{
 		}
 	};
@@ -29,6 +29,7 @@ public:
 
 	//virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
 	virtual bool Traverse(Ray& ray) override;
+	virtual glm::vec3 RandomTrianglePoint() const override;
 
 	virtual void AddObject(const RenderObject& object) override;
 	virtual void Build(bool useHeuristic) override;
