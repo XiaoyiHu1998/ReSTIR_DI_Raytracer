@@ -312,7 +312,7 @@ int main()
 		std::cout << "Duck Added" << std::endl;
 	}
 	accelerationStructure->Build(true);
-	std::cout << "BVH Built" << std::endl;
+	std::cout << "Acceleration Structure Built" << std::endl;
 
 	render(accelerationStructure, lights);
 
