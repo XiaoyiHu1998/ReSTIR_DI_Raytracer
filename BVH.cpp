@@ -113,7 +113,6 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 	{
 		float closestDistance = ray.tnear;
 		glm::vec3 normal = glm::vec3(0);
-		bool hit = false;
 
 		for (uint32_t i = 0; i < node.triangleCount; i++)
 		{
@@ -136,8 +135,6 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 			ray.normal = normal;
 			ray.objectArea = m_Area;
 		}
-
-		return hit;
 	}
 	else
 	{

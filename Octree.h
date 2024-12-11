@@ -42,6 +42,8 @@ private:
 	bool TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax);
 	bool TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis);
 	bool TraverseNode(Ray& ray, const OctreeNode node);
+	int GetClosestChildIndex(const glm::vec3 nodeCenter, const glm::vec3 point);
+	bool RayPlaneIntersection(const Ray ray, const int axis, const glm::vec3 planeCenter, const float span, float& t);
 	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
 };
 

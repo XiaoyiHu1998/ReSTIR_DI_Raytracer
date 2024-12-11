@@ -33,15 +33,70 @@ bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 
 	if (node.isLeaf)
 	{
+		float closestDistance = ray.tnear;
+		glm::vec3 normal = glm::vec3(0);
+
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
 		{
-			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
+			const Triangle& currentTriangle = m_Triangles[node.triangleIndices[i]];
+			float triangleDistance = std::numeric_limits<float>().max();
+			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
 			ray.intersectionCount++;
+
+			if (triangleHit && triangleDistance < closestDistance)
+			{
+				closestDistance = triangleDistance;
+				normal = currentTriangle.normal;
+				hit = true;
+			}
 		}
+
+		if (hit)
+		{
+			ray.tnear = closestDistance;
+			ray.normal = normal;
+		}
+
+		return hit;
 	}
 	else
+	{
 		for (int i = 0; i < 8; i++)
+		{
 			hit |= TraverseNode(ray, *node.children[i]);
+		}
+		//int closestChildIndex = GetClosestChildIndex((node.aabbMin + node.aabbMax) * 0.5f, ray.origin);
+
+		//float t0, t1, t2;
+		//bool planeHit0 = RayPlaneIntersection(ray, 0, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.x - node.aabbMin.x) * 0.5f, t0);
+		//bool planeHit1 = RayPlaneIntersection(ray, 1, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.y - node.aabbMin.y) * 0.5f, t1);
+		//bool planeHit2 = RayPlaneIntersection(ray, 2, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.z - node.aabbMin.z) * 0.5f, t2);
+
+		//float plane_hit[3] = { t0, t1, t2 };
+
+		//for (int i = 0; i < 4; i++)
+		//{
+		//	hit |= TraverseNode(ray, *node.children[closestChildIndex]);
+		//	if (hit)
+		//		break;
+
+		//	int planeIndex = -1;
+		//	float closestPlaneHit = std::numeric_limits<float>::max();
+		//	for (int j = 0; j < 3; j++)
+		//	{
+		//		if (plane_hit[j] < closestPlaneHit)
+		//		{
+		//			closestPlaneHit = plane_hit[j];
+		//			planeIndex = j;
+		//		}
+		//	}
+		//	if (planeIndex == -1 || closestPlaneHit > ray.tnear)
+		//		break;
+
+		//	closestChildIndex ^= 0x1 << planeIndex;
+		//	plane_hit[planeIndex] = std::numeric_limits<float>::max();
+		//}
+	}
 
 	return hit;
 }
@@ -59,6 +114,36 @@ glm::vec3 Octree::RandomTrianglePoint() const
 	float weightVertex2 = maxWeightVertex1 - weightVertex1;
 
 	return weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
+}
+
+bool Octree::RayPlaneIntersection(const Ray ray, const int axis, const glm::vec3 planeCenter, const float span, float& t)
+{
+	if (ray.direction[axis] == 0)
+		return false;
+
+	t = (planeCenter[axis] - ray.origin[axis]) / ray.direction[axis];
+
+	if (t < 0)
+		return false;
+
+	glm::vec3 intersection = ray.origin + ray.direction * t;
+
+	if (intersection[(axis + 1) % 3] < planeCenter[(axis + 1) % 3] - span || intersection[(axis + 1) % 3] > planeCenter[(axis + 1) % 3] + span ||
+		intersection[(axis + 2) % 3] < planeCenter[(axis + 2) % 3] - span || intersection[(axis + 2) % 3] > planeCenter[(axis + 2) % 3] + span)
+		return false;
+
+	return true;
+}
+
+int Octree::GetClosestChildIndex(const glm::vec3 nodeCenter, const glm::vec3 point)
+{
+	glm::vec3 direction = point - nodeCenter;
+
+	int x_test = direction.x > 0 ? 1 : 0;
+	int y_test = direction.y > 0 ? 1 : 0;
+	int z_test = direction.z > 0 ? 1 : 0;
+
+	return x_test | (y_test << 1) | (z_test << 2);
 }
 
 bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
@@ -118,7 +203,7 @@ void Octree::Build(bool useHeuristic)
 	for (int i = 0; i < m_Triangles.size(); i++)
 	{
 		bool triangleInAABB = TriangleInAABB(m_Triangles[i], m_RootNode.aabbMin, m_RootNode.aabbMax);
-		if(triangleInAABB)
+		if (triangleInAABB)
 			count++;
 	}
 	std::cout << "Triangles in AABB: " << count << std::endl;
@@ -162,13 +247,6 @@ void Octree::Subdivide(OctreeNode& node, int depth)
 		return;
 	}
 
-	if (depth == 1)
-	{
-		std::cout << "Bounding box min: " << glm::to_string(node.aabbMin) << std::endl;
-		std::cout << "Bounding box max: " << glm::to_string(node.aabbMax) << std::endl;
-		std::cout << "Triangle count: " << node.triangleIndices.size() << std::endl;
-	}
-
 	node.isLeaf = false;
 
 	// determine center of node
@@ -200,8 +278,13 @@ void Octree::Subdivide(OctreeNode& node, int depth)
 			}
 		}
 
+	// clean up parent node
+	node.triangleIndices.clear();
+
 	for (int i = 0; i < 8; i++)
+	{
 		Subdivide(*node.children[i], depth + 1);
+	}
 }
 
 // https://michael-schwarz.com/research/publ/files/vox-siga10.pdf
@@ -240,7 +323,7 @@ bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabb
 		return false;
 
 	// yz projection overlap check
-	if(!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 1, 2, 0))
+	if (!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 1, 2, 0))
 		return false;
 
 	// xz projection overlap check

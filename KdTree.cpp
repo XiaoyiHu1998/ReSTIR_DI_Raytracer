@@ -32,14 +32,39 @@ bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 	ray.traversalSteps++;
 
 	if (node.isLeaf)
+	{
+		float closestDistance = ray.tnear;
+		glm::vec3 normal = glm::vec3(0);
+		bool hit = false;
+
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
 		{
-			hit |= m_Triangles[node.triangleIndices[i]].Intersect(ray.origin, ray.direction, ray.tnear);
+			const Triangle& currentTriangle = m_Triangles[node.triangleIndices[i]];
+			float triangleDistance = std::numeric_limits<float>().max();
+			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
 			ray.intersectionCount++;
+
+			if (triangleHit && triangleDistance < closestDistance)
+			{
+				closestDistance = triangleDistance;
+				normal = currentTriangle.normal;
+				hit = true;
+			}
 		}
+
+		if (hit)
+		{
+			ray.tnear = closestDistance;
+			ray.normal = normal;
+		}
+
+		return hit;
+	}
 	else
-		for (int i = 0; i < 2; i++)
-			hit |= TraverseNode(ray, *node.children[i]);
+	{
+		// determine closest child
+		//int closestChildIndex = GetClosestChildIndex((node.aabbMin + node.aabbMax) * 0.5f, ray.origin);
+	}
 
 	return hit;
 }

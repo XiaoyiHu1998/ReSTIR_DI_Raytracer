@@ -13,9 +13,10 @@ private:
 		KdTreeNode* children[2];
 		std::vector<uint32_t> triangleIndices;
 		bool isLeaf;
+		int splitAxis;
 
 		KdTreeNode() :
-			aabbMin{ glm::vec3(0) }, aabbMax{ glm::vec3(0) }, triangleIndices{ {} }, isLeaf{ true }
+			aabbMin{ glm::vec3(0) }, aabbMax{ glm::vec3(0) }, triangleIndices{ std::vector<uint32_t>() }, isLeaf{ true }, splitAxis{ 0 }
 		{
 		}
 	};

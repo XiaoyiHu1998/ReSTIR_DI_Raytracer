@@ -294,8 +294,8 @@ int main()
 	materials.push_back(mirror);
 	materials.push_back(emmisive);
 
-	AccelStruct accelerationStructure = std::make_unique<Octree>();
-	AccelStruct lights = std::make_unique<Octree>();
+	AccelStruct accelerationStructure = std::make_unique<Octree>(4);
+	AccelStruct lights = std::make_unique<Octree>(4);
 
 	std::vector<RenderObject> renderObjects;
 	Model duckModel = Model("../duck.obj");
