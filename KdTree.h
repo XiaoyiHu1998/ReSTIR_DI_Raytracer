@@ -1,34 +1,34 @@
-#ifndef Octree_HPP
-#define Octree_HPP
+#ifndef KdTree_HPP
+#define KdTree_HPP
 
 #include "AccelerationStructure.h"
 #include "Triangle.h"
 #include "Utils.h"
 
-class Octree : public AccelerationStructure
+class KdTree : public AccelerationStructure
 {
 private:
-	struct OctreeNode
+	struct KdTreeNode
 	{
 		glm::vec3 aabbMin, aabbMax;
-		OctreeNode* children[8];
+		KdTreeNode* children[2];
 		std::vector<uint32_t> triangleIndices;
 		bool isLeaf;
+		int splitAxis;
 
-		OctreeNode() :
-			aabbMin{ glm::vec3(0) }, aabbMax{ glm::vec3(0) }, triangleIndices{ std::vector<uint32_t>() }, isLeaf{ true }
+		KdTreeNode() :
+			aabbMin{ glm::vec3(0) }, aabbMax{ glm::vec3(0) }, triangleIndices{ std::vector<uint32_t>() }, isLeaf{ true }, splitAxis{ 0 }
 		{
 		}
 	};
 
 	std::vector<Triangle> m_Triangles;
-	OctreeNode m_RootNode;
+	KdTreeNode m_RootNode;
 
 public:
-	Octree(int maxDepth = 16);
-	virtual ~Octree() {}
+	KdTree(int maxDepth = 32);
+	virtual ~KdTree() {}
 
-	//virtual bool Traverse(const glm::vec3& origin, const glm::vec3& direction, float& tnear) override;
 	virtual bool Traverse(Ray& ray) override;
 	virtual RandomLightPoint RandomTrianglePoint(uint32_t& seed) const override;
 
@@ -38,13 +38,11 @@ public:
 
 	int maxDepth;
 private:
-	void InitRootNode(OctreeNode& root);
-	void Subdivide(OctreeNode& node, int depth);
+	void InitRootNode(KdTreeNode& root);
+	void Subdivide(KdTreeNode& node, int depth);
 	bool TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax);
 	bool TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis);
-	bool TraverseNode(Ray& ray, const OctreeNode node);
-	int GetClosestChildIndex(const glm::vec3 nodeCenter, const glm::vec3 point);
-	bool RayPlaneIntersection(const Ray ray, const int axis, const glm::vec3 planeCenter, const float span, float& t);
+	bool TraverseNode(Ray& ray, const KdTreeNode node);
 	bool IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax);
 };
 
