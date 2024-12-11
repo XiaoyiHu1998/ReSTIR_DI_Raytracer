@@ -21,6 +21,7 @@ void BVH::SetDebugMode(DebugMode debugMode)
 
 bool BVH::Traverse(Ray& ray)
 {
+	Ray objectRay;
 	bool hit = false;
 
 	for (const BVH_Object& bvhObject : m_BVHObjects)
@@ -28,7 +29,6 @@ bool BVH::Traverse(Ray& ray)
 		const glm::mat4& inverseTransform = bvhObject.inverseTransform;
 		const glm::mat4& objectTransform = glm::inverse(bvhObject.inverseTransform);
 
-		Ray objectRay;
 		objectRay.origin = glm::vec3(inverseTransform * glm::vec4(ray.origin, 1));
 		objectRay.direction = glm::vec3(inverseTransform * glm::vec4(ray.direction, 0));
 
