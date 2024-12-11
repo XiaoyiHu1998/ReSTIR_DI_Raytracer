@@ -29,7 +29,7 @@ public:
 	virtual ~AccelerationStructure() {}
 
 	virtual bool Traverse(Ray& ray) = 0;
-	virtual RandomLightPoint RandomTrianglePoint() const = 0;
+	virtual RandomLightPoint RandomTrianglePoint(uint32_t& seed) const = 0;
 
 	virtual void AddObject(const RenderObject& object) = 0;
 	virtual void Build(bool useHeuristic) = 0;

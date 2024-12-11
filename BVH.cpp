@@ -46,12 +46,11 @@ bool BVH::Traverse(Ray& ray)
 	return hit;
 }
 
-RandomLightPoint BVH::RandomTrianglePoint() const
+RandomLightPoint BVH::RandomTrianglePoint(uint32_t& seed) const
 {
-	std::srand(std::time(nullptr));
-	int randomBVHObjectIndex = std::rand() % m_BVHObjects.size();
+	int randomBVHObjectIndex = Utils::RandomInt(0, m_BVHObjects.size() - 1, seed);
 	const BVH_Object& randomBVHObject = m_BVHObjects[randomBVHObjectIndex];
-	TrianglePoint& trianglePoint = randomBVHObject.bvh.RandomTrianglePoint();
+	TrianglePoint& trianglePoint = randomBVHObject.bvh.RandomTrianglePoint(seed);
 	return RandomLightPoint(trianglePoint.point, randomBVHObject.material.color, randomBVHObject.bvh.Area(), trianglePoint.normal, randomBVHObject.inverseTransform);
 }
 
@@ -94,16 +93,14 @@ bool BVH_BLAS::Traverse(Ray& ray) const
 	return TraverseNode(ray, 0);
 }
 
-TrianglePoint BVH_BLAS::RandomTrianglePoint() const
-{
-	std::srand(std::time(nullptr));
-	
-	int randomTriangleIndex = std::rand() % m_Triangles.size();
+TrianglePoint BVH_BLAS::RandomTrianglePoint(uint32_t& seed) const
+{	
+	int randomTriangleIndex = Utils::RandomInt(0, m_Triangles.size() - 1, seed);
 	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
 	
-	float weightVertex0 = ((float(std::rand()) / RAND_MAX)) + 1;
+	float weightVertex0 = Utils::RandomFloat(seed);
 	float maxWeightVertex1 = 1.0f - weightVertex0;
-	float weightVertex1 = (((float(std::rand()) / RAND_MAX)) + 1) * maxWeightVertex1;
+	float weightVertex1 = Utils::RandomFloat(seed) * maxWeightVertex1;
 	float weightVertex2 = maxWeightVertex1 - weightVertex1;
 	
 	glm::vec3 trianglePoint = weightVertex0 * randomTriangle.vertex0 + weightVertex1 * randomTriangle.vertex1 + weightVertex2 * randomTriangle.vertex2;
@@ -215,11 +212,11 @@ void BVH_BLAS::AddObject(const RenderObject& object, const glm::mat4& transform)
 		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
 		
 		//Add transformed triangle area
-		//Triangle& faceTriangle = m_Triangles[faceIndex];
-		//Triangle transformedTriangle = Triangle(glm::vec3(transform * glm::vec4(faceTriangle.vertex0, 0)),
-		//										glm::vec3(transform * glm::vec4(faceTriangle.vertex1, 0)),
-		//										glm::vec3(transform * glm::vec4(faceTriangle.vertex2, 0)));
-		//m_Area += transformedTriangle.Area();
+		Triangle& faceTriangle = m_Triangles[faceIndex];
+		Triangle transformedTriangle = Triangle(glm::vec3(transform * glm::vec4(faceTriangle.vertex0, 0)),
+												glm::vec3(transform * glm::vec4(faceTriangle.vertex1, 0)),
+												glm::vec3(transform * glm::vec4(faceTriangle.vertex2, 0)));
+		m_Area += transformedTriangle.Area();
 	}
 }
 
