@@ -18,10 +18,11 @@ bool BVH::Traverse(Ray& ray)
 		const glm::mat4& objectTransform = glm::inverse(bvhObject.inverseTransform);
 
 		Ray objectRay;
+		objectRay.tnear = ray.tnear;
 		objectRay.origin = glm::vec3(inverseTransform * glm::vec4(ray.origin, 1));
 		objectRay.direction = glm::vec3(inverseTransform * glm::vec4(ray.direction, 0));
 
-		if (bvhObject.bvh.Traverse(objectRay))
+		if (bvhObject.bvh.Traverse(objectRay) && objectRay.tnear < ray.tnear)
 		{
 			hit = true;
 
@@ -30,6 +31,10 @@ bool BVH::Traverse(Ray& ray)
 			ray.material = bvhObject.material;
 			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
 		}
+
+		ray.intersectionCount += objectRay.intersectionCount;
+		ray.boxIntersectionCount += objectRay.boxIntersectionCount;
+		ray.traversalSteps += objectRay.traversalSteps;
 	}
 
 	return hit;

@@ -193,7 +193,7 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights)
 	const int   height = 768;
 	const float fov = M_PI / 3.;
 	std::vector<glm::vec3> framebuffer(width * height);
-	std::vector<Ray*> debugbuffer(width * height);
+	std::vector<std::unique_ptr<Ray>> debugbuffer(width * height);
 	std::vector<std::thread> threadPool;
 	threadPool.reserve(height);
 
@@ -208,11 +208,11 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights)
 				glm::vec3 framebufferPixelValue = glm::vec3(0);
 				for (int sample = 0; sample < 50; sample++)
 				{
-					Ray ray(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z)));
-					framebufferPixelValue += PathTraceRay(ray, accelerationStructure, lights, 0, 1) / 50;
+					auto ray = std::make_unique<Ray>(glm::vec3(0, 0, 0), glm::normalize(glm::vec3(dir_x, dir_y, dir_z)));
+					framebufferPixelValue += PathTraceRay(*ray, accelerationStructure, lights, 0, 1) / 50;
 					if (sample == 0)
 					{
-						debugbuffer[i + row * width] = &ray;
+						debugbuffer[i + row * width] = std::move(ray);
 					}
 				}
 
@@ -247,9 +247,10 @@ void render(AccelStruct& accelerationStructure, const AccelStruct& lights)
 
 	for (int i = 0; i < width * height; i++)
 	{
-		rayIntersectionsImage[i] = valueToDebugColor(debugbuffer[i]->intersectionCount, 0, 10);
-		boxIntersectionsImage[i] = valueToDebugColor(debugbuffer[i]->boxIntersectionCount, 0, 10);
-		traversalStepsImage[i] = valueToDebugColor(debugbuffer[i]->traversalSteps, 0, 10);
+		Ray* ray = debugbuffer[i].get();
+		rayIntersectionsImage[i] = valueToDebugColor(ray->intersectionCount, 0, 10000);
+		boxIntersectionsImage[i] = valueToDebugColor(ray->boxIntersectionCount, 0, 10000);
+		traversalStepsImage[i] = valueToDebugColor(ray->traversalSteps, 0, 10);
 	}
 
 	OutputImage(rayIntersectionsImage, width, height, "rayIntersections.jpg");
