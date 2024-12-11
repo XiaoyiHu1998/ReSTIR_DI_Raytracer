@@ -544,8 +544,8 @@ int main() {
     GenerateScene2(accelerationStructure, lights);
     //GenerateScene3(accelerationStructure, lights);
 
-    accelerationStructure->Build(false);
-    lights->Build(false);
+    accelerationStructure->Build(true);
+    lights->Build(true);
     std::cout << "AccelerationStructure Built" << std::endl;
 
     render(accelerationStructure, lights);
