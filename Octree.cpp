@@ -38,10 +38,70 @@ bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 			ray.intersectionCount++;
 		}
 	else
-		for (int i = 0; i < 8; i++)
-			hit |= TraverseNode(ray, *node.children[i]);
+	{
+		int closestChildIndex = GetClosestChildIndex((node.aabbMin + node.aabbMax) * 0.5f, ray.origin);
+		float t0, t1, t2;
+		bool planeHit0 = RayPlaneIntersection(ray, 0, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.x - node.aabbMin.x) * 0.5f, t0);
+		bool planeHit1 = RayPlaneIntersection(ray, 1, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.y - node.aabbMin.y) * 0.5f, t1);
+		bool planeHit2 = RayPlaneIntersection(ray, 2, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.z - node.aabbMin.z) * 0.5f, t2);
+
+		float plane_hit[3] = { t0, t1, t2 };
+
+		for (int i = 0; i < 4; i++)
+		{
+			hit |= TraverseNode(ray, *node.children[closestChildIndex]);
+			if (hit)
+				break;
+
+			int planeIndex = -1;
+			float closestPlaneHit = std::numeric_limits<float>::max();
+			for (int j = 0; j < 3; j++)
+			{
+				if (plane_hit[j] < closestPlaneHit)
+				{
+					closestPlaneHit = plane_hit[j];
+					planeIndex = j;
+				}
+			}
+			if (planeIndex == -1 || closestPlaneHit > ray.tnear)
+				break;
+
+			closestChildIndex ^= 0x1 << planeIndex;
+			plane_hit[planeIndex] = std::numeric_limits<float>::max();
+		}
+	}
 
 	return hit;
+}
+
+bool Octree::RayPlaneIntersection(const Ray ray, const int axis, const glm::vec3 planeCenter, const float span, float& t)
+{
+	if (ray.direction[axis] == 0)
+		return false;
+
+	float t = (planeCenter[axis] - ray.origin[axis]) / ray.direction[axis];
+
+	if (t < 0)
+		return false;
+
+	glm::vec3 intersection = ray.origin + ray.direction * t;
+
+	if (intersection[(axis + 1) % 3] < planeCenter[(axis + 1) % 3] - span || intersection[(axis + 1) % 3] > planeCenter[(axis + 1) % 3] + span ||
+		intersection[(axis + 2) % 3] < planeCenter[(axis + 2) % 3] - span || intersection[(axis + 2) % 3] > planeCenter[(axis + 2) % 3] + span)
+		return false;
+
+	return true;
+}
+
+int Octree::GetClosestChildIndex(const glm::vec3 nodeCenter, const glm::vec3 point)
+{
+	glm::vec3 direction = point - nodeCenter;
+
+	int x_test = direction.x > 0 ? 1 : 0;
+	int y_test = direction.y > 0 ? 1 : 0;
+	int z_test = direction.z > 0 ? 1 : 0;
+
+	return x_test | (y_test << 1) | (z_test << 2);
 }
 
 bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
