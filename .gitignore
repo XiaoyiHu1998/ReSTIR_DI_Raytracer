@@ -1,0 +1,18 @@
+# Assignment 1
+# Ignore content built with CMake
+Assignment 1/build/
+
+#Assignment 2
+# Directories
+*/.vs/
+Assignment 2/bin/
+Assignment 2/bin-intermediate/
+Assignment 2/Hazel/vendor/Glad/bin
+Assignment 2/Hazel/vendor/Glad/bin-int
+Assignment 2/Hazel/vendor/GLFW/bin
+Assignment 2/Hazel/vendor/GLFW/bin-int
+
+# Files
+Assignment 2/.user
+*/imgui.ini
+
