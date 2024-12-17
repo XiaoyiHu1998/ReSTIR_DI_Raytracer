@@ -1,26 +1,26 @@
-#include "Octree.h"
+#include "KdTree.h"
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 #include <iostream>
 #include <random>
 
-Octree::Octree(int maxDepth)
+KdTree::KdTree(int maxDepth)
 {
 	m_Triangles = {};
 	m_Triangles.reserve(10000 * 3);
 
-	m_RootNode = OctreeNode();
+	m_RootNode = KdTreeNode();
 
 	this->maxDepth = maxDepth;
 }
 
-bool Octree::Traverse(Ray& ray)
+bool KdTree::Traverse(Ray& ray)
 {
 	bool hit = TraverseNode(ray, m_RootNode);
 	return hit;
 }
 
-bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
+bool KdTree::TraverseNode(Ray& ray, const KdTreeNode node)
 {
 	bool hit = false;
 
@@ -35,20 +35,21 @@ bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 	{
 		float closestDistance = ray.tnear;
 		glm::vec3 normal = glm::vec3(0);
+		bool hit = false;
 
 		for (uint32_t i = 0; i < node.triangleIndices.size(); i++)
 		{
 			const Triangle& currentTriangle = m_Triangles[node.triangleIndices[i]];
 			float triangleDistance = std::numeric_limits<float>().max();
 			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
-			ray.triangleIntersectionCount++;
+			ray.triangleIntersectionTestCount++;
 
 			if (triangleHit && triangleDistance < closestDistance)
 			{
 				closestDistance = triangleDistance;
 				normal = currentTriangle.normal;
 				hit = true;
-				ray.triangleIntersectionTestCount++;
+				ray.triangleIntersectionCount++;
 			}
 		}
 
@@ -64,47 +65,14 @@ bool Octree::TraverseNode(Ray& ray, const OctreeNode node)
 	}
 	else
 	{
-		for (int i = 0; i < 8; i++)
-		{
-			hit |= TraverseNode(ray, *node.children[i]);
-		}
+		// determine closest child
 		//int closestChildIndex = GetClosestChildIndex((node.aabbMin + node.aabbMax) * 0.5f, ray.origin);
-
-		//float t0, t1, t2;
-		//bool planeHit0 = RayPlaneIntersection(ray, 0, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.x - node.aabbMin.x) * 0.5f, t0);
-		//bool planeHit1 = RayPlaneIntersection(ray, 1, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.y - node.aabbMin.y) * 0.5f, t1);
-		//bool planeHit2 = RayPlaneIntersection(ray, 2, (node.aabbMin + node.aabbMax) * 0.5f, (node.aabbMax.z - node.aabbMin.z) * 0.5f, t2);
-
-		//float plane_hit[3] = { t0, t1, t2 };
-
-		//for (int i = 0; i < 4; i++)
-		//{
-		//	hit |= TraverseNode(ray, *node.children[closestChildIndex]);
-		//	if (hit)
-		//		break;
-
-		//	int planeIndex = -1;
-		//	float closestPlaneHit = std::numeric_limits<float>::max();
-		//	for (int j = 0; j < 3; j++)
-		//	{
-		//		if (plane_hit[j] < closestPlaneHit)
-		//		{
-		//			closestPlaneHit = plane_hit[j];
-		//			planeIndex = j;
-		//		}
-		//	}
-		//	if (planeIndex == -1 || closestPlaneHit > ray.tnear)
-		//		break;
-
-		//	closestChildIndex ^= 0x1 << planeIndex;
-		//	plane_hit[planeIndex] = std::numeric_limits<float>::max();
-		//}
 	}
 
 	return hit;
 }
 
-RandomLightPoint Octree::RandomTrianglePoint(uint32_t& seed) const
+RandomLightPoint KdTree::RandomTrianglePoint(uint32_t& seed) const
 {
 	int randomTriangleIndex = Utils::RandomInt(0, m_Triangles.size() - 1, seed);
 	const Triangle& randomTriangle = m_Triangles[randomTriangleIndex];
@@ -121,37 +89,7 @@ RandomLightPoint Octree::RandomTrianglePoint(uint32_t& seed) const
 	return RandomLightPoint(randomPoint, randomTriangle.material.emittedRadiance, 1, randomTriangle.normal, glm::inverse(randomTriangle.transformMatrix));
 }
 
-bool Octree::RayPlaneIntersection(const Ray ray, const int axis, const glm::vec3 planeCenter, const float span, float& t)
-{
-	if (ray.direction[axis] == 0)
-		return false;
-
-	t = (planeCenter[axis] - ray.origin[axis]) / ray.direction[axis];
-
-	if (t < 0)
-		return false;
-
-	glm::vec3 intersection = ray.origin + ray.direction * t;
-
-	if (intersection[(axis + 1) % 3] < planeCenter[(axis + 1) % 3] - span || intersection[(axis + 1) % 3] > planeCenter[(axis + 1) % 3] + span ||
-		intersection[(axis + 2) % 3] < planeCenter[(axis + 2) % 3] - span || intersection[(axis + 2) % 3] > planeCenter[(axis + 2) % 3] + span)
-		return false;
-
-	return true;
-}
-
-int Octree::GetClosestChildIndex(const glm::vec3 nodeCenter, const glm::vec3 point)
-{
-	glm::vec3 direction = point - nodeCenter;
-
-	int x_test = direction.x > 0 ? 1 : 0;
-	int y_test = direction.y > 0 ? 1 : 0;
-	int z_test = direction.z > 0 ? 1 : 0;
-
-	return x_test | (y_test << 1) | (z_test << 2);
-}
-
-bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool KdTree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, glm::vec3 aabbMin, glm::vec3 aabbMax)
 {
 	float tXMin = (aabbMin.x - origin.x) / direction.x;
 	float tXMax = (aabbMax.x - origin.x) / direction.x;
@@ -171,7 +109,7 @@ bool Octree::IntersectAABB(glm::vec3 origin, glm::vec3 direction, float tnear, g
 	return tmax >= tmin && tmin < tnear && tmax > 0;
 }
 
-void Octree::AddObject(const RenderObject& object)
+void KdTree::AddObject(const RenderObject& object)
 {
 	const Model& model = object.m_Model;
 	int faceCount = model.nfaces();
@@ -187,7 +125,7 @@ void Octree::AddObject(const RenderObject& object)
 	}
 }
 
-void Octree::Build(bool useHeuristic)
+void KdTree::Build(bool useHeuristic)
 {
 	uint32_t rootNodeIndex = 0, nodesUsed = 1;
 
@@ -207,14 +145,14 @@ void Octree::Build(bool useHeuristic)
 	for (int i = 0; i < m_Triangles.size(); i++)
 	{
 		bool triangleInAABB = TriangleInAABB(m_Triangles[i], m_RootNode.aabbMin, m_RootNode.aabbMax);
-		if (triangleInAABB)
+		if(triangleInAABB)
 			count++;
 	}
 	std::cout << "Triangles in AABB: " << count << std::endl;
 	std::cout << "Total triangles: " << m_Triangles.size() << std::endl;
 }
 
-void Octree::InitRootNode(OctreeNode& root)
+void KdTree::InitRootNode(KdTreeNode& root)
 {
 	root.triangleIndices.resize(m_Triangles.size());
 
@@ -243,7 +181,7 @@ void Octree::InitRootNode(OctreeNode& root)
 	root.aabbMin = center - glm::vec3(sideLength * 0.5f);
 }
 
-void Octree::Subdivide(OctreeNode& node, int depth)
+void KdTree::Subdivide(KdTreeNode& node, int depth)
 {
 	// terminate recursion
 	if (node.triangleIndices.size() <= 2 || depth >= maxDepth)
@@ -251,48 +189,49 @@ void Octree::Subdivide(OctreeNode& node, int depth)
 		return;
 	}
 
+	if (depth == 1)
+	{
+		std::cout << "Bounding box min: " << glm::to_string(node.aabbMin) << std::endl;
+		std::cout << "Bounding box max: " << glm::to_string(node.aabbMax) << std::endl;
+		std::cout << "Triangle count: " << node.triangleIndices.size() << std::endl;
+	}
+
 	node.isLeaf = false;
 
-	// determine center of node
-	glm::vec3 center = (node.aabbMin + node.aabbMax) * 0.5f;
+	// determine split axis
+	int axis = depth % 3;
+
+	// determine split position
+	float splitPos = (node.aabbMin[axis] + node.aabbMax[axis]) * 0.5f;
 
 	// create children
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < 2; i++)
 	{
-		node.children[i] = new OctreeNode();
+		node.children[i] = new KdTreeNode();
 
-		float xMin = i & 1 ? center.x : node.aabbMin.x;
-		float xMax = i & 1 ? node.aabbMax.x : center.x;
-		float yMin = i & 2 ? center.y : node.aabbMin.y;
-		float yMax = i & 2 ? node.aabbMax.y : center.y;
-		float zMin = i & 4 ? center.z : node.aabbMin.z;
-		float zMax = i & 4 ? node.aabbMax.z : center.z;
+		node.children[i]->aabbMin = node.aabbMin;
+		node.children[i]->aabbMax = node.aabbMax;
 
-		node.children[i]->aabbMin = glm::vec3(xMin, yMin, zMin);
-		node.children[i]->aabbMax = glm::vec3(xMax, yMax, zMax);
+		node.children[i]->aabbMin[axis] = i & 1 ? splitPos : node.aabbMin[axis];
+		node.children[i]->aabbMax[axis] = i & 1 ? node.aabbMax[axis] : splitPos;
 	}
 
 	for (int i = 0; i < node.triangleIndices.size(); i++)
-		for (int j = 0; j < 8; j++)
+		for (int j = 0; j < 2; j++)
 		{
-			OctreeNode& child = *node.children[j];
+			KdTreeNode& child = *node.children[j];
 			if (TriangleInAABB(m_Triangles[node.triangleIndices[i]], child.aabbMin, child.aabbMax))
 			{
 				child.triangleIndices.push_back(node.triangleIndices[i]);
 			}
 		}
 
-	// clean up parent node
-	node.triangleIndices.clear();
-
-	for (int i = 0; i < 8; i++)
-	{
+	for (int i = 0; i < 2; i++)
 		Subdivide(*node.children[i], depth + 1);
-	}
 }
 
 // https://michael-schwarz.com/research/publ/files/vox-siga10.pdf
-bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax)
+bool KdTree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabbMax)
 {
 	// triangle bounding box overlap check
 	glm::vec3 triangleMin = glm::min(triangle.vertex0, glm::min(triangle.vertex1, triangle.vertex2));
@@ -327,7 +266,7 @@ bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabb
 		return false;
 
 	// yz projection overlap check
-	if (!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 1, 2, 0))
+	if(!TriangleProjectionInAABB(triangle, n, diagonal, aabbMin, 1, 2, 0))
 		return false;
 
 	// xz projection overlap check
@@ -337,7 +276,7 @@ bool Octree::TriangleInAABB(Triangle triangle, glm::vec3 aabbMin, glm::vec3 aabb
 	return true;
 }
 
-bool Octree::TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis)
+bool KdTree::TriangleProjectionInAABB(Triangle triangle, glm::vec3 n, glm::vec3 diagonal, glm::vec3 aabbMin, int firstAxis, int secondAxis, int nullspaceAxis)
 {
 	glm::vec3 edge0 = triangle.vertex1 - triangle.vertex0;
 	glm::vec3 edge1 = triangle.vertex2 - triangle.vertex1;

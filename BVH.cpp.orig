@@ -18,7 +18,11 @@ bool BVH::Traverse(Ray& ray)
 		const glm::mat4& inverseTransform = bvhObject.inverseTransform;
 		const glm::mat4& objectTransform = glm::inverse(bvhObject.inverseTransform);
 
+<<<<<<< HEAD
+		Ray objectRay;
 		objectRay.tnear = ray.tnear;
+=======
+>>>>>>> main
 		objectRay.origin = glm::vec3(inverseTransform * glm::vec4(ray.origin, 1));
 		objectRay.direction = glm::vec3(inverseTransform * glm::vec4(ray.direction, 0));
 
@@ -28,16 +32,13 @@ bool BVH::Traverse(Ray& ray)
 
 			ray.tnear = objectRay.tnear;
 			ray.normal = glm::normalize(glm::vec3(objectTransform * glm::vec4(objectRay.normal, 0)));
-			ray.prevHitMaterial = ray.material;
 			ray.material = bvhObject.material;
 			ray.hitLocation = ray.origin + ray.direction * ray.tnear;
 		}
 
-		ray.nodeIntersectionCount += objectRay.nodeIntersectionCount;
-		ray.nodeIntersectionTestCount += objectRay.nodeIntersectionTestCount;
-		ray.triangleIntersectionCount += objectRay.triangleIntersectionCount;
-		ray.triangleIntersectionTestCount += objectRay.triangleIntersectionTestCount;
-		ray.hitCount += objectRay.hitCount;
+		ray.intersectionCount += objectRay.intersectionCount;
+		ray.boxIntersectionCount += objectRay.boxIntersectionCount;
+		ray.traversalSteps += objectRay.traversalSteps;
 	}
 
 	return hit;
@@ -48,7 +49,7 @@ RandomLightPoint BVH::RandomTrianglePoint(uint32_t& seed) const
 	int randomBVHObjectIndex = Utils::RandomInt(0, m_BVHObjects.size() - 1, seed);
 	const BVH_Object& randomBVHObject = m_BVHObjects[randomBVHObjectIndex];
 	TrianglePoint& trianglePoint = randomBVHObject.bvh.RandomTrianglePoint(seed);
-	return RandomLightPoint(trianglePoint.point, randomBVHObject.material.emittedRadiance, randomBVHObject.bvh.Area(), trianglePoint.normal, randomBVHObject.inverseTransform);
+	return RandomLightPoint(trianglePoint.point, randomBVHObject.material.color, randomBVHObject.bvh.Area(), trianglePoint.normal, randomBVHObject.inverseTransform);
 }
 
 void BVH::AddObject(const RenderObject& object)
@@ -104,12 +105,12 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 	const BVHNode& node = m_BvhNodes[nodeIndex];
 	bool hit = false;
 
-	ray.nodeIntersectionTestCount++;
+	ray.boxIntersectionCount++;
 
 	if (!IntersectAABB(ray.origin, ray.direction, ray.tnear, node.aabbMin, node.aabbMax)) 
 		return false;
 
-	ray.nodeIntersectionCount++;
+	ray.traversalSteps++;
 
 	if (node.isLeaf())
 	{
@@ -121,14 +122,13 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 			const Triangle& currentTriangle = m_Triangles[m_TriangleIndices[node.leftChildOrFirstIndex + i]];
 			float triangleDistance = std::numeric_limits<float>().max();
 			bool triangleHit = currentTriangle.Intersect(ray.origin, ray.direction, triangleDistance);
-			ray.triangleIntersectionTestCount++;
+			ray.intersectionCount++;
 
 			if (triangleHit && triangleDistance < closestDistance)
 			{
 				closestDistance = triangleDistance;
 				normal = currentTriangle.normal;
 				hit = true;
-				ray.triangleIntersectionCount++;
 			}
 		}
 
@@ -137,7 +137,6 @@ bool BVH_BLAS::TraverseNode(Ray& ray, const uint32_t nodeIndex) const
 			ray.tnear = closestDistance;
 			ray.normal = normal;
 			ray.objectArea = m_Area;
-			ray.hitCount++;
 		}
 	}
 	else
@@ -200,15 +199,11 @@ void BVH_BLAS::AddObject(const RenderObject& object, const glm::mat4& transform)
 {
 	const Model& model = object.m_Model;
 	int faceCount = model.nfaces();
-	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1), object.m_Transform.scale);
+
 	m_Triangles.reserve(m_Triangles.size() + faceCount * 3);
 
-	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) 
-	{
-		glm::vec3 vertex0 = scaleMatrix * glm::vec4(model.point(model.vert(faceIndex, 0)), 1);
-		glm::vec3 vertex1 = scaleMatrix * glm::vec4(model.point(model.vert(faceIndex, 1)), 1);
-		glm::vec3 vertex2 = scaleMatrix * glm::vec4(model.point(model.vert(faceIndex, 2)), 1);
-		m_Triangles.emplace_back(Triangle(vertex0, vertex1, vertex2));
+	for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) { 
+		m_Triangles.emplace_back(Triangle(model.point(model.vert(faceIndex, 0)), model.point(model.vert(faceIndex, 1)), model.point(model.vert(faceIndex, 2))));
 		//Add transformed triangle area
 		Triangle& faceTriangle = m_Triangles[faceIndex];
 		Triangle transformedTriangle = Triangle(glm::vec3(transform * glm::vec4(faceTriangle.vertex0, 0)),
@@ -224,6 +219,7 @@ void BVH_BLAS::Build(bool useHeuristic)
 	for (int i = 0; i < m_Triangles.size(); i++) {
 		m_TriangleIndices[i] = i;
 	}
+	std::cout << "Finished Setting Indices" << std::endl;
 
 	uint32_t rootNodeIndex = 0, nodesUsed = 1;
 	//build root node
@@ -231,9 +227,11 @@ void BVH_BLAS::Build(bool useHeuristic)
 	root.leftChildOrFirstIndex = 0;
 	root.triangleCount = m_Triangles.size();
 	UpdateNodeBounds(rootNodeIndex);
+	std::cout << "Finished Building Root Node" << std::endl;
 
 	//recursive subdivision for child nodes
 	Subdivide(rootNodeIndex, nodesUsed, useHeuristic);
+	std::cout << "Finished Subdividing Root Node" << std::endl;
 }
 
 void BVH_BLAS::UpdateNodeBounds(uint32_t nodeID)
@@ -266,7 +264,6 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 
 	int axis = -1;
 	float splitPos = 0;
-	glm::vec3 extent = node.aabbMax - node.aabbMin;
 	//determine split axis and position
 	if (useHeuristic) 
 	{
@@ -289,11 +286,9 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 		}
 
 		//early termination if the best children have worse cost than current node
+		glm::vec3 extent = node.aabbMax - node.aabbMin;
 		float parentArea = extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
 		float parentCost = node.triangleCount * parentArea;
-
-		//TODO: fix actual negative axis value error
-		axis = std::max(axis, 0);
 
 		if (bestCost < parentCost)
 			return;
@@ -301,11 +296,14 @@ void BVH_BLAS::Subdivide(uint32_t nodeID, uint32_t& nodesUsed, bool useHeuristic
 	else
 	{
 		axis = 0;
+		glm::vec3 extent = node.aabbMax - node.aabbMin;
 		if (extent.y > extent.x) axis = 1;
 		if (extent.z > extent[axis]) axis = 2;
 		splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
 	}
 
+	//TODO: fix actual negative axis value error
+	axis = std::max(axis, 0);
 
 	//in-place partition
 	int i = node.leftChildOrFirstIndex;
