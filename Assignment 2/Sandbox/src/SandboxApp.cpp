@@ -12,12 +12,12 @@ public:
 	PathTracingLayer() :
 		Layer("PathTracing")
 	{
-		width = 640;
-		height = 480;
-		channelCount = 3;
-		renderTextureData.resize(width * height * 3);
+		m_RenderTextureData = std::make_shared<std::vector<uint8_t>>();
+		m_Width = 1280;
+		m_Height = 720;
+		m_RenderTextureData->resize(m_Width * m_Height * 3);
 
-		for (uint8_t& subPixel : renderTextureData)
+		for (uint8_t& subPixel : *m_RenderTextureData.get())
 		{
 			subPixel = 255;
 		}
@@ -25,7 +25,7 @@ public:
 		glGenTextures(1, &m_RenderTextureID);
 		glBindTexture(GL_TEXTURE_2D, m_RenderTextureID);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, renderTextureData.data());
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_RenderTextureData->data());
 		glGenerateMipmap(GL_TEXTURE_2D);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -36,19 +36,19 @@ public:
 
 	void OnUpdate(Hazel::Timestep timestep) override
 	{
-		for (uint8_t& subPixel : renderTextureData)
+		for (uint8_t& subPixel : *m_RenderTextureData.get())
 		{
 			subPixel = (subPixel + 1) % 255;
 		}
 
 		glBindTexture(GL_TEXTURE_2D, m_RenderTextureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, renderTextureData.data());
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_RenderTextureData->data());
 	}
 
 	virtual void OnImGuiRender()
 	{
 		ImGui::Begin("RenderTexture");
-		ImGui::Image((void*)(intptr_t)m_RenderTextureID, ImVec2(640, 480));
+		ImGui::Image((void*)(intptr_t)m_RenderTextureID, ImVec2(m_Width, m_Height));
 		ImGui::End();
 
 		//ImGui::Render();
@@ -67,10 +67,9 @@ public:
 		
 	}
 private:
-	std::vector<uint8_t> renderTextureData;
+	std::shared_ptr<std::vector<uint8_t>> m_RenderTextureData;
 	uint32_t m_RenderTextureID;
-	uint32_t width, height;
-	uint32_t channelCount = 3;
+	uint32_t m_Width, m_Height;
 };
 
 class Sandbox : public Hazel::Application
