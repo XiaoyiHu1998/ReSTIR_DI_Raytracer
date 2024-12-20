@@ -16,8 +16,6 @@ private:
 	glm::vec3 m_UpDirection;
 
 	//Tranform - calculated
-	glm::vec3 m_ForwardDirection;
-	glm::vec3 m_RightDirection;
 	glm::mat4 m_TransformMatrix;
 	glm::mat4 m_InverseTransformMatrix;
 
@@ -25,7 +23,7 @@ private:
 
 	//std::vector<Ray> m_Rays;
 private:
-	glm::mat4 SetCameraMatrix();
+	void SetCameraMatrix();
 public:
 	Camera(uint32_t width, uint32_t height, float verticalFov):
 		m_Width{width}, m_Height{height}, m_VerticalFov{verticalFov},
@@ -37,7 +35,7 @@ public:
 
 	~Camera() = default;
 
-	Ray GetRay(uint32_t x, uint32_t y, bool random = false) inline;
+	inline Ray GetRay(uint32_t x, uint32_t y, bool random = false);
 
 	glm::vec3 GetPosition()		  { return m_Position; }
 	glm::vec3 GetTargetPosition() { return m_TargetPosition; }
