@@ -73,6 +73,20 @@ public:
 		
 	}
 private:
+	// Output Configuration
+	FrameBufferRef m_FrameBuffer;
+	uint32_t m_FrameBufferID;
+	uint32_t m_CurrentWidth, m_CurrentHeight;
+	uint32_t m_NextWidth, m_NextHeight;
+
+	// World state
+	Camera m_Camera;
+	//Acceleration structure (objects + emmisives)
+	//Acceleration structure (emmisives only)
+
+	// Temp
+	uint8_t brightness = 0;
+private:
 	void DrawImGuiDockSpace()
 	{
 		static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -113,20 +127,6 @@ private:
 		}
 		ImGui::End();
 	}
-private:
-	// Output Configuration
-	FrameBufferRef m_FrameBuffer;
-	uint32_t m_FrameBufferID;
-	uint32_t m_CurrentWidth, m_CurrentHeight;
-	uint32_t m_NextWidth, m_NextHeight;
-
-	// World state
-	Camera m_Camera;
-	//Acceleration structure (objects + emmisives)
-	//Acceleration structure (emmisives only)
-
-	// Temp
-	uint8_t brightness = 0;
 };
 
 class Sandbox : public Hazel::Application
