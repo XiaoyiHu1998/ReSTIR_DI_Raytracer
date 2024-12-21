@@ -1,0 +1,79 @@
+#include "Primitives.h"
+
+bool Triangle::Intersect(Ray& ray)
+{
+	const glm::vec3 edge1 = m_Vertex1 - m_Vertex0;
+	const glm::vec3 edge2 = m_Vertex2 - m_Vertex0;
+	const glm::vec3 h = glm::cross(ray.direction, edge2);
+	const float a = glm::dot(edge1, h);
+
+	if (a > -0.0001f && a < 0.0001f) return false; // ray parallel to triangle
+
+	const float f = 1 / a;
+	const glm::vec3 s = ray.origin - m_Vertex0;
+	const float u = f * glm::dot(s, h);
+
+	if (u < 0 || u > 1) return false;
+
+	const glm::vec3 q = glm::cross(s, edge1);
+	const float v = f * glm::dot(ray.direction, q);
+
+	if (v < 0 || u + v > 1) return false;
+
+	const float t = f * glm::dot(edge2, q);
+
+	if (t > 0.0001f)
+	{
+		ray.tNear = ray.tNear < t ? ray.tNear : t;
+		return true;
+	}
+
+	return false;
+}
+
+float Triangle::Area()
+{
+	//Cos method
+	glm::vec3 edge1 = m_Vertex1 - m_Vertex0;
+	glm::vec3 edge2 = m_Vertex2 - m_Vertex1;
+	float lengthEdge1 = glm::length(edge1);
+	float lengthEdge2 = glm::length(edge2);
+	
+	float dotProduct = glm::dot(edge1, edge2);
+	float cosTheta = dotProduct / (lengthEdge1 * lengthEdge2);
+	float sinTheta = glm::sqrt(1 - cosTheta * cosTheta);
+	
+	return 0.5f * lengthEdge1 * lengthEdge2 * sinTheta;
+}
+
+
+bool Sphere::Intersect(Ray& ray)
+{
+	glm::vec3 rayOriginSphereVector = ray.origin - m_Position;
+	float a = glm::dot(ray.direction, ray.direction);
+	float b = 2.0f * glm::dot(rayOriginSphereVector, ray.direction);
+	float c = glm::dot(rayOriginSphereVector, rayOriginSphereVector) - m_Radius * m_Radius;
+	float D = b * b - 4 * a * c;
+	
+	if (D < 0)
+		return false;
+
+	float denominator = 0.5f / a;
+	float p = sqrt(D) * denominator;
+	float q = -b * denominator;
+
+	float t0 = p + q;
+	float t1 = p - q;
+
+	if (t0 < 0 && t1 < 0) return false;
+	else if (t0 < 0 || t1 < t0) std::swap(t0, t1);
+
+	ray.tNear = t0;
+
+	return true;
+}
+
+float Sphere::Area()
+{
+	return 4 * glm::pi<float>() * m_Radius;
+}
