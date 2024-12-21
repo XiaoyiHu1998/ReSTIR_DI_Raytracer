@@ -14,7 +14,7 @@ void RenderCommand::GenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBuf
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-void DeleteFrameBufferTexture(uint32_t& frameBufferID)
+void RenderCommand::DeleteFrameBufferTexture(uint32_t& frameBufferID)
 {
 	glDeleteTextures(1, &frameBufferID);
 	glBindTexture(GL_TEXTURE_2D, 0);
