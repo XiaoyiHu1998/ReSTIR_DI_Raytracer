@@ -20,15 +20,19 @@ private:
 	glm::mat4 m_InverseTransformMatrix;
 
 	float m_CameraPlaneDistance;
-
-	//std::vector<Ray> m_Rays;
 private:
 	void SetCameraMatrix();
 public:
-	Camera(uint32_t width, uint32_t height, float verticalFov):
+	Camera():
+		m_Width{ 1280 }, m_Height{ 720 }, m_VerticalFov{ 40 },
+		m_Position{ glm::vec3(0) }, m_TargetPosition{ glm::vec3(0,0,-1) }, m_UpDirection{ glm::vec3(0,1,0) }
+	{
+		SetCameraMatrix();
+	}
+
+	Camera(uint32_t width, uint32_t height, float verticalFov = 40):
 		m_Width{width}, m_Height{height}, m_VerticalFov{verticalFov},
 		m_Position{ glm::vec3(0) }, m_TargetPosition{ glm::vec3(0,0,-1) }, m_UpDirection{ glm::vec3(0,1,0) }
-		//, m_Rays{ std::vector<Ray>() }
 	{
 		SetCameraMatrix();
 	}
@@ -37,10 +41,11 @@ public:
 
 	inline Ray GetRay(uint32_t x, uint32_t y, bool random = false);
 
-	glm::vec3 GetPosition()		  { return m_Position; }
-	glm::vec3 GetTargetPosition() { return m_TargetPosition; }
-	glm::vec3 GetUpDirection()	  { return m_UpDirection; }
-	glm::mat4 GetCameraMatrix()	  { return m_TransformMatrix; }
+	glm::vec3 GetPosition()				{ return m_Position; }
+	glm::vec3 GetTargetPosition()		{ return m_TargetPosition; }
+	glm::vec3 GetUpDirection()			{ return m_UpDirection; }
+	glm::mat4 GetCameraMatrix()			{ return m_TransformMatrix; }
+	glm::mat4 GetInverseCameraMatrix()	{ return m_InverseTransformMatrix; }
 
 	void SetPosition(glm::vec3 position) { m_Position = position; SetCameraMatrix(); }
 	void SetTargetPosition(glm::vec3 targetPosition) { m_TargetPosition = targetPosition; SetCameraMatrix(); }
