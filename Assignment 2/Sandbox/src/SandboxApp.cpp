@@ -50,7 +50,8 @@ public:
 
 	virtual void OnImGuiRender()
 	{
-		ImGui::Begin("RenderTexture");
+		DrawImGuiDockSpace();
+		ImGui::Begin("Viewport");
 
 		ImVec2 nextFrameResolution = ImGui::GetContentRegionAvail();
 		m_NextWidth = nextFrameResolution.x;
@@ -70,6 +71,47 @@ public:
 	void HandleInput(Hazel::Timestep ts) 
 	{
 		
+	}
+private:
+	void DrawImGuiDockSpace()
+	{
+		static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+		static bool dockspaceOpen = true;
+
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+		ImGuiViewport* viewport_ImGui = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport_ImGui->WorkPos);
+		ImGui::SetNextWindowSize(viewport_ImGui->WorkSize);
+		ImGui::SetNextWindowViewport(viewport_ImGui->ID);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+		if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
+			window_flags |= ImGuiWindowFlags_NoBackground;
+		}
+
+		// Important: keep maindockspace always open
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		ImGui::Begin("DockSpace Demo", &dockspaceOpen, window_flags);
+		ImGui::PopStyleVar();
+		ImGui::PopStyleVar(2);
+
+		// Main dockspace, this is where all our windows are drawn
+		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+
+		if (ImGui::BeginMenuBar()) {
+			if (ImGui::BeginMenu("File")) {
+				if (ImGui::MenuItem("import obj")) {
+					//importFile = true;
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
+		}
+		ImGui::End();
 	}
 private:
 	// Output Configuration
