@@ -6,55 +6,60 @@
 #include "glm/gtx/string_cast.hpp"
 #include "Glad/include/glad/glad.h"
 
+#include "Include.h"
+#include "RenderCommand.h"
+#include "Renderer.h"
+#include "Camera.h"
+
 class PathTracingLayer : public Hazel::Layer
 {
 public:
 	PathTracingLayer() :
 		Layer("PathTracing")
 	{
-		m_RenderTextureData = std::make_shared<std::vector<uint8_t>>();
-		m_Width = 1280;
-		m_Height = 720;
-		m_RenderTextureData->resize(m_Width * m_Height * 3);
+		m_FrameBuffer = std::make_shared<std::vector<uint8_t>>();
+		m_CurrentWidth = m_NextWidth = 1280;
+		m_CurrentHeight = m_NextHeight = 720;
 
-		for (uint8_t& subPixel : *m_RenderTextureData.get())
+		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 40);
+
+		for (uint8_t& subPixel : *m_FrameBuffer.get())
 		{
 			subPixel = 255;
 		}
 
-		glGenTextures(1, &m_RenderTextureID);
-		glBindTexture(GL_TEXTURE_2D, m_RenderTextureID);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_RenderTextureData->data());
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
 	void OnUpdate(Hazel::Timestep timestep) override
 	{
-		for (uint8_t& subPixel : *m_RenderTextureData.get())
+		m_CurrentWidth = m_NextWidth;
+		m_CurrentHeight = m_NextHeight;
+
+		RenderCommand::InitFrameBuffer(m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
+
+		brightness++;
+
+		for (uint8_t& subPixel : *m_FrameBuffer.get())
 		{
-			subPixel = (subPixel + 1) % 255;
+			subPixel = brightness % 255;
 		}
 
-		glBindTexture(GL_TEXTURE_2D, m_RenderTextureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_RenderTextureData->data());
+		RenderCommand::SetFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
 	virtual void OnImGuiRender()
 	{
 		ImGui::Begin("RenderTexture");
-		ImGui::Image((void*)(intptr_t)m_RenderTextureID, ImVec2(m_Width, m_Height));
+
+		ImVec2 nextFrameResolution = ImGui::GetContentRegionAvail();
+		m_NextWidth = nextFrameResolution.x;
+		m_NextHeight = nextFrameResolution.y;
+
+		ImGui::Image((void*)(intptr_t)m_FrameBufferID, ImVec2(m_CurrentWidth, m_CurrentHeight));
 		ImGui::End();
 
-		//ImGui::Render();
-		glViewport(0, 0, 640, 480);
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		RenderCommand::Clear();
 	}
 
 	void OnEvent(Hazel::Event& event) override
@@ -67,9 +72,19 @@ public:
 		
 	}
 private:
-	std::shared_ptr<std::vector<uint8_t>> m_RenderTextureData;
-	uint32_t m_RenderTextureID;
-	uint32_t m_Width, m_Height;
+	// Output Configuration
+	FrameBufferRef m_FrameBuffer;
+	uint32_t m_FrameBufferID;
+	uint32_t m_CurrentWidth, m_CurrentHeight;
+	uint32_t m_NextWidth, m_NextHeight;
+
+	// World state
+	Camera m_Camera;
+	//Acceleration structure (objects + emmisives)
+	//Acceleration structure (emmisives only)
+
+	// Temp
+	uint8_t brightness = 0;
 };
 
 class Sandbox : public Hazel::Application

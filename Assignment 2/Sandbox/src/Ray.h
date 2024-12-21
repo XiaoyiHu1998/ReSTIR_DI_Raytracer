@@ -31,5 +31,5 @@ struct Ray
 		origin{ origin }, direction{ direction }, tNear{ tNear }
 	{}
 
-	HitInfo GenerateHitInfo();
+	//HitInfo GenerateHitInfo();
 };
