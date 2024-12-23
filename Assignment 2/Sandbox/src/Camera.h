@@ -7,7 +7,7 @@ class Camera
 {
 private:
 	//Viewport
-	uint32_t m_Width, m_Height;
+	float m_Width, m_Height;
 	float m_VerticalFov;
 
 	//Transform - set by user
@@ -24,30 +24,32 @@ private:
 	void SetCameraMatrix();
 public:
 	Camera():
-		m_Width{ 1280 }, m_Height{ 720 }, m_VerticalFov{ 40 },
-		m_Position{ glm::vec3(0) }, m_TargetPosition{ glm::vec3(0,0,-1) }, m_UpDirection{ glm::vec3(0,1,0) }
+		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_VerticalFov{ 90 },
+		m_Position{ glm::vec3(0, 0, 10) }, m_TargetPosition{ glm::vec3(0,0,0) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
 		SetCameraMatrix();
 	}
 
-	Camera(uint32_t width, uint32_t height, float verticalFov = 40):
-		m_Width{width}, m_Height{height}, m_VerticalFov{verticalFov},
-		m_Position{ glm::vec3(0) }, m_TargetPosition{ glm::vec3(0,0,-1) }, m_UpDirection{ glm::vec3(0,1,0) }
+	Camera(uint32_t width, uint32_t height, float verticalFov = 90):
+		m_Width{ static_cast<float>(width) }, m_Height{ static_cast<float>(height) }, m_VerticalFov{ verticalFov },
+		m_Position{ glm::vec3(0, 0, 10) }, m_TargetPosition{ glm::vec3(0,0,0) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
 		SetCameraMatrix();
 	}
 
 	~Camera() = default;
 
-	inline Ray GetRay(uint32_t x, uint32_t y, bool random = false);
+	Ray GetRay(uint32_t x, uint32_t y, bool random = false);
 
 	glm::vec3 GetPosition()				{ return m_Position; }
 	glm::vec3 GetTargetPosition()		{ return m_TargetPosition; }
 	glm::vec3 GetUpDirection()			{ return m_UpDirection; }
 	glm::mat4 GetCameraMatrix()			{ return m_TransformMatrix; }
 	glm::mat4 GetInverseCameraMatrix()	{ return m_InverseTransformMatrix; }
+	glm::i32vec2 GetResolution()		{ return glm::i32vec2(m_Width, m_Height); }
 
 	void SetPosition(glm::vec3 position) { m_Position = position; SetCameraMatrix(); }
 	void SetTargetPosition(glm::vec3 targetPosition) { m_TargetPosition = targetPosition; SetCameraMatrix(); }
 	void SetUpDirection(glm::vec3 upDirection) { m_UpDirection = glm::normalize(upDirection); SetCameraMatrix(); }
+	void SetResolution(uint32_t width, uint32_t height) { m_Width = static_cast<float>(width); m_Height = static_cast<float>(height); SetCameraMatrix(); }
 };
