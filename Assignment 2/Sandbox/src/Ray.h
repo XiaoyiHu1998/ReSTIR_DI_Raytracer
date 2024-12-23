@@ -27,6 +27,8 @@ struct Ray
 	glm::vec3 direction;
 	float tNear;
 
+	//tinybvh::Ray
+
 	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().max()) :
 		origin{ origin }, direction{ direction }, tNear{ tNear }
 	{}

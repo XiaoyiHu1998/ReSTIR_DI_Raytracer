@@ -1,24 +1,36 @@
 #include "Primitives.h"
 
-bool Triangle::Intersect(Ray& ray)
+bool Triangle::Intersect(Ray& ray) const 
 {
 	const glm::vec3 edge1 = m_Vertex1 - m_Vertex0;
 	const glm::vec3 edge2 = m_Vertex2 - m_Vertex0;
 	const glm::vec3 h = glm::cross(ray.direction, edge2);
 	const float a = glm::dot(edge1, h);
 
-	if (a > -0.0001f && a < 0.0001f) return false; // ray parallel to triangle
+	//if (a > -0.0001f && a < 0.0001f) return false; // ray parallel to triangle
+	if (a > -0.0001f && a < 0.0001f)
+	{
+		return false;
+	}
 
 	const float f = 1 / a;
 	const glm::vec3 s = ray.origin - m_Vertex0;
 	const float u = f * glm::dot(s, h);
 
-	if (u < 0 || u > 1) return false;
+	//if (u < 0 || u > 1) return false;
+	if (u < 0 || u > 1)
+	{
+		return false;
+	}
 
 	const glm::vec3 q = glm::cross(s, edge1);
 	const float v = f * glm::dot(ray.direction, q);
 
-	if (v < 0 || u + v > 1) return false;
+	//if (v < 0 || u + v > 1) return false;
+	if (v < 0 || u + v > 1)
+	{
+		return false;
+	}
 
 	const float t = f * glm::dot(edge2, q);
 
@@ -31,7 +43,7 @@ bool Triangle::Intersect(Ray& ray)
 	return false;
 }
 
-float Triangle::Area()
+float Triangle::Area() const
 {
 	//Cos method
 	glm::vec3 edge1 = m_Vertex1 - m_Vertex0;
@@ -47,8 +59,9 @@ float Triangle::Area()
 }
 
 
-bool Sphere::Intersect(Ray& ray)
+bool Sphere::Intersect(Ray& ray) const
 {
+	//return false;
 	glm::vec3 rayOriginSphereVector = ray.origin - m_Position;
 	float a = glm::dot(ray.direction, ray.direction);
 	float b = 2.0f * glm::dot(rayOriginSphereVector, ray.direction);
@@ -73,7 +86,7 @@ bool Sphere::Intersect(Ray& ray)
 	return true;
 }
 
-float Sphere::Area()
+float Sphere::Area() const
 {
 	return 4 * glm::pi<float>() * m_Radius;
 }

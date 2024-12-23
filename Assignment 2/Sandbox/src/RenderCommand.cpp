@@ -1,5 +1,7 @@
 #include "RenderCommand.h"
 
+#include <iostream>
+
 void RenderCommand::GenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
 	glGenTextures(1, &frameBufferID);
@@ -39,7 +41,7 @@ void RenderCommand::InitFrameBuffer(FrameBufferRef frameBuffer, uint32_t width, 
 {
 	if (width * height * 3 != frameBuffer->size())
 	{
-		frameBuffer->resize(width * height * 3);
+		frameBuffer->resize(width * height * 3, 0);
 	}
 }
 

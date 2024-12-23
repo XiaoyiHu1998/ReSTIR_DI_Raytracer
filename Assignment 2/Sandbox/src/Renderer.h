@@ -5,6 +5,7 @@
 #include "Include.h"
 #include "Camera.h"
 #include "Ray.h"
+#include "Primitives.h"
 
 class Renderer
 {
@@ -16,5 +17,5 @@ private:
 	//void Reflect();
 	//void Refract();
 public:
-	static uint8_t RenderFrame(Ray& ray);
+	static glm::u8vec3 RenderRay(Ray& ray, const Triangle& triangle, const Sphere& sphere);
 };

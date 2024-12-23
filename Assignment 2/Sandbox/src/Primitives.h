@@ -7,8 +7,8 @@ class Primitive
 public:
 	~Primitive() = default;
 
-	virtual bool Intersect(Ray& ray) = 0;
-	virtual float Area() = 0;
+	virtual bool Intersect(Ray& ray) const = 0;
+	virtual float Area() const = 0;
 };
 
 
@@ -27,8 +27,8 @@ public:
 		m_Normal = glm::normalize(glm::cross(vertex2 - vertex0, vertex1 - vertex0));
 	}
 
-	virtual bool Intersect(Ray& ray);
-	virtual float Area();
+	virtual bool Intersect(Ray& ray) const override;
+	virtual float Area() const override;
 };
 
 
@@ -43,6 +43,6 @@ public:
 		m_Position{ position }, m_Radius{ radius }
 	{}
 
-	virtual bool Intersect(Ray& ray);
-	virtual float Area();
+	virtual bool Intersect(Ray& ray) const override;
+	virtual float Area() const override;
 };
