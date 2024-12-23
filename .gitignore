@@ -15,7 +15,7 @@ Assignment 2/Hazel/vendor/GLFW/bin-int
 # Files
 Assignment 2/.user
 */imgui.ini
-Assignment 2/*/*.sln
+Assignment 2/*.sln
 Assignment 2/*/*.vcxproj
 Assignment 2/*/*.vcxproj.filters
 Assignment 2/*/*.vcxproj.user
