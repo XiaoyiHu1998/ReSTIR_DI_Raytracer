@@ -17,5 +17,5 @@ private:
 	//void Reflect();
 	//void Refract();
 public:
-	static glm::u8vec3 RenderRay(Ray& ray, const Triangle& triangle, const Sphere& sphere);
+	static glm::vec4 RenderRay(Ray& ray, const Triangle& triangle, const Sphere& sphere);
 };

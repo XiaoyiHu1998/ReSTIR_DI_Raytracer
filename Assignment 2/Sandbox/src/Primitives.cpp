@@ -7,30 +7,18 @@ bool Triangle::Intersect(Ray& ray) const
 	const glm::vec3 h = glm::cross(ray.direction, edge2);
 	const float a = glm::dot(edge1, h);
 
-	//if (a > -0.0001f && a < 0.0001f) return false; // ray parallel to triangle
-	if (a > -0.0001f && a < 0.0001f)
-	{
-		return false;
-	}
+	if (a > -0.0001f && a < 0.0001f) return false; // ray parallel to triangle
 
 	const float f = 1 / a;
 	const glm::vec3 s = ray.origin - m_Vertex0;
 	const float u = f * glm::dot(s, h);
 
-	//if (u < 0 || u > 1) return false;
-	if (u < 0 || u > 1)
-	{
-		return false;
-	}
+	if (u < 0 || u > 1) return false;
 
 	const glm::vec3 q = glm::cross(s, edge1);
 	const float v = f * glm::dot(ray.direction, q);
 
-	//if (v < 0 || u + v > 1) return false;
-	if (v < 0 || u + v > 1)
-	{
-		return false;
-	}
+	if (v < 0 || u + v > 1) return false;
 
 	const float t = f * glm::dot(edge2, q);
 
@@ -61,7 +49,6 @@ float Triangle::Area() const
 
 bool Sphere::Intersect(Ray& ray) const
 {
-	//return false;
 	glm::vec3 rayOriginSphereVector = ray.origin - m_Position;
 	float a = glm::dot(ray.direction, ray.direction);
 	float b = 2.0f * glm::dot(rayOriginSphereVector, ray.direction);
