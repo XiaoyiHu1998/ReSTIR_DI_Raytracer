@@ -1,49 +1,65 @@
-//#pragma once
-//
-//#include "Include.h"
-//#include "tiny_bvh.h"
-//
-//class TLAS
-//{
-//private:
-//	std::vector<std::shared_ptr<BLAS>> m_Scene;
-//public:
-//	TLAS();
-//	~TLAS() = default;
-//
-//	virtual void AddObject();
-//	virtual void Build();
-//
-//	virtual void Traverse();
-//};
-//
-//
-//class BLAS
-//{
-//public:
-//	~BLAS() = default;
-//
-//	virtual void AddObject() = 0;
-//	virtual void Build() = 0;
-//
-//	virtual void Traverse() = 0;
-//};
-//
-//
-//class BVH_BLAS : public BLAS
-//{
-//private:
-//	tinybvh::BVH4_CPU m_BVH;
-//	tinybvh::bvhvec4 Triangles;
-//
-//	// Backlog features:
-//	// Skybox
-//	// Pointlights
-//public:
-//	~BVH_BLAS() = default;
-//
-//	virtual void AddObject();
-//	virtual void Build();
-//
-//	virtual void Traverse();
-//};
+#pragma once
+
+#define  TINYBVH_IMPLEMENTATION
+#include "tiny_bvh.h"
+
+#include "Include.h"
+#include "Ray.h"
+#include "Primitives.h"
+
+class BLAS
+{
+public:
+	~BLAS() = default;
+
+	virtual void SetObject() = 0;
+	virtual void Traverse(Ray& ray) = 0;
+
+	virtual glm::mat4 GetInverseTransform() = 0;
+	virtual void SetInverseTransform(glm::mat4 inverseTransform) = 0;
+};
+
+
+class TLAS
+{
+private:
+	std::vector<std::shared_ptr<BLAS>> m_Scene;
+public:
+	TLAS() = default;
+	~TLAS() = default;
+
+	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS);
+	void Traverse(Ray& ray);
+
+	std::shared_ptr<BLAS> GetBLAS(uint32_t index) { return m_Scene[index]; }
+};
+
+
+class BVH_BLAS : public BLAS
+{
+private:
+	tinybvh::BVH m_BVH;
+	std::vector<tinybvh::bvhvec4> m_Triangles;
+
+	glm::mat4 m_InverseTransform;
+	float m_Area;
+
+	// Required:
+	// Material m_Material
+
+	// Backlog features:
+	// Skybox
+	// Pointlights
+public:
+	BVH_BLAS():
+		m_BVH{ tinybvh::BVH() }, m_Triangles{ std::vector<tinybvh::bvhvec4>() }, m_InverseTransform{ glm::mat4() }, m_Area{ 0.0f }
+	{}
+
+	~BVH_BLAS() = default;
+
+	virtual void SetObject() override;
+	virtual void Traverse(Ray& ray) override;
+
+	virtual glm::mat4 GetInverseTransform() { return m_InverseTransform; }
+	virtual void SetInverseTransform(glm::mat4 inverseTransform) { m_InverseTransform = inverseTransform; }
+};

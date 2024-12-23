@@ -1,17 +1,76 @@
-//#include "AccelerationStructures.h"
-//
-//void BVH_BLAS::AddObject()
-//{
-//
-//}
-//
-//void BVH_BLAS::Build()
-//{
-//	//m_BVH.Build(Triangles, sizeof(Triangles) / sizeof(tinybvh::bvhvec4));
-//}
-//
-//void BVH_BLAS::Traverse()
-//{
-//	m_BVH.Intersect();
-//	// plus set our hit values in hitinfo
-//}
+#include "AccelerationStructures.h"
+
+#include <iostream>
+
+//=================== TLAS =========================
+
+uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& BLAS)
+{
+	m_Scene.push_back(BLAS);
+	return m_Scene.size() - 1;
+}
+
+void TLAS::Traverse(Ray& ray)
+{
+	for (int i = 0; i < m_Scene.size(); i++)
+	{
+		m_Scene[i]->Traverse(ray);
+	}
+}
+
+//=================== BVH_BLAS =====================
+
+void BVH_BLAS::SetObject()
+{
+	std::cout << "BVH_BLAS::SetObject() not implemented yet!" << std::endl;
+	m_BVH = tinybvh::BVH();
+	m_Area = 0.0f;
+	//m_InverseTransform = glm::inverse();
+
+	// Loop through given Triangle's
+	//m_Triangles = ;
+	//m_Area = ;
+
+	m_BVH.Build(m_Triangles.data(), m_Triangles.size());
+}
+
+void BVH_BLAS::Traverse(Ray& ray)
+{
+	// Transform Ray
+	glm::vec3 transformedOrigin = m_InverseTransform * glm::vec4(ray.origin, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransform * glm::vec4(ray.direction, 1.0f);
+
+	// Intersection Test
+	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
+	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
+	float oldHitDistance = ray.hitInfo.distance;
+
+	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, oldHitDistance);
+	int32_t traversalSteps = m_BVH.Intersect(tinybvhRay);
+
+	// Hit Test
+	HitInfo hitInfo(tinybvhRay.hit.t < oldHitDistance);
+
+	// Set all intersection data
+	if (hitInfo.hit)
+	{
+		// Triangle hit
+		glm::vec3 vertex0 = glm::vec3(m_Triangles[tinybvhRay.hit.prim + 0].x, m_Triangles[tinybvhRay.hit.prim + 0].y, m_Triangles[tinybvhRay.hit.prim + 0].z);
+		glm::vec3 vertex1 = glm::vec3(m_Triangles[tinybvhRay.hit.prim + 1].x, m_Triangles[tinybvhRay.hit.prim + 1].y, m_Triangles[tinybvhRay.hit.prim + 1].z);
+		glm::vec3 vertex2 = glm::vec3(m_Triangles[tinybvhRay.hit.prim + 2].x, m_Triangles[tinybvhRay.hit.prim + 2].y, m_Triangles[tinybvhRay.hit.prim + 2].z);
+		Triangle hitTriangle = Triangle(vertex0, vertex1, vertex2);
+
+		// HitInfo Data
+		hitInfo.distance = tinybvhRay.hit.t;
+		hitInfo.hitLocation = ray.origin + ray.direction * hitInfo.distance;
+		hitInfo.hitNormal = hitTriangle.GetNormal();
+		hitInfo.objectArea = m_Area;
+		// hitInfo.prevMaterial = hitInfo.material;
+		// hitInfo.material = m_Material;
+		hitInfo.traversalStepsHitBVH = traversalSteps;
+		hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + traversalSteps;
+
+		// Set new HitInfo
+		ray.hitInfo = hitInfo;
+	}
+}

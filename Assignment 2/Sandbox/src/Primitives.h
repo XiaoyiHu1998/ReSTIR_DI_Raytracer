@@ -29,6 +29,8 @@ public:
 
 	virtual bool Intersect(Ray& ray) const override;
 	virtual float Area() const override;
+
+	glm::vec3 GetNormal() const { return m_Normal; }
 };
 
 

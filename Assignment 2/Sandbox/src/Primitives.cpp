@@ -24,7 +24,7 @@ bool Triangle::Intersect(Ray& ray) const
 
 	if (t > 0.0001f)
 	{
-		ray.tNear = ray.tNear < t ? ray.tNear : t;
+		ray.hitInfo.distance = ray.hitInfo.distance < t ? ray.hitInfo.distance : t;
 		return true;
 	}
 
@@ -68,7 +68,7 @@ bool Sphere::Intersect(Ray& ray) const
 	if (t0 < 0 && t1 < 0) return false;
 	else if (t0 < 0 || t1 < t0) std::swap(t0, t1);
 
-	ray.tNear = t0;
+	ray.hitInfo.distance = t0;
 
 	return true;
 }

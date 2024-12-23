@@ -4,9 +4,10 @@
 
 struct HitInfo
 {
+public:
 	bool hit;
-	float objectArea;
 	float distance;
+	float objectArea;
 
 	glm::vec3 hitNormal;
 	glm::vec3 hitLocation;
@@ -15,6 +16,15 @@ struct HitInfo
 	//Material prevMaterial;
 	//bool LastSpecular; // not necessary anymore after prevMaterial is implemented
 
+	// Debug info
+	int32_t traversalStepsHitBVH;
+	int32_t traversalStepsTotal;
+public:
+	HitInfo():
+		hit{ false }, distance{ std::numeric_limits<float>().max() }, objectArea{ 0 }, hitNormal{ glm::vec3(0) }, hitLocation{ glm::vec3(0) },
+		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 }
+	{}
+
 	HitInfo(bool hit) :
 		hit{ hit }
 	{}
@@ -22,16 +32,12 @@ struct HitInfo
 
 struct Ray
 {
-	//Ray Info
+public:
 	glm::vec3 origin;
 	glm::vec3 direction;
-	float tNear;
-
-	//tinybvh::Ray
-
+	HitInfo hitInfo;
+public:
 	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().max()) :
-		origin{ origin }, direction{ direction }, tNear{ tNear }
+		origin{ origin }, direction{ direction }, hitInfo{ HitInfo() }
 	{}
-
-	//HitInfo GenerateHitInfo();
 };
