@@ -13,3 +13,6 @@
 [submodule "hazel/vendor/glm"]
 	path = Assignment 2/Hazel/vendor/glm
 	url = https://github.com/g-truc/glm
+[submodule "Assignment 2/Sandbox/vendor/tinybvh"]
+	path = Assignment 2/Sandbox/vendor/tinybvh
+	url = https://github.com/jbikker/tinybvh.git
