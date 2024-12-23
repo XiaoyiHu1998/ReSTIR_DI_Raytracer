@@ -1,11 +1,11 @@
 #include "Renderer.h"
 
-glm::u8vec3 Renderer::RenderRay(Ray& ray, const Triangle& triangle, const Sphere& sphere)
+glm::vec4 Renderer::RenderRay(Ray& ray, const Triangle& triangle, const Sphere& sphere)
 {
-	uint8_t outputColor = 0;
+	float outputColor = 0.0f;
 
-	outputColor = triangle.Intersect(ray) ? 255 : outputColor;
-	outputColor = sphere.Intersect(ray) ? 125 : outputColor;
+	outputColor = triangle.Intersect(ray) ? 1.0f : outputColor;
+	outputColor = sphere.Intersect(ray) ? 0.5f : outputColor;
 
-	return glm::u8vec3(outputColor);
+	return glm::vec4(outputColor);
 }

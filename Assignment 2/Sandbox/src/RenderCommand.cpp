@@ -7,7 +7,7 @@ void RenderCommand::GenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBuf
 	glGenTextures(1, &frameBufferID);
 	glBindTexture(GL_TEXTURE_2D, frameBufferID);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, frameBuffer->data());
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer->data());
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -24,7 +24,7 @@ void RenderCommand::DeleteFrameBufferTexture(uint32_t& frameBufferID)
 
 void RenderCommand::RegenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
-	frameBuffer->resize(width * height * 3, 0);
+	frameBuffer->resize(width * height * 4, 0);
 
 	DeleteFrameBufferTexture(frameBufferID);
 	GenerateFrameBufferTexture(frameBufferID, frameBuffer, width, height);
@@ -33,15 +33,15 @@ void RenderCommand::RegenerateFrameBufferTexture(uint32_t& frameBufferID, FrameB
 void RenderCommand::SetFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
 	glBindTexture(GL_TEXTURE_2D, frameBufferID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, frameBuffer->data());
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer->data());
 	glGenerateMipmap(GL_TEXTURE_2D);
 }
 
 void RenderCommand::InitFrameBuffer(FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
-	if (width * height * 3 != frameBuffer->size())
+	if (width * height * 4 != frameBuffer->size())
 	{
-		frameBuffer->resize(width * height * 3, 0);
+		frameBuffer->resize(width * height * 4, 0);
 	}
 }
 

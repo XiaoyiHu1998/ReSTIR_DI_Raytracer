@@ -4,20 +4,13 @@
 
 namespace Utils
 {
-	void FillFrameBufferPixel(uint32_t x, uint32_t y, glm::i8vec3 color, uint32_t width, FrameBufferRef frameBuffer)
+	void FillFrameBufferPixel(uint32_t x, uint32_t y, glm::vec4 color, uint32_t width, FrameBufferRef frameBuffer)
 	{
-		int pixelIndex = (x + y * width) * 3;
-		frameBuffer.get()[0][pixelIndex + 0] = color.x;
-		frameBuffer.get()[0][pixelIndex + 1] = color.y;
-		frameBuffer.get()[0][pixelIndex + 2] = color.z;
+		int pixelIndex = (x + y * width) * 4;
+
+		frameBuffer.get()[0][pixelIndex + 0] = std::max((unsigned char)0, std::min((unsigned char)255, static_cast<unsigned char>(color.x * 255.0f)));
+		frameBuffer.get()[0][pixelIndex + 1] = std::max((unsigned char)0, std::min((unsigned char)255, static_cast<unsigned char>(color.y * 255.0f)));
+		frameBuffer.get()[0][pixelIndex + 2] = std::max((unsigned char)0, std::min((unsigned char)255, static_cast<unsigned char>(color.z * 255.0f)));
+		frameBuffer.get()[0][pixelIndex + 3] = std::max((unsigned char)0, std::min((unsigned char)255, static_cast<unsigned char>(color.w * 255.0f)));
 	}
 }
-
-struct ColorRGB
-{
-	unsigned char r, g, b;
-
-	ColorRGB(unsigned char r, unsigned char g, unsigned char b) :
-		r{ r }, g{ g }, b{ b }
-	{}
-};
