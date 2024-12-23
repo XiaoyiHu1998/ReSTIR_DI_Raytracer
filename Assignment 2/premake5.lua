@@ -18,6 +18,7 @@ includeDir["Glad"] = "Hazel/vendor/Glad/include"
 includeDir["ImGui"] = "Hazel/vendor/imgui"
 includeDir["glm"] = "Hazel/vendor/glm"
 includeDir["stb_image"] = "Hazel/vendor/stb_image"
+includeDir["tiny_bvh"] = "Sandbox/vendor/tinybvh"
 
 group "Dependencies"
 	include "Hazel/vendor/GLFW"
@@ -107,7 +108,8 @@ project "Sandbox"
 	files
 	{
 		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"%{prj.name}/src/**.cpp",
+		"%{prj.name}/vendor/tiny_bvh.h"
 	}
 
 	includedirs
@@ -115,7 +117,8 @@ project "Sandbox"
 		"Hazel/vendor/spdlog/include",
 		"Hazel/src",
 		"Hazel/vendor",
-		"%{includeDir.glm}"
+		"%{includeDir.glm}",
+		"%{includeDir.tiny_bvh}"
 	}
 
 	links
