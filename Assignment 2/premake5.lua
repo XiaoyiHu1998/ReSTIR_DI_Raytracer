@@ -117,8 +117,18 @@ project "tiny_bvh"
 		"%{includeDir.tiny_bvh}"
 	}
 
+	filter "configurations:Debug"
+		defines "HZ_DEBUG"
+		runtime "Debug"
+		symbols "on"
+
 	filter "configurations:Release"
 		defines "HZ_RELEASE"
+		runtime "Release"
+		optimize "on"
+
+	filter "configurations:Dist"
+		defines "HZ_DIST"
 		runtime "Release"
 		optimize "on"
 

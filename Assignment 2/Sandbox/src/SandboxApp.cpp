@@ -27,8 +27,8 @@ public:
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 
 		m_TLAS = TLAS();
-		BVH_BLAS m_BVH_BLAS = BVH_BLAS();
-		BVH_BLAS m_BVH_BLAS_2 = BVH_BLAS();
+		std::shared_ptr<BVH_BLAS> m_BVH_BLAS = std::make_shared<BVH_BLAS>();
+		std::shared_ptr<BVH_BLAS> m_BVH_BLAS_2 = std::make_shared<BVH_BLAS>();
 
 		Triangle triangle = Triangle(
 			glm::vec3(0, -10, 0),
@@ -39,11 +39,11 @@ public:
 		std::vector<Triangle> triangles;
 		triangles.push_back(triangle);
 
-		m_BVH_BLAS.SetObject(triangles, glm::mat4(1));
-		m_BVH_BLAS_2.SetObject(triangles, glm::translate(glm::mat4(1), glm::vec3(2.7f, 1.7f, 0)));
+		m_BVH_BLAS->SetObject(triangles, glm::mat4(1));
+		m_BVH_BLAS_2->SetObject(triangles, glm::translate(glm::mat4(1), glm::vec3(2.7f, 1.7f, 0)));
 
-		m_TLAS.AddBLAS(std::make_shared<BVH_BLAS>(m_BVH_BLAS));
-		m_TLAS.AddBLAS(std::make_shared<BVH_BLAS>(m_BVH_BLAS_2));
+		m_TLAS.AddBLAS(m_BVH_BLAS);
+		m_TLAS.AddBLAS(m_BVH_BLAS_2);
 	}
 
 	~PathTracingLayer()
@@ -114,6 +114,8 @@ private:
 	// World state
 	Camera m_Camera;
 	TLAS m_TLAS;
+	//BVH_BLAS m_BVH_BLAS;
+	//BVH_BLAS m_BVH_BLAS_2;
 	//Acceleration structure (objects + emmisives)
 	//Acceleration structure (emmisives only)
 private:

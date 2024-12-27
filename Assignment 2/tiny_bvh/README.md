@@ -9,7 +9,7 @@ Single-header OpenCL library, which helps you select and initialize a device. It
 * Vendor and architecture detection and propagation to #defines in OpenCL code
 * ..And many other things.
 
-![Rendered with tinybvh](images/test.png)
+![Output of the sample wavefront path tracer](images/wavefront.png)
 
 To use tinyocl, just include ````tiny_ocl.h````; this will automatically cause linking with ````OpenCL.lib```` in the 'external' folder, which in turn passes on work to vendor-specific driver code. But all that is not your problem!
 
@@ -31,19 +31,21 @@ Several special-purpose builders are also available:
 
 A constructed BVH can be used to quickly intersect a ray with the geometry, using ````BVH::Intersect```` or ````BVH::IsOccluded````, for shadow rays. The double-precision BVH is traversed using ````BVH::IntersectEx````.
 
-The constructed BVH will have a layout suitable for construction ('````WALD_32BYTE````'). Several other layouts for the same data are available, which all serve one or more specific purposes. You can convert between layouts using ````BVH::Convert````. The available layouts are:
-* ````BVH::WALD_32BYTE```` : A compact format that stores the AABB for a node, along with child pointers and leaf information in a cross-platform-friendly way. The 32-byte size allows for cache-line alignment.
-* ````BVH::ALT_SOA```` : This format stores bounding box information in a SIMD-friendly format, making the BVH faster to traverse.
-* ````BVH::WALD_DOUBLE```` : Double-precision version of ````BVH::WALD_32BYTE````.
-* ````BVH::VERBOSE```` : A format designed for modifying BVHs, e.g. for post-build optimizations using ````BVH::Optimize()````.
-* ````BVH::AILA_LAINE```` : This format uses 64 bytes per node and stores the AABBs of the two child nodes. This is the format presented in the [2009 Aila & Laine paper](https://research.nvidia.com/sites/default/files/pubs/2009-08_Understanding-the-Efficiency/aila2009hpg_paper.pdf) and recommended for basic GPU ray tracing.
-* ````BVH::BASIC_BVH4```` : In this format, each node stores four child pointers, reducing the depth of the tree. This improves performance for divergent rays. Based on the [2008 paper](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf) by Ingo Wald et al.
-* ````BVH::BVH4_GPU```` : The ````BASIC_BVH4```` format can be converted to the more compact ````BVH4_GPU```` layout, which will be faster for GPU ray tracing.
-* ````BVH::BVH4_AFRA```` : The ````BASIC_BVH4```` format can also be converted to a SIMD-friendly ````BVH4_AFRA```` layout, currently the fastest option for single-ray traversal on CPU.
-* ````BVH::BASIC_BVH8```` : This format stores eight child pointers, further reducing the depth of the tree. The only purpose is the construction of ````BVH::CWBVH````.
-* ````BVH::CWBVH```` : An advanced 80-byte representation of the 8-wide BVH, for state-of-the-art GPU rendering, based on the [2017 paper](https://research.nvidia.com/publication/2017-07_efficient-incoherent-ray-traversal-gpus-through-compressed-wide-bvhs) by Ylitie et al. and [code by AlanWBFT](https://github.com/AlanIWBFT/CWBVH).
+Apart from the default BVH layout (simply named ````BVH````), several other layouts are available, which all serve one or more specific purposes. You can create a BVH in the desired layout by instantiating the appropriate class, or by converting from ````BVH```` using the ````::ConvertFrom```` methods. The available layouts are:
+* ````BVH```` : A compact format that stores the AABB for a node, along with child pointers and leaf information in a cross-platform-friendly way. The 32-byte size allows for cache-line alignment.
+* ````BVH_SoA```` : This format stores bounding box information in a SIMD-friendly format, making the BVH faster to traverse.
+* ````BVH_Double```` : Double-precision version of ````BVH````.
+* ````BVH_Verbose```` : A format designed for modifying BVHs, e.g. for post-build optimizations using ````BVH_Verbose::Optimize()````.
+* ````BVH_GPU```` : This format uses 64 bytes per node and stores the AABBs of the two child nodes. This is the format presented in the [2009 Aila & Laine paper](https://research.nvidia.com/sites/default/files/pubs/2009-08_Understanding-the-Efficiency/aila2009hpg_paper.pdf). It can be traversed with a simple GPU kernel.
+* ````BVH4```` : In this format, each node stores four child pointers, reducing the depth of the tree. This improves performance for divergent rays. Based on the [2008 paper](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf) by Ingo Wald et al.
+* ````BVH4_GPU```` : A more compact version of the ````BVH4```` format, which will be faster for GPU ray tracing.
+* ````BVH4_CPU```` : A SIMD-friendly version of the ````BVH4```` format, currently the fastest option for single-ray traversal on CPU.
+* ````BVH8```` : This format stores eight child pointers, further reducing the depth of the tree.
+* ````BVH8_CWBVH```` : An advanced 80-byte representation of the 8-wide BVH, for state-of-the-art GPU rendering, based on the [2017 paper](https://research.nvidia.com/publication/2017-07_efficient-incoherent-ray-traversal-gpus-through-compressed-wide-bvhs) by Ylitie et al. and [code by AlanWBFT](https://github.com/AlanIWBFT/CWBVH).
 
-A BVH in the ````BVH::WALD_32BYTE```` format may be _refitted_ in case the triangles moved using ````BVH::Refit````. Refitting is substantially faster than rebuilding and works well if the animation is subtle. Refitting does not work if polygon counts change.
+A BVH in the ````BVH```` format may be _refitted_, in case the triangles moved, using ````BVH::Refit````. Refitting is substantially faster than rebuilding and works well if the animation is subtle. Refitting does not work if polygon counts change.
+
+New in version 1.1.3: 'Self-contained' formats may be serialized and de-serialized via ````::Save```` and ````::Load````. Currently this is supported for ````BVH8_CWBVH````, which stores vertex data in a custom format and thus does not rely on the input vertices for traversal.
 
 # How To Use
 The library ````tiny_bvh.h```` is designed to be easy to use. Please have a look at tiny_bvh_minimal.cpp for an example. A Visual Studio 'solution' (.sln/.vcxproj) is included, as well as a CMake file. That being said: The examples consists of only a single source file, which can be compiled with clang or g++, e.g.:
@@ -68,7 +70,7 @@ The **performance measurement tool** can be compiled with:
 
 ````g++ -std=c++20 -mavx -Ofast tiny_bvh_speedtest.cpp -o tiny_bvh_speedtest````
 
-# Version 1.1.2
+# Version 1.1.3
 
 Version 1.1.0 introduced a <ins>change to the API</ins>. The single BVH class with multiple layouts has been replaced with a BVH class per layout. You can simply instantiate the desired layout; conversion (and data ownership) is then handled properly by the library. Examples:
 
@@ -105,7 +107,7 @@ This version of the library includes the following functionality:
 * Double-precision binned SAH BVH builder
 * Spatial Splits ([SBVH](https://www.nvidia.in/docs/IO/77714/sbvh.pdf), Stich et al., 2009) builder
 * 'Compressed Wide BVH' (CWBVH) data structure
-* BVH optimizer: reduces SAH cost and improves ray tracing performance ([Bittner et al., 2013](https://www.nvidia.in/docs/IO/77714/sbvh.pdf))
+* BVH optimizer: reduces SAH cost and improves ray tracing performance ([Bittner et al., 2013](https://dspace.cvut.cz/bitstream/handle/10467/15603/2013-Fast-Insertion-Based-Optimization-of-Bounding-Volume-Hierarchies.pdf))
 * Collapse to 4-wide and 8-wide BVH
 * Conversion of 4-wide BVH to GPU-friendly 64-byte quantized format
 * Single-ray and packet traversal
@@ -148,6 +150,9 @@ Plans, ordered by priority:
 A list of projects using tinybvh:
 * [unity-tinybvh](https://github.com/andr3wmac/unity-tinybvh): An example implementation for tinybvh in Unity and a foundation for building compute based raytracing solutions, by Andrew MacIntyre.
 
+# tinybvh Rust bindings
+The tinybvh library can now also be used from Rust, with the [Rust bindings](https://docs.rs/tinybvh-rs/latest/tinybvh_rs) provided by David Peicho.
+
 Created or know about other projects? [Let me know](mailto:bikker.j@gmail.com)!
 
 # Contact
@@ -155,3 +160,5 @@ Questions, remarks? Contact me at bikker.j@gmail.com or on twitter: @j_bikker, o
 
 # License
 This library is made available under the MIT license, which starts as follows: "Permission is hereby granted, free of charge, .. , to deal in the Software **without restriction**". Enjoy.
+
+![Rendered with tinybvh](images/test.png)

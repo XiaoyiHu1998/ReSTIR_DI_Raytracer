@@ -55,7 +55,7 @@ using namespace tinybvh;
 #if defined(__GNUC__) && defined(__x86_64__)
 #include <cpuid.h>
 #endif
-#ifdef __EMSCRIPTEN__ 
+#ifdef __EMSCRIPTEN__
 #include <emscripten/version.h> // for __EMSCRIPTEN_major__, __EMSCRIPTEN_minor__
 #endif
 
@@ -150,10 +150,10 @@ float TestPrimaryRays( uint32_t layout, Ray* batch, unsigned N, unsigned passes 
 		case _CPU4: for (unsigned i = 0; i < N; i++) bvh4_cpu->Intersect( batch[i] ); break;
 		case _GPU4: for (unsigned i = 0; i < N; i++) bvh4_gpu->Intersect( batch[i] ); break;
 		case _BVH8: for (unsigned i = 0; i < N; i++) bvh8->Intersect( batch[i] ); break;
-	#ifdef BVH_USEAVX
+		#ifdef BVH_USEAVX
 		case _CWBVH: for (unsigned i = 0; i < N; i++) cwbvh->Intersect( batch[i] ); break;
 		case _SOA: for (unsigned i = 0; i < N; i++) bvh_soa->Intersect( batch[i] ); break;
-	#endif
+		#endif
 		default: break;
 		};
 	}
@@ -205,9 +205,9 @@ float TestShadowRays( uint32_t layout, Ray* batch, unsigned N, unsigned passes )
 		switch (layout)
 		{
 		case _DEFAULT: for (unsigned i = 0; i < N; i++) occluded += bvh->IsOccluded( batch[i] ); break;
-	#ifdef BVH_USEAVX
+		#ifdef BVH_USEAVX
 		case _SOA: for (unsigned i = 0; i < N; i++) occluded += bvh_soa->IsOccluded( batch[i] ); break;
-	#endif
+		#endif
 		case _GPU2: for (unsigned i = 0; i < N; i++) occluded += bvh_gpu->IsOccluded( batch[i] ); break;
 		case _CPU4: for (unsigned i = 0; i < N; i++) occluded += bvh4_cpu->IsOccluded( batch[i] ); break;
 		default: break;
@@ -259,17 +259,17 @@ void ValidateTraceResult( Ray* batch, float* ref, unsigned N, unsigned line )
 #include <vector>
 
 static unsigned threadCount = std::thread::hardware_concurrency();
-static std::atomic<int> batchIdx(0);
+static std::atomic<int> batchIdx( 0 );
 
 #if defined(TRAVERSE_2WAY_MT) || defined(ENABLE_OPENCL)
 
-void IntersectBvhWorkerThread(int batchCount, Ray* fullBatch, int threadIdx)
+void IntersectBvhWorkerThread( int batchCount, Ray* fullBatch, int threadIdx )
 {
 	int batch = threadIdx;
 	while (batch < batchCount)
 	{
 		const int batchStart = batch * 10000;
-		for (int i = 0; i < 10000; i++) bvh->Intersect(fullBatch[batchStart + i]);
+		for (int i = 0; i < 10000; i++) bvh->Intersect( fullBatch[batchStart + i] );
 
 		batch = batchIdx++;
 	}
@@ -279,13 +279,13 @@ void IntersectBvhWorkerThread(int batchCount, Ray* fullBatch, int threadIdx)
 
 #ifdef TRAVERSE_2WAY_MT_PACKET
 
-void IntersectBvh256WorkerThread(int batchCount, Ray* fullBatch, int threadIdx)
+void IntersectBvh256WorkerThread( int batchCount, Ray* fullBatch, int threadIdx )
 {
 	int batch = threadIdx;
 	while (batch < batchCount)
 	{
 		const int batchStart = batch * 30 * 256;
-		for (int i = 0; i < 30; i++) bvh->Intersect256Rays(fullBatch + batchStart + i * 256);
+		for (int i = 0; i < 30; i++) bvh->Intersect256Rays( fullBatch + batchStart + i * 256 );
 
 		batch = batchIdx++;
 	}
@@ -295,13 +295,13 @@ void IntersectBvh256WorkerThread(int batchCount, Ray* fullBatch, int threadIdx)
 
 #ifdef BVH_USEAVX
 
-void IntersectBvh256SSEWorkerThread(int batchCount, Ray* fullBatch, int threadIdx)
+void IntersectBvh256SSEWorkerThread( int batchCount, Ray* fullBatch, int threadIdx )
 {
 	int batch = threadIdx;
 	while (batch < batchCount)
 	{
 		const int batchStart = batch * 30 * 256;
-		for (int i = 0; i < 30; i++) bvh->Intersect256RaysSSE(fullBatch + batchStart + i * 256);
+		for (int i = 0; i < 30; i++) bvh->Intersect256RaysSSE( fullBatch + batchStart + i * 256 );
 
 		batch = batchIdx++;
 	}
@@ -375,7 +375,7 @@ int main()
 	printf( "Creating sphere flake (%i tris).\n", verts / 3 );
 #endif
 
-	// setup view pyramid for a pinhole camera: 
+	// setup view pyramid for a pinhole camera:
 	// eye, p1 (top-left), p2 (top-right) and p3 (bottom-left)
 #ifdef LOADSPONZA
 	bvhvec3 eye( -15.24f, 21.5f, 2.54f ), view = normalize( bvhvec3( 0.826f, -0.438f, -0.356f ) );
@@ -581,7 +581,7 @@ int main()
 #ifdef TRAVERSE_ALT2WAY_ST
 
 	// GPU
-	if (!bvh_gpu) 
+	if (!bvh_gpu)
 	{
 		bvh_gpu = new BVH_GPU();
 		bvh_gpu->Build( triangles, verts / 3 );
@@ -598,7 +598,7 @@ int main()
 #if defined TRAVERSE_SOA2WAY_ST && defined BVH_USEAVX // BVH_SoA::IsOccluded is not available for NEON yet.
 
 	// SOA
-	if (!bvh_soa) 
+	if (!bvh_soa)
 	{
 		bvh_soa = new BVH_SoA();
 		bvh_soa->Build( triangles, verts / 3 );
@@ -615,7 +615,7 @@ int main()
 #ifdef TRAVERSE_4WAY
 
 	// BVH4_CPU
-	if (!bvh4_cpu) 
+	if (!bvh4_cpu)
 	{
 		bvh4_cpu = new BVH4_CPU();
 		bvh4_cpu->Build( triangles, verts / 3 );
@@ -642,7 +642,7 @@ int main()
 #ifdef TRAVERSE_CWBVH
 
 	// CWBVH - Not efficient on CPU.
-	if (!cwbvh) 
+	if (!cwbvh)
 	{
 		cwbvh = new BVH8_CWBVH();
 		cwbvh->Build( triangles, verts / 3 );
@@ -657,7 +657,7 @@ int main()
 #ifdef TRAVERSE_BVH4
 
 	// Basic BVH4 - Basic implementation, not efficient on CPU.
-	if (!bvh4) 
+	if (!bvh4)
 	{
 		bvh4 = new BVH4();
 		bvh4->Build( triangles, verts / 3 );
@@ -672,7 +672,7 @@ int main()
 #ifdef TRAVERSE_BVH8
 
 	// Basic BVH8 - Basic implementation, not efficient on CPU.
-	if (!bvh8) 
+	if (!bvh8)
 	{
 		bvh8 = new BVH8();
 		bvh8->Build( triangles, verts / 3 );
@@ -687,7 +687,7 @@ int main()
 #if defined TRAVERSE_OPTIMIZED_ST || defined TRAVERSE_4WAY_OPTIMIZED
 
 	printf( "Optimized BVH performance - Optimizing... " );
-	if (!bvh_verbose) 
+	if (!bvh_verbose)
 	{
 		bvh_verbose = new BVH_Verbose();
 		bvh_verbose->ConvertFrom( *bvh );
@@ -747,7 +747,7 @@ int main()
 	batchIdx = threadCount;
 	std::vector<std::thread> threads;
 	for (uint32_t i = 0; i < threadCount; i++)
-		threads.emplace_back(&IntersectBvhWorkerThread, batchCount, fullBatch, i);
+		threads.emplace_back( &IntersectBvhWorkerThread, batchCount, fullBatch, i );
 	for (auto& thread : threads) thread.join();
 
 	refDistFull = new float[Nfull];
@@ -757,7 +757,7 @@ int main()
 
 	// trace the rays on GPU using OpenCL
 	printf( "- AILA_LAINE  - primary: " );
-	if (!bvh_gpu) 
+	if (!bvh_gpu)
 	{
 		bvh_gpu = new BVH_GPU();
 		bvh_gpu->Build( triangles, verts / 3 );
@@ -803,7 +803,7 @@ int main()
 
 	// trace the rays on GPU using OpenCL
 	printf( "- BVH4_GPU    - primary: " );
-	if (!bvh4_gpu) 
+	if (!bvh4_gpu)
 	{
 		bvh4_gpu = new BVH4_GPU();
 		bvh4_gpu->Build( triangles, verts / 3 );
@@ -847,7 +847,7 @@ int main()
 
 	// trace the rays on GPU using OpenCL
 	printf( "- BVH8/CWBVH  - primary: " );
-	if (!cwbvh) 
+	if (!cwbvh)
 	{
 		cwbvh = new BVH8_CWBVH();
 		cwbvh->Build( triangles, verts / 3 );
@@ -910,7 +910,7 @@ int main()
 		batchIdx = threadCount;
 		std::vector<std::thread> threads;
 		for (uint32_t i = 0; i < threadCount; i++)
-			threads.emplace_back(&IntersectBvhWorkerThread, batchCount, fullBatch, i);
+			threads.emplace_back( &IntersectBvhWorkerThread, batchCount, fullBatch, i );
 		for (auto& thread : threads) thread.join();
 	}
 	traceTime = t.elapsed() / 3.0f;
@@ -930,7 +930,7 @@ int main()
 		batchIdx = threadCount;
 		std::vector<std::thread> threads;
 		for (uint32_t i = 0; i < threadCount; i++)
-			threads.emplace_back(&IntersectBvh256WorkerThread, batchCount, fullBatch, i);
+			threads.emplace_back( &IntersectBvh256WorkerThread, batchCount, fullBatch, i );
 		for (auto& thread : threads) thread.join();
 	}
 	traceTime = t.elapsed() / 3.0f;
@@ -949,7 +949,7 @@ int main()
 		batchIdx = threadCount;
 		std::vector<std::thread> threads;
 		for (uint32_t i = 0; i < threadCount; i++)
-			threads.emplace_back(&IntersectBvh256SSEWorkerThread, batchCount, fullBatch, i);
+			threads.emplace_back( &IntersectBvh256SSEWorkerThread, batchCount, fullBatch, i );
 		for (auto& thread : threads) thread.join();
 	}
 	traceTime = t.elapsed() / 3.0f;

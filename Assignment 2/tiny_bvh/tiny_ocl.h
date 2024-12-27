@@ -78,7 +78,6 @@ inline void free64( void* ptr, void* = nullptr ) { free( ptr ); }
 #endif
 
 namespace tinyocl {
-
 // Math classes
 struct oclint2
 {
@@ -91,14 +90,14 @@ struct oclvec3 { float x, y, z; };
 // ============================================================================
 //
 //        T I N Y _ O C L   I N T E R F A C E
-// 
+//
 // ============================================================================
 
 // OpenCL context
-// *Only!* in case you want to override the default memory allocator used by 
+// *Only!* in case you want to override the default memory allocator used by
 // tinyocl::Buffer: call OpenCL::CreateInstance with OpenCLContext fields describing
 // your allocator and deallocator, before using any tinyocl functionality.
-// In all other cases, the first use of tinyocl (creating a buffer, loading a 
+// In all other cases, the first use of tinyocl (creating a buffer, loading a
 // kernel) will take care of this for you transparently.
 struct OpenCLContext
 {
@@ -303,6 +302,7 @@ public:
 	static bool InitCL();
 	static void CheckCLStarted();
 	static void KillCL();
+	static cl_device_id GetDeviceID() { return device; }
 private:
 	// data members
 	char* sourceFile = 0;
@@ -321,13 +321,12 @@ private:
 public:
 	inline static bool candoInterop = false, clStarted = false;
 };
-
 } // namespace tinybvh
 
 // ============================================================================
 //
 //        I M P L E M E N T A T I O N
-// 
+//
 // ============================================================================
 
 #ifdef TINY_OCL_IMPLEMENTATION
@@ -358,7 +357,7 @@ void FatalError( const char* fmt, ... )
 	va_start( args, fmt );
 	vsnprintf( t, sizeof( t ) - 2, fmt, args );
 	va_end( args );
-#if 0
+#ifdef _WINDOWS_ // i.e., windows.h has been included.
 	MessageBox( NULL, t, "Fatal error", MB_OK );
 #else
 	fprintf( stderr, t );
@@ -654,7 +653,11 @@ Kernel::Kernel( const char* file, const char* entryPoint )
 	// see if we have seen this source file before
 	for (int s = (int)loadedKernels.size(), i = 0; i < s; i++)
 	{
+	#ifdef _MSC_VER
 		if (!_stricmp( file, loadedKernels[i]->sourceFile ))
+		#else
+		if (!strcasecmp( file, loadedKernels[i]->sourceFile ))
+		#endif
 		{
 			cl_int error;
 			program = loadedKernels[i]->program;
@@ -946,6 +949,10 @@ bool Kernel::InitCL()
 	clGetDeviceInfo( devices[deviceUsed], CL_DEVICE_NAME, 1024, &device_string, NULL );
 	clGetDeviceInfo( devices[deviceUsed], CL_DEVICE_VERSION, 1024, &device_platform, NULL );
 	printf( "Device # %u, %s (%s)\n", deviceUsed, device_string, device_platform );
+	// print compute unit count
+	size_t computeUnits;
+	clGetDeviceInfo( devices[deviceUsed], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof( size_t ), &computeUnits, NULL );
+	printf( "Compute units / SM count: %iKB\n", (int)computeUnits );
 	// print local memory size
 	size_t localMem;
 	clGetDeviceInfo( devices[deviceUsed], CL_DEVICE_LOCAL_MEM_SIZE, sizeof( size_t ), &localMem, NULL );

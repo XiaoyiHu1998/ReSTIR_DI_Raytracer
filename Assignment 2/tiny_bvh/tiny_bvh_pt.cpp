@@ -1,6 +1,6 @@
 // This example shows how to build a basic CPU path tracer using
 // tinybvh. Function Tick uses OpenMP to render tiles of pixels
-// in parallel. For each pixel, function Trace recursively evaluates 
+// in parallel. For each pixel, function Trace recursively evaluates
 // light. The scene is here a single array of triangles, which
 // function AddMesh (repeatedly) adds to.
 
@@ -33,7 +33,7 @@ static std::atomic<int> tileIdx( 0 );
 // Multi-therading
 static unsigned threadCount = std::thread::hardware_concurrency();
 
-// Setup view pyramid for a pinhole camera: 
+// Setup view pyramid for a pinhole camera:
 // eye, p1 (top-left), p2 (top-right) and p3 (bottom-left)
 static bvhvec3 eye( 0, 30, 0 ), p1, p2, p3;
 static bvhvec3 view = normalize( bvhvec3( -1, 0, 0 ) );
