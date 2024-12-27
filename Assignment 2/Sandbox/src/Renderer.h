@@ -15,8 +15,8 @@ private:
 	//void PathTrace();
 	//void hdrToSdr();
 
-	//void Reflect();
-	//void Refract();
+	glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal);
+	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
 public:
 	static glm::vec4 RenderRay(Ray& ray, const TLAS& TLAS, const Sphere& sphere);
 };
