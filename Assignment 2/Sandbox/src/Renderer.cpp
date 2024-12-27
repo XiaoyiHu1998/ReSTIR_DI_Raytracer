@@ -1,10 +1,10 @@
 #include "Renderer.h"
 
-glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal) {
+glm::vec3 Renderer::Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal) {
 	return incomingDirection - normal * 2.f * (glm::dot(incomingDirection, normal));
 }
 
-glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i) { // Snell's law
+glm::vec3 Renderer::Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i) { // Snell's law
 	float cosi = -std::max(-1.f, std::min(1.f, glm::dot(incomingDirection, normal)));
 	if (cosi < 0) return Refract(incomingDirection, -normal, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
 	float eta = eta_i / eta_t;
