@@ -2,15 +2,15 @@
 
 bool Triangle::Intersect(Ray& ray) const 
 {
-	const glm::vec3 edge1 = m_Vertex1 - m_Vertex0;
-	const glm::vec3 edge2 = m_Vertex2 - m_Vertex0;
+	const glm::vec3 edge1 = m_Vertex1.position - m_Vertex0.position;
+	const glm::vec3 edge2 = m_Vertex2.position - m_Vertex0.position;
 	const glm::vec3 h = glm::cross(ray.direction, edge2);
 	const float a = glm::dot(edge1, h);
 
 	if (a > -0.0001f && a < 0.0001f) return false; // ray parallel to triangle
 
 	const float f = 1 / a;
-	const glm::vec3 s = ray.origin - m_Vertex0;
+	const glm::vec3 s = ray.origin - m_Vertex0.position;
 	const float u = f * glm::dot(s, h);
 
 	if (u < 0 || u > 1) return false;
@@ -34,8 +34,8 @@ bool Triangle::Intersect(Ray& ray) const
 float Triangle::Area() const
 {
 	//Cos method
-	glm::vec3 edge1 = m_Vertex1 - m_Vertex0;
-	glm::vec3 edge2 = m_Vertex2 - m_Vertex1;
+	glm::vec3 edge1 = m_Vertex1.position - m_Vertex0.position;
+	glm::vec3 edge2 = m_Vertex2.position - m_Vertex1.position;
 	float lengthEdge1 = glm::length(edge1);
 	float lengthEdge2 = glm::length(edge2);
 	
