@@ -12,6 +12,7 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "AccelerationStructures.h"
+#include "Mesh.h"
 
 class PathTracingLayer : public Hazel::Layer
 {
@@ -31,18 +32,23 @@ public:
 		std::shared_ptr<BVH_BLAS> m_BVH_BLAS_2 = std::make_shared<BVH_BLAS>();
 
 		Triangle triangle = Triangle(
-			glm::vec3(0, -10, 0),
-			glm::vec3(10, 10, 0),
-			glm::vec3(-10, 10, 0)
+			Vertex(glm::vec3(  0, -10, 0)),
+			Vertex(glm::vec3( 10,  10, 0)),
+			Vertex(glm::vec3(-10,  10, 0))
 		);
-
+		
 		std::vector<Triangle> triangles;
 		triangles.push_back(triangle);
+		
+		//m_BVH_BLAS->SetObject(triangles, glm::mat4(1));
+		//m_TLAS.AddBLAS(m_BVH_BLAS);
 
-		m_BVH_BLAS->SetObject(triangles, glm::mat4(1));
-		m_BVH_BLAS_2->SetObject(triangles, glm::translate(glm::mat4(1), glm::vec3(2.7f, 1.7f, 0)));
-
-		m_TLAS.AddBLAS(m_BVH_BLAS);
+		triangles.clear();
+		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
+		Transform sphereTransform = Transform(glm::vec3(0, 0, -10), glm::vec3(0), glm::vec3 (0.5f));
+		Mesh sphere = Mesh(triangles, sphereTransform);
+		
+		m_BVH_BLAS_2->SetObject(sphere.GetTriangles(), sphere.GetTransform().GetTransformMatrix());
 		m_TLAS.AddBLAS(m_BVH_BLAS_2);
 	}
 
