@@ -16,3 +16,6 @@
 [submodule "Assignment 2/tiny_bvh"]
 	path = Assignment 2/tiny_bvh
 	url = https://github.com/jbikker/tinybvh.git
+[submodule "Assignment 2/tinyobjloader"]
+	path = Assignment 2/tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader.git
