@@ -6,6 +6,7 @@
 #include "Camera.h"
 #include "Ray.h"
 #include "Primitives.h"
+#include "AccelerationStructures.h"
 
 class Renderer
 {
@@ -17,5 +18,5 @@ private:
 	//void Reflect();
 	//void Refract();
 public:
-	static glm::vec4 RenderRay(Ray& ray, const Triangle& triangle, const Sphere& sphere);
+	static glm::vec4 RenderRay(Ray& ray, const TLAS& TLAS, const Sphere& sphere);
 };

@@ -10,7 +10,7 @@ uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& BLAS)
 	return m_Scene.size() - 1;
 }
 
-void TLAS::Traverse(Ray& ray)
+void TLAS::Traverse(Ray& ray) const
 {
 	for (int i = 0; i < m_Scene.size(); i++)
 	{
@@ -20,16 +20,25 @@ void TLAS::Traverse(Ray& ray)
 
 //=================== BVH_BLAS =====================
 
-void BVH_BLAS::SetObject()
+void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4& transform)
 {
-	std::cout << "BVH_BLAS::SetObject() not implemented yet!" << std::endl;
+	std::cout << "BVH_BLAS::SetObject() not properly implemented yet!" << std::endl;
 	m_BVH = tinybvh::BVH();
 	m_Area = 0.0f;
-	//m_InverseTransform = glm::inverse();
+	m_InverseTransform = glm::inverse(transform);
 
 	// Loop through given Triangle's
 	//m_Triangles = ;
 	//m_Area = ;
+
+	for (int i = 0; i < triangles.size(); i++)
+	{
+		m_Triangles.emplace_back(tinybvh::bvhvec4(triangles[i].GetVertex0().x, triangles[i].GetVertex0().y, triangles[i].GetVertex0().z, 0.0f));
+		m_Triangles.emplace_back(tinybvh::bvhvec4(triangles[i].GetVertex1().x, triangles[i].GetVertex1().y, triangles[i].GetVertex1().z, 0.0f));
+		m_Triangles.emplace_back(tinybvh::bvhvec4(triangles[i].GetVertex2().x, triangles[i].GetVertex2().y, triangles[i].GetVertex2().z, 0.0f));
+
+		m_Area += triangles[i].Area();
+	}
 
 	m_BVH.Build(m_Triangles.data(), m_Triangles.size());
 }
@@ -38,7 +47,7 @@ void BVH_BLAS::Traverse(Ray& ray)
 {
 	// Transform Ray
 	glm::vec3 transformedOrigin = m_InverseTransform * glm::vec4(ray.origin, 1.0f);
-	glm::vec3 transformedDirection = m_InverseTransform * glm::vec4(ray.direction, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransform * glm::vec4(ray.direction, 0.0f);
 
 	// Intersection Test
 	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);

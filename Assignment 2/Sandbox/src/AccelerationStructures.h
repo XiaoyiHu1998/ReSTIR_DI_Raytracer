@@ -1,6 +1,5 @@
 #pragma once
 
-#define  TINYBVH_IMPLEMENTATION
 #include "tiny_bvh.h"
 
 #include "Include.h"
@@ -12,7 +11,7 @@ class BLAS
 public:
 	~BLAS() = default;
 
-	virtual void SetObject() = 0;
+	virtual void SetObject(const std::vector<Triangle>& triangles, const glm::mat4& transform) = 0;
 	virtual void Traverse(Ray& ray) = 0;
 
 	virtual glm::mat4 GetInverseTransform() = 0;
@@ -29,7 +28,7 @@ public:
 	~TLAS() = default;
 
 	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS);
-	void Traverse(Ray& ray);
+	void Traverse(Ray& ray) const;
 
 	std::shared_ptr<BLAS> GetBLAS(uint32_t index) { return m_Scene[index]; }
 };
@@ -57,7 +56,7 @@ public:
 
 	~BVH_BLAS() = default;
 
-	virtual void SetObject() override;
+	virtual void SetObject(const std::vector<Triangle>& triangles, const glm::mat4& transform) override;
 	virtual void Traverse(Ray& ray) override;
 
 	virtual glm::mat4 GetInverseTransform() { return m_InverseTransform; }

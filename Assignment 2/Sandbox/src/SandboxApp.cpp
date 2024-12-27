@@ -11,6 +11,7 @@
 #include "RenderCommand.h"
 #include "Renderer.h"
 #include "Camera.h"
+#include "AccelerationStructures.h"
 
 class PathTracingLayer : public Hazel::Layer
 {
@@ -24,6 +25,30 @@ public:
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 40);
 
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
+
+		m_TLAS = TLAS();
+		BVH_BLAS m_BVH_BLAS = BVH_BLAS();
+		BVH_BLAS m_BVH_BLAS_2 = BVH_BLAS();
+
+		Triangle triangle = Triangle(
+			glm::vec3(0, -10, 0),
+			glm::vec3(10, 10, 0),
+			glm::vec3(-10, 10, 0)
+		);
+
+		std::vector<Triangle> triangles;
+		triangles.push_back(triangle);
+
+		m_BVH_BLAS.SetObject(triangles, glm::mat4(1));
+		m_BVH_BLAS_2.SetObject(triangles, glm::translate(glm::mat4(1), glm::vec3(2.7f, 1.7f, 0)));
+
+		m_TLAS.AddBLAS(std::make_shared<BVH_BLAS>(m_BVH_BLAS));
+		m_TLAS.AddBLAS(std::make_shared<BVH_BLAS>(m_BVH_BLAS_2));
+	}
+
+	~PathTracingLayer()
+	{
+		RenderCommand::DeleteFrameBufferTexture(m_FrameBufferID);
 	}
 
 	void OnUpdate(Hazel::Timestep timestep) override
@@ -32,12 +57,6 @@ public:
 		m_CurrentHeight = m_NextHeight;
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::InitFrameBuffer(m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
-
-		Triangle triangle = Triangle(
-			glm::vec3(0,-10,0),
-			glm::vec3(10,10,0),
-			glm::vec3(-10,10,0)
-		);
 
 		Sphere sphere = Sphere(glm::vec3(0,0,0), 1.0f);
 
@@ -48,7 +67,7 @@ public:
 			for (uint32_t x = 0; x < m_CurrentWidth; x++)
 			{
 				Ray ray = m_Camera.GetRay(x, y);
-				glm::vec4 color = Renderer::RenderRay(ray, triangle, sphere);
+				glm::vec4 color = Renderer::RenderRay(ray, m_TLAS, sphere);
 				
 				//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
 				//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
@@ -94,6 +113,7 @@ private:
 
 	// World state
 	Camera m_Camera;
+	TLAS m_TLAS;
 	//Acceleration structure (objects + emmisives)
 	//Acceleration structure (emmisives only)
 private:

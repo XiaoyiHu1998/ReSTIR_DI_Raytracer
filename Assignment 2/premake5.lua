@@ -18,7 +18,7 @@ includeDir["Glad"] = "Hazel/vendor/Glad/include"
 includeDir["ImGui"] = "Hazel/vendor/imgui"
 includeDir["glm"] = "Hazel/vendor/glm"
 includeDir["stb_image"] = "Hazel/vendor/stb_image"
-includeDir["tiny_bvh"] = "Sandbox/vendor/tinybvh"
+includeDir["tiny_bvh"] = "tiny_bvh/src/"
 
 group "Dependencies"
 	include "Hazel/vendor/GLFW"
@@ -94,6 +94,34 @@ project "Hazel"
 		defines "HZ_DIST"
 		runtime "Release"
 		optimize "on"
+		
+
+project "tiny_bvh"
+	location "tiny_bvh"
+	kind "StaticLib"
+	language "C++"
+	cppdialect "C++17"
+	staticruntime "on"
+
+	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
+	objdir ("bin-intermediate/" .. outputdir .. "/%{prj.name}")
+
+	files
+	{
+		"%{prj.name}/src/**.h",
+		"%{prj.name}/src/**.cpp",
+	}
+
+	includedirs
+	{
+		"%{includeDir.tiny_bvh}"
+	}
+
+	filter "configurations:Release"
+		defines "HZ_RELEASE"
+		runtime "Release"
+		optimize "on"
+
 
 project "Sandbox"
 	location "Sandbox"
@@ -109,7 +137,6 @@ project "Sandbox"
 	{
 		"%{prj.name}/src/**.h",
 		"%{prj.name}/src/**.cpp",
-		"%{prj.name}/vendor/tiny_bvh.h"
 	}
 
 	includedirs
@@ -123,7 +150,8 @@ project "Sandbox"
 
 	links
 	{
-		"Hazel"
+		"Hazel",
+		"tiny_bvh"
 	}
 
 	defines
