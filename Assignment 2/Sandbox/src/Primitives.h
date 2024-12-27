@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Include.h"
 #include "Ray.h"
 
 class Primitive
