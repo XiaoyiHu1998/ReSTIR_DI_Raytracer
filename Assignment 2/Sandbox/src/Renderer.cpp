@@ -1,4 +1,7 @@
 #include "Renderer.h"
+#include "Utils.h"
+#include "Settings.h"
+#include "ThreadPool.h"
 
 glm::vec3 Renderer::Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal) {
 	return incomingDirection - normal * 2.f * (glm::dot(incomingDirection, normal));
@@ -21,4 +24,36 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const Sphere& sphere)
 	outputColor = sphere.Intersect(ray) ? 0.5f : outputColor;
 
 	return glm::vec4(outputColor);
+}
+
+void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const Sphere& sphere)
+{
+	ThreadPool threadPool(Settings::ThreadCount);
+
+	for (uint32_t y = 0; y < height; y += Settings::RenderingKernelSize)
+		for (uint32_t x = 0; x < width; x += Settings::RenderingKernelSize)
+		{
+			threadPool.Enqueue([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, sphere); });
+		}
+
+	threadPool.LaunchThreads();
+	threadPool.WaitTillDone();
+}
+
+void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const Sphere& sphere)
+{
+	uint32_t xMax = std::min(xMin + Settings::RenderingKernelSize, width);
+	uint32_t yMax = std::min(yMin + Settings::RenderingKernelSize, height);
+
+	for (uint32_t y = yMin; y < yMax; y++)
+		for (uint32_t x = xMin; x < xMax; x++)
+		{
+			Ray ray = camera.GetRay(x, y);
+			glm::vec4 color = Renderer::RenderRay(ray, tlas, sphere);
+
+			//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
+			//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
+
+			Utils::FillFrameBufferPixel(x, y, color, width, frameBuffer);
+		}
 }
