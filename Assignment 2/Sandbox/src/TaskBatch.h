@@ -6,19 +6,18 @@
 #include "Include.h"
 
 // https://stackoverflow.com/questions/15278343/c11-thread-safe-queue
-class ThreadPool
+class TaskBatch
 {
 
 public:
-	ThreadPool(size_t numThreads);
-	~ThreadPool();
-	void Enqueue(std::function<void()> task);
-	void LaunchThreads();
-	void WaitTillDone();
+	TaskBatch(size_t numThreads);
+	~TaskBatch();
+	void EnqueueTask(std::function<void()> task);
+	void ExecuteTasks();
 
 private:
 	std::vector<std::thread> m_Threads;
 	std::queue<std::function<void()>> m_Tasks;
 	mutable std::mutex m_Mutex;
-	bool ThreadPool::TryDequeue(std::function<void()>* task);
+	bool TaskBatch::TryDequeue(std::function<void()>* task);
 };

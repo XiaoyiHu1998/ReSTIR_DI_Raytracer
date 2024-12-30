@@ -1,7 +1,7 @@
 #include "Renderer.h"
 #include "Utils.h"
 #include "Settings.h"
-#include "ThreadPool.h"
+#include "TaskBatch.h"
 
 glm::vec3 Renderer::Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal) {
 	return incomingDirection - normal * 2.f * (glm::dot(incomingDirection, normal));
@@ -28,16 +28,15 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const Sphere& sphere)
 
 void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const Sphere& sphere)
 {
-	ThreadPool threadPool(Settings::ThreadCount);
+	TaskBatch taskBatch(Settings::ThreadCount);
 
 	for (uint32_t y = 0; y < height; y += Settings::RenderingKernelSize)
 		for (uint32_t x = 0; x < width; x += Settings::RenderingKernelSize)
 		{
-			threadPool.Enqueue([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, sphere); });
+			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, sphere); });
 		}
 
-	threadPool.LaunchThreads();
-	threadPool.WaitTillDone();
+	taskBatch.ExecuteTasks();
 }
 
 void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const Sphere& sphere)

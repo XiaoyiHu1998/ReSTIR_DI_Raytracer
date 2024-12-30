@@ -7,7 +7,6 @@
 #include "Glad/include/glad/glad.h"
 
 #include "Include.h"
-#include "Utils.h"
 #include "RenderCommand.h"
 #include "Renderer.h"
 #include "Camera.h"
@@ -66,21 +65,7 @@ public:
 
 		Sphere sphere = Sphere(glm::vec3(0,0,0), 1.0f);
 
-		for (uint32_t y = 0; y < m_CurrentHeight; y++)
-		{
-			//float yColor = float(y) / static_cast<float>(m_CurrentHeight);
-
-			for (uint32_t x = 0; x < m_CurrentWidth; x++)
-			{
-				Ray ray = m_Camera.GetRay(x, y);
-				glm::vec4 color = Renderer::RenderRay(ray, m_TLAS, sphere);
-				
-				//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
-				//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
-
-				Utils::FillFrameBufferPixel(x, y, color, m_CurrentWidth, m_FrameBuffer);
-			}
-		}
+		Renderer::RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, sphere);
 
 		RenderCommand::SetFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
