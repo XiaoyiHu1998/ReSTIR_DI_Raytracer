@@ -44,7 +44,7 @@ public:
 
 		triangles.clear();
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
-		Transform meshTransform = Transform(glm::vec3(0, 0, -10), glm::vec3(0), glm::vec3 (0.5f));
+		Transform meshTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3 (15.0f));
 		Mesh mesh = Mesh(triangles, meshTransform);
 		
 		m_BVH_BLAS_2->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix());

@@ -36,7 +36,7 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4
 		m_Area += triangles[i].Area();
 	}
 
-	m_BVH.Build(m_Vertices.data(), m_Vertices.size());
+	m_BVH.BuildHQ(m_Vertices.data(), m_Vertices.size() / 3);
 }
 
 void BVH_BLAS::Traverse(Ray& ray)
