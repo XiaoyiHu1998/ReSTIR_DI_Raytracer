@@ -2,6 +2,8 @@
 
 #include "Include.h"
 
+#include "Material.h"
+
 struct HitInfo
 {
 public:
@@ -12,8 +14,8 @@ public:
 	glm::vec3 hitNormal;
 	glm::vec3 hitLocation;
 
-	//Material material;
-	//Material prevMaterial;
+	Material material;
+	Material prevMaterial;
 	//bool LastSpecular; // not necessary anymore after prevMaterial is implemented
 
 	// Debug info

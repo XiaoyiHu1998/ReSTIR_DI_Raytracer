@@ -70,8 +70,8 @@ void BVH_BLAS::Traverse(Ray& ray)
 		hitInfo.hitLocation = ray.origin + ray.direction * tinybvhRay.hit.t;
 		hitInfo.hitNormal = hitTriangle.GetNormal();
 		hitInfo.objectArea = m_Area;
-		// hitInfo.prevMaterial = hitInfo.material;
-		// hitInfo.material = m_Material;
+		hitInfo.prevMaterial = hitInfo.material;
+		hitInfo.material = m_Material;
 		hitInfo.traversalStepsHitBVH = traversalSteps;
 		hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + traversalSteps;
 

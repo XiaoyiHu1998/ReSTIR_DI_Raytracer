@@ -5,6 +5,7 @@
 #include "Include.h"
 #include "Ray.h"
 #include "Primitives.h"
+#include "Material.h"
 
 class BLAS
 {
@@ -40,18 +41,17 @@ private:
 	tinybvh::BVH m_BVH;
 	std::vector<tinybvh::bvhvec4> m_Vertices;
 
-	glm::mat4 m_InverseTransform;
 	float m_Area;
-
-	// Required:
-	// Material m_Material
+	glm::mat4 m_InverseTransform;
+	Material m_Material;
 
 	// Backlog features:
 	// Skybox
 	// Pointlights
 public:
 	BVH_BLAS():
-		m_BVH{ tinybvh::BVH() }, m_Vertices{ std::vector<tinybvh::bvhvec4>() }, m_InverseTransform{ glm::mat4() }, m_Area{ 0.0f }
+		m_BVH{ tinybvh::BVH() }, m_Vertices{ std::vector<tinybvh::bvhvec4>() }, m_InverseTransform{ glm::mat4() }, m_Area{ 0.0f },
+		m_Material{ Material(Material::Type::Emissive, 1, 0, 0, glm::vec3(0.8, 0.2, 0.2), glm::vec3(0.8, 0.2, 0.2)) }
 	{}
 
 	~BVH_BLAS() = default;
