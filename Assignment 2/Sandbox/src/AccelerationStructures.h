@@ -38,7 +38,7 @@ class BVH_BLAS : public BLAS
 {
 private:
 	tinybvh::BVH m_BVH;
-	std::vector<tinybvh::bvhvec4> m_Triangles;
+	std::vector<tinybvh::bvhvec4> m_Vertices;
 
 	glm::mat4 m_InverseTransform;
 	float m_Area;
@@ -51,7 +51,7 @@ private:
 	// Pointlights
 public:
 	BVH_BLAS():
-		m_BVH{ tinybvh::BVH() }, m_Triangles{ std::vector<tinybvh::bvhvec4>() }, m_InverseTransform{ glm::mat4() }, m_Area{ 0.0f }
+		m_BVH{ tinybvh::BVH() }, m_Vertices{ std::vector<tinybvh::bvhvec4>() }, m_InverseTransform{ glm::mat4() }, m_Area{ 0.0f }
 	{}
 
 	~BVH_BLAS() = default;
