@@ -45,10 +45,10 @@ public:
 
 		triangles.clear();
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
-		Transform sphereTransform = Transform(glm::vec3(0, 0, -10), glm::vec3(0), glm::vec3 (0.5f));
-		Mesh sphere = Mesh(triangles, sphereTransform);
+		Transform meshTransform = Transform(glm::vec3(0, 0, -10), glm::vec3(0), glm::vec3 (0.5f));
+		Mesh mesh = Mesh(triangles, meshTransform);
 		
-		m_BVH_BLAS_2->SetObject(sphere.GetTriangles(), sphere.GetTransform().GetTransformMatrix());
+		m_BVH_BLAS_2->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix());
 		m_TLAS.AddBLAS(m_BVH_BLAS_2);
 	}
 
@@ -120,8 +120,6 @@ private:
 	// World state
 	Camera m_Camera;
 	TLAS m_TLAS;
-	//BVH_BLAS m_BVH_BLAS;
-	//BVH_BLAS m_BVH_BLAS_2;
 	//Acceleration structure (objects + emmisives)
 	//Acceleration structure (emmisives only)
 private:
