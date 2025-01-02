@@ -65,7 +65,7 @@ public:
 
 		Sphere sphere = Sphere(glm::vec3(0,0,0), 1.0f);
 
-		Renderer::RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, sphere);
+		Renderer::RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly);
 
 		RenderCommand::SetFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
