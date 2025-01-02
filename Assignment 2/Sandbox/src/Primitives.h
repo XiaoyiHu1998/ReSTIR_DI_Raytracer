@@ -53,6 +53,8 @@ public:
 	Vertex GetVertex1() const	{ return m_Vertex1; }
 	Vertex GetVertex2() const	{ return m_Vertex2; }
 	glm::vec3 GetNormal() const { return m_Normal; }
+
+	const glm::vec3 GetRandomPoint(uint32_t& seed);
 };
 
 

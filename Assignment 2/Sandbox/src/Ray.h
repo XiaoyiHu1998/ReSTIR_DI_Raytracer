@@ -32,6 +32,22 @@ public:
 	{}
 };
 
+struct LightSampleInfo
+{
+public:
+	float distance;
+	float lightArea;
+
+	glm::vec3 lightDirection;
+	glm::vec3 lightNormal;
+	glm::vec3 lightColor;
+public:
+	LightSampleInfo() :
+		distance{ std::numeric_limits<float>().max() }, lightArea{ 0 }, lightDirection{ glm::vec3(0) }, lightNormal{ glm::vec3(0) }, lightColor{ glm::vec3(0) }
+	{
+	}
+};
+
 struct Ray
 {
 public:

@@ -1,4 +1,5 @@
 #include "Primitives.h"
+#include "Utils.h"
 
 bool Triangle::Intersect(Ray& ray) const 
 {
@@ -76,4 +77,15 @@ bool Sphere::Intersect(Ray& ray) const
 float Sphere::Area() const
 {
 	return 4 * glm::pi<float>() * m_Radius;
+}
+
+const glm::vec3 Triangle::GetRandomPoint(uint32_t& seed)
+{
+	float u = Utils::RandomFloat(seed);
+	float v = Utils::RandomFloat(seed);
+
+	glm::vec3 edge1 = m_Vertex1.position - m_Vertex0.position;
+	glm::vec3 edge2 = m_Vertex2.position - m_Vertex0.position;
+
+	return m_Vertex0.position + u * edge1 + v * edge2;
 }

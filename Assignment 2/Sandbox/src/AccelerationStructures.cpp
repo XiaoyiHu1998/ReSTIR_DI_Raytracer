@@ -1,6 +1,7 @@
 #include "AccelerationStructures.h"
 
 #include <iostream>
+#include "Utils.h"
 
 //=================== TLAS =========================
 
@@ -20,12 +21,14 @@ void TLAS::Traverse(Ray& ray) const
 
 //=================== BVH_BLAS =====================
 
-void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4& transform)
+void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4& transform, const Material& material)
 {
 	std::cout << "BVH_BLAS::SetObject() not properly implemented yet!" << std::endl;
 	m_BVH = tinybvh::BVH();
 	m_Area = 0.0f;
 	m_InverseTransform = glm::inverse(transform);
+	m_CumulativeArea.resize(triangles.size());
+	m_Material = material;
 
 	for (int i = 0; i < triangles.size(); i++)
 	{
@@ -34,6 +37,7 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4
 		m_Vertices.emplace_back(triangles[i].GetVertex2().position.x, triangles[i].GetVertex2().position.y, triangles[i].GetVertex2().position.z, 0.0f);
 
 		m_Area += triangles[i].Area();
+		m_CumulativeArea[i] = m_Area;
 	}
 
 	m_BVH.BuildHQ(m_Vertices.data(), m_Vertices.size() / 3);
@@ -78,4 +82,35 @@ void BVH_BLAS::Traverse(Ray& ray)
 		// Set new HitInfo
 		ray.hitInfo = hitInfo;
 	}
+}
+
+Triangle BVH_BLAS::GetRandomTriangle(uint32_t& seed) const
+{
+	// Find a random triangle using binary search.
+
+	float randomArea = Utils::RandomFloat(seed) * m_Area;
+
+	int left = 0; //inclusive
+	int right = m_CumulativeArea.size() - 1; //exclusive
+
+	while (left < right)
+	{
+		int mid = left + (right - left) / 2;
+		if (m_CumulativeArea[mid] < randomArea)
+		{
+			left = mid + 1;
+		}
+		else
+		{
+			right = mid;
+		}
+	}
+
+	uint32_t index = left * 3;
+
+	glm::vec3 vertex0 = glm::vec3(m_Vertices[index + 0].x, m_Vertices[index + 0].y, m_Vertices[index + 0].z);
+	glm::vec3 vertex1 = glm::vec3(m_Vertices[index + 1].x, m_Vertices[index + 1].y, m_Vertices[index + 1].z);
+	glm::vec3 vertex2 = glm::vec3(m_Vertices[index + 2].x, m_Vertices[index + 2].y, m_Vertices[index + 2].z);
+
+	return Triangle(Vertex(vertex0), Vertex(vertex1), Vertex(vertex2));
 }
