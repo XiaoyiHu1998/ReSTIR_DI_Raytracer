@@ -15,44 +15,77 @@ glm::vec3 Renderer::Refract(const glm::vec3& incomingDirection, const glm::vec3&
 	return k < 0 ? glm::vec3(1, 0, 0) : incomingDirection * eta + normal * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
 }
 
-glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const Sphere& sphere)
+
+//void Renderer::ShadowRay(Ray& ray, const TLAS& tlasEmmisive)
+//{
+//
+//}
+
+
+glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive)
 {
-	float outputColor = 0.0f;
-	tlas.Traverse(ray);
+	glm::vec3 T(1);
+	glm::vec3 E(0);
+	uint32_t currentRayDepth = 0;
 
-	outputColor = ray.hitInfo.hit ? 1.0f : outputColor;
-	outputColor = sphere.Intersect(ray) ? 0.5f : outputColor;
+	while (currentRayDepth < Settings::MaxRayDepth)
+	{
+		// Intersection Test
+		tlas.Traverse(ray);
+		if (!ray.hitInfo.hit)
+			break;
 
-	return glm::vec4(outputColor);
+		glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
+		if (ray.hitInfo.material.MaterialType == Material::Type::Emissive)
+			break;
+
+		// Direct lighting contribution
+		//ShadowRay();
+
+		// Indirect lighting contribution
+		//glm::vec3 reflectionDirection = RandomPointOnSphere(ray.hitInfo.hitNormal);
+		//float hemispherePDF = 1 / (M_PI / 2.0f);
+		//Ray nextRay = Ray(ray.hitInfo.hitLocation, reflectionDirection);
+		//T *= (glm::dot(ray.hitInfo.hitNormal, reflectionDirection) / hemispherePDF) * BRDF;
+		
+		currentRayDepth++;
+	}
+
+	return glm::vec4(E, 1.0f);
 }
 
-void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const Sphere& sphere)
+void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive)
 {
 	TaskBatch taskBatch(Settings::ThreadCount);
 
 	for (uint32_t y = 0; y < height; y += Settings::RenderingKernelSize)
+	{
 		for (uint32_t x = 0; x < width; x += Settings::RenderingKernelSize)
 		{
-			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, sphere); });
+			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive); });
 		}
+	}
 
 	taskBatch.ExecuteTasks();
 }
 
-void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const Sphere& sphere)
+void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive)
 {
 	uint32_t xMax = std::min(xMin + Settings::RenderingKernelSize, width);
 	uint32_t yMax = std::min(yMin + Settings::RenderingKernelSize, height);
 
 	for (uint32_t y = yMin; y < yMax; y++)
+	{
 		for (uint32_t x = xMin; x < xMax; x++)
 		{
 			Ray ray = camera.GetRay(x, y);
-			glm::vec4 color = Renderer::RenderRay(ray, tlas, sphere);
+			glm::vec4 color = Renderer::RenderRay(ray, tlas, tlasEmmisive);
 
 			//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
 			//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
 
 			Utils::FillFrameBufferPixel(x, y, color, width, frameBuffer);
 		}
+	}
+		
 }

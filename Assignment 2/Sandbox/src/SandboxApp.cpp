@@ -105,6 +105,7 @@ private:
 	// World state
 	Camera m_Camera;
 	TLAS m_TLAS;
+	TLAS m_TLAS_EmmisiveOnly;
 	//Acceleration structure (objects + emmisives)
 	//Acceleration structure (emmisives only)
 private:
