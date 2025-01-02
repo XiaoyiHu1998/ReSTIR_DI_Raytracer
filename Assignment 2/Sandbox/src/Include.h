@@ -2,6 +2,7 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <functional>
 
 #define _USE_MATH_DEFINES
 #include <math.h>

@@ -16,10 +16,10 @@ glm::vec3 Renderer::Refract(const glm::vec3& incomingDirection, const glm::vec3&
 }
 
 
-//void Renderer::ShadowRay(Ray& ray, const TLAS& tlasEmmisive)
-//{
-//
-//}
+glm::vec3 Renderer::RandomPointOnSphere(const glm::vec3& normal)
+{
+
+}
 
 
 glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive)

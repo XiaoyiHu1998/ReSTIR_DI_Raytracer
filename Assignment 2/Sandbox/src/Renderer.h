@@ -17,6 +17,8 @@ private:
 
 	glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal);
 	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
+	glm::vec3 RandomPointOnSphere(const glm::vec3& normal);
+
 	static void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive);
 public:
 	static glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive);
