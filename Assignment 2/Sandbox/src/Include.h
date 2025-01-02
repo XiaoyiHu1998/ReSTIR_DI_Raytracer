@@ -3,6 +3,9 @@
 #include <memory>
 #include <iostream>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
