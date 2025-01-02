@@ -13,7 +13,7 @@ public:
 		Mirror,
 		Refractive
 	};
-private:
+public:
 	Type MaterialType;
 
 	float IOR;
