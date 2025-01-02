@@ -16,13 +16,38 @@ glm::vec3 Renderer::Refract(const glm::vec3& incomingDirection, const glm::vec3&
 }
 
 
-glm::vec3 Renderer::RandomPointOnSphere(const glm::vec3& normal)
+glm::vec3 Renderer::RandomPointOnHemisphere(const glm::vec3& normal, uint32_t& seed)
 {
+	glm::vec3 randomVector = glm::normalize(glm::vec3(Utils::RandomFloat(seed), Utils::RandomFloat(seed), Utils::RandomFloat(seed)));
 
+	while (glm::dot(randomVector, normal) <= 0)
+	{
+		randomVector = glm::normalize(glm::vec3(Utils::RandomFloat(seed), Utils::RandomFloat(seed), Utils::RandomFloat(seed)));
+	}
+
+	return randomVector;
 }
 
 
-glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive)
+glm::vec3 Renderer::CosineSampleHemisphere(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& tangent, uint32_t& seed)
+{
+	float r0 = Utils::RandomFloat(seed);
+	float r1 = Utils::RandomFloat(seed);
+	float radius = std::sqrt(r0);
+	float theta = 2 * M_PI * r1;
+	float x = radius * std::cos(theta);
+	float y = radius * std::sin(theta);
+	glm::vec3 randomPoint(x, y, std::sqrt(1 - r0)); // point on hemisphere around +z axis
+	
+	// Rotate 180 degrees such that the point is on the hemisphere with -z axis before using glm::lookAt transform
+	glm::mat4 transform = glm::lookAt(position, position + normal, tangent);
+	randomPoint = glm::vec3(randomPoint.x, randomPoint.y, randomPoint.z * -1.0f);
+
+	return glm::normalize(transform * glm::vec4(randomPoint, 1.0f));
+}
+
+
+glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
 {
 	glm::vec3 T(1);
 	glm::vec3 E(0);
@@ -43,10 +68,13 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 		//ShadowRay();
 
 		// Indirect lighting contribution
-		//glm::vec3 reflectionDirection = RandomPointOnSphere(ray.hitInfo.hitNormal);
-		//float hemispherePDF = 1 / (M_PI / 2.0f);
-		//Ray nextRay = Ray(ray.hitInfo.hitLocation, reflectionDirection);
-		//T *= (glm::dot(ray.hitInfo.hitNormal, reflectionDirection) / hemispherePDF) * BRDF;
+		glm::vec3 triangleTangent = ray.hitInfo.tangent;
+		//glm::vec3 reflectionDirection = RandomPointOnHemisphere(ray.hitInfo.normal, seed);
+		glm::vec3 reflectionDirection = CosineSampleHemisphere(ray.hitInfo.location, ray.hitInfo.normal, triangleTangent, seed);
+		//float hemispherePDF = 1.0f / (M_PI / 2.0f);
+		float hemispherePDF = glm::dot(ray.hitInfo.normal, reflectionDirection) / M_PI;
+		Ray nextRay = Ray(ray.hitInfo.location, reflectionDirection);
+		T *= (glm::dot(ray.hitInfo.normal, reflectionDirection) / hemispherePDF) * BRDF;
 		
 		currentRayDepth++;
 	}
@@ -62,14 +90,15 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 	{
 		for (uint32_t x = 0; x < width; x += Settings::RenderingKernelSize)
 		{
-			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive); });
+			uint32_t seed = x + y * width;
+			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, seed); });
 		}
 	}
 
 	taskBatch.ExecuteTasks();
 }
 
-void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive)
+void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t seed)
 {
 	uint32_t xMax = std::min(xMin + Settings::RenderingKernelSize, width);
 	uint32_t yMax = std::min(yMin + Settings::RenderingKernelSize, height);
@@ -79,10 +108,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 		for (uint32_t x = xMin; x < xMax; x++)
 		{
 			Ray ray = camera.GetRay(x, y);
-			glm::vec4 color = Renderer::RenderRay(ray, tlas, tlasEmmisive);
-
-			//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
-			//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
+			glm::vec4 color = Renderer::RenderRay(ray, tlas, tlasEmmisive, seed);
 
 			Utils::FillFrameBufferPixel(x, y, color, width, frameBuffer);
 		}
