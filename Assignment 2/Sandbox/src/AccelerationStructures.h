@@ -34,7 +34,7 @@ public:
 	std::shared_ptr<BLAS> GetBLAS(uint32_t index) { return m_Scene[index]; }
 };
 
-
+// TODO: Save UV coordinates and vertex normals when constructing bvh
 class BVH_BLAS : public BLAS
 {
 private:

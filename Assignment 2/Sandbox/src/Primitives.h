@@ -3,16 +3,6 @@
 #include "Include.h"
 #include "Ray.h"
 
-class Primitive
-{
-public:
-	~Primitive() = default;
-
-	virtual bool Intersect(Ray& ray) const = 0;
-	virtual float Area() const = 0;
-};
-
-
 struct Vertex
 {
 	glm::vec3 position;
@@ -22,12 +12,22 @@ struct Vertex
 	Vertex() = default;
 
 	Vertex(const glm::vec3& position, const glm::vec2& texCoord) :
-		position{ position }, normal{ glm::vec3(0) }, texCoord{texCoord}
+		position{ position }, normal{ glm::vec3(0) }, texCoord{ texCoord }
 	{}
 
-	Vertex(const glm::vec3 & position, const glm::vec3 & normal = glm::vec3(0), const glm::vec2 & texCoord = glm::vec2(0)) :
+	Vertex(const glm::vec3& position, const glm::vec3& normal = glm::vec3(0), const glm::vec2& texCoord = glm::vec2(0)) :
 		position{ position }, normal{ glm::normalize(normal) }, texCoord{ texCoord }
 	{}
+};
+
+
+class Primitive
+{
+public:
+	~Primitive() = default;
+
+	virtual bool Intersect(Ray& ray) const = 0;
+	virtual float Area() const = 0;
 };
 
 
@@ -49,10 +49,11 @@ public:
 	virtual bool Intersect(Ray& ray) const override;
 	virtual float Area() const override;
 
-	Vertex GetVertex0() const	{ return m_Vertex0; }
-	Vertex GetVertex1() const	{ return m_Vertex1; }
-	Vertex GetVertex2() const	{ return m_Vertex2; }
-	glm::vec3 GetNormal() const { return m_Normal; }
+	Vertex GetVertex0() const	 { return m_Vertex0; }
+	Vertex GetVertex1() const	 { return m_Vertex1; }
+	Vertex GetVertex2() const	 { return m_Vertex2; }
+	glm::vec3 GetNormal() const  { return m_Normal; }
+	glm::vec3 GetTangent() const { return m_Vertex1.position - m_Vertex0.position; }
 };
 
 
