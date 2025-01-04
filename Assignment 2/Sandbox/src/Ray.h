@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Include.h"
-
 #include "Material.h"
 
 struct HitInfo
@@ -11,24 +10,29 @@ public:
 	float distance;
 	float objectArea;
 
-	glm::vec3 hitNormal;
-	glm::vec3 hitLocation;
+	glm::vec3 location;
+	glm::vec3 normal;
+	glm::vec3 tangent;
 
 	Material material;
 	Material prevMaterial;
-	//bool LastSpecular; // not necessary anymore after prevMaterial is implemented
 
 	// Debug info
 	int32_t traversalStepsHitBVH;
 	int32_t traversalStepsTotal;
 public:
 	HitInfo():
-		hit{ false }, distance{ std::numeric_limits<float>().max() }, objectArea{ 0 }, hitNormal{ glm::vec3(0) }, hitLocation{ glm::vec3(0) },
-		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 }
+		hit{ false }, distance{ std::numeric_limits<float>().max() }, objectArea{ 0 }, location{ glm::vec3(0) },
+		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
+		material { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) },
+		prevMaterial { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) },
+		normal { glm::vec3(0)}, tangent{ glm::vec3(0) }
 	{}
 
-	HitInfo(bool hit) :
-		hit{ hit }
+	HitInfo(bool hit) : // Members should be set manually after initialization
+		hit{ hit },
+		material{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) },
+		prevMaterial{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) }
 	{}
 };
 

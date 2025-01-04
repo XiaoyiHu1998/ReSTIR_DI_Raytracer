@@ -71,8 +71,9 @@ void BVH_BLAS::Traverse(Ray& ray)
 
 		// HitInfo Data
 		hitInfo.distance = tinybvhRay.hit.t;
-		hitInfo.hitLocation = ray.origin + ray.direction * tinybvhRay.hit.t;
-		hitInfo.hitNormal = hitTriangle.GetNormal();
+		hitInfo.location = ray.origin + ray.direction * tinybvhRay.hit.t;
+		hitInfo.normal = hitTriangle.GetNormal();
+		hitInfo.tangent = hitTriangle.GetTangent();
 		hitInfo.objectArea = m_Area;
 		hitInfo.prevMaterial = hitInfo.material;
 		hitInfo.material = m_Material;

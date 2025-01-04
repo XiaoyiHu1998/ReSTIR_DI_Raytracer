@@ -24,7 +24,7 @@ LightSampleInfo Renderer::SampleRandomLight(const Ray& ray, const TLAS& tlasEmmi
 	glm::vec3 randomPoint = randomTriangle.GetRandomPoint(seed);
 
 	LightSampleInfo lightInfo;
-	lightInfo.lightDirection = randomPoint - ray.hitInfo.hitLocation;
+	lightInfo.lightDirection = randomPoint - ray.hitInfo.location;
 	lightInfo.distance = glm::length(lightInfo.lightDirection);
 	lightInfo.lightDirection = glm::normalize(lightInfo.lightDirection);
 	lightInfo.lightArea = lightBLAS->GetArea();
@@ -32,6 +32,36 @@ LightSampleInfo Renderer::SampleRandomLight(const Ray& ray, const TLAS& tlasEmmi
 	lightInfo.lightColor = lightBLAS->GetMaterial().Emmitance;
 
 	return lightInfo;
+}
+
+glm::vec3 Renderer::RandomPointOnHemisphere(const glm::vec3& normal, uint32_t& seed)
+{
+	glm::vec3 randomVector = glm::normalize(glm::vec3(Utils::RandomFloat(seed), Utils::RandomFloat(seed), Utils::RandomFloat(seed)));
+
+	while (glm::dot(randomVector, normal) <= 0)
+	{
+		randomVector = glm::normalize(glm::vec3(Utils::RandomFloat(seed), Utils::RandomFloat(seed), Utils::RandomFloat(seed)));
+	}
+
+	return randomVector;
+}
+
+
+glm::vec3 Renderer::CosineSampleHemisphere(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& tangent, uint32_t& seed)
+{
+	float r0 = Utils::RandomFloat(seed);
+	float r1 = Utils::RandomFloat(seed);
+	float radius = std::sqrt(r0);
+	float theta = 2 * M_PI * r1;
+	float x = radius * std::cos(theta);
+	float y = radius * std::sin(theta);
+	glm::vec3 randomPoint(x, y, std::sqrt(1 - r0)); // point on hemisphere around +z axis
+
+	// Rotate 180 degrees such that the point is on the hemisphere with -z axis before using glm::lookAt transform
+	glm::mat4 transform = glm::lookAt(position, position + normal, tangent);
+	randomPoint = glm::vec3(randomPoint.x, randomPoint.y, randomPoint.z * -1.0f);
+
+	return glm::normalize(transform * glm::vec4(randomPoint, 1.0f));
 }
 
 
@@ -55,12 +85,12 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 		// Direct lighting contribution
 		LightSampleInfo lightInfo = SampleRandomLight(ray, tlasEmmisive, seed);
 
-		float normalDotLightDirection = glm::dot(ray.hitInfo.hitNormal, lightInfo.lightDirection);
+		float normalDotLightDirection = glm::dot(ray.hitInfo.normal, lightInfo.lightDirection);
 		float lightNormalDotLightDirection = glm::dot(lightInfo.lightNormal, -lightInfo.lightDirection);
 
 		if (normalDotLightDirection > 0 && lightNormalDotLightDirection > 0)
 		{
-			Ray shadowRay = Ray(ray.hitInfo.hitLocation, lightInfo.lightDirection, lightInfo.distance);
+			Ray shadowRay = Ray(ray.hitInfo.location, lightInfo.lightDirection, lightInfo.distance);
 			tlas.Traverse(shadowRay);
 
 			if (!shadowRay.hitInfo.hit)
@@ -74,8 +104,15 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 		// Indirect lighting contribution
 		glm::vec3 reflectionDirection = glm::vec3(0); // TODO // RandomPointOnSphere(ray.hitInfo.hitNormal);
 		float hemispherePDF = 1 / (M_PI / 2.0f);
-		Ray nextRay = Ray(ray.hitInfo.hitLocation, reflectionDirection);
-		T *= (glm::dot(ray.hitInfo.hitNormal, reflectionDirection) / hemispherePDF) * BRDF;
+		Ray nextRay = Ray(ray.hitInfo.location, reflectionDirection);
+		T *= (glm::dot(ray.hitInfo.normal, reflectionDirection) / hemispherePDF) * BRDF;
+		glm::vec3 triangleTangent = ray.hitInfo.tangent;
+		//glm::vec3 reflectionDirection = RandomPointOnHemisphere(ray.hitInfo.normal, seed);
+		glm::vec3 reflectionDirection = CosineSampleHemisphere(ray.hitInfo.location, ray.hitInfo.normal, triangleTangent, seed);
+		//float hemispherePDF = 1.0f / (M_PI / 2.0f);
+		float hemispherePDF = glm::dot(ray.hitInfo.normal, reflectionDirection) / M_PI;
+		Ray nextRay = Ray(ray.hitInfo.location, reflectionDirection);
+		T *= (glm::dot(ray.hitInfo.normal, reflectionDirection) / hemispherePDF) * BRDF;
 		
 		currentRayDepth++;
 	}
@@ -93,6 +130,8 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 		{
 			uint32_t pixelIndex = x + y * width;
 			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, pixelIndex); });
+			uint32_t seed = x + y * width;
+			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, seed); });
 		}
 	}
 
@@ -113,6 +152,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 
 			//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
 			//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
+			glm::vec4 color = Renderer::RenderRay(ray, tlas, tlasEmmisive, seed);
 
 			Utils::FillFrameBufferPixel(x, y, color, width, frameBuffer);
 		}
