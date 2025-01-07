@@ -70,4 +70,5 @@ public:
 
 	virtual Triangle GetRandomTriangle(uint32_t& seed) const override;
 	virtual float GetArea() const override { return m_Area; }
+	virtual Material GetMaterial() const override { return m_Material; }
 };

@@ -102,10 +102,6 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 		}
 
 		// Indirect lighting contribution
-		glm::vec3 reflectionDirection = glm::vec3(0); // TODO // RandomPointOnSphere(ray.hitInfo.hitNormal);
-		float hemispherePDF = 1 / (M_PI / 2.0f);
-		Ray nextRay = Ray(ray.hitInfo.location, reflectionDirection);
-		T *= (glm::dot(ray.hitInfo.normal, reflectionDirection) / hemispherePDF) * BRDF;
 		glm::vec3 triangleTangent = ray.hitInfo.tangent;
 		//glm::vec3 reflectionDirection = RandomPointOnHemisphere(ray.hitInfo.normal, seed);
 		glm::vec3 reflectionDirection = CosineSampleHemisphere(ray.hitInfo.location, ray.hitInfo.normal, triangleTangent, seed);
@@ -148,10 +144,6 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 		for (uint32_t x = xMin; x < xMax; x++)
 		{
 			Ray ray = camera.GetRay(x, y);
-			glm::vec4 color = Renderer::RenderRay(ray, tlas, tlasEmmisive, seed);
-
-			//float xColor = float(x) / static_cast<float>(m_CurrentWidth);
-			//glm::vec4 color = glm::vec4(xColor, yColor, 0.0f, 1.0f);
 			glm::vec4 color = Renderer::RenderRay(ray, tlas, tlasEmmisive, seed);
 
 			Utils::FillFrameBufferPixel(x, y, color, width, frameBuffer);

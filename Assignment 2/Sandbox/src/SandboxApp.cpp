@@ -47,7 +47,7 @@ public:
 		Transform meshTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3 (15.0f));
 		Mesh mesh = Mesh(triangles, meshTransform);
 		
-		m_BVH_BLAS_2->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix());
+		m_BVH_BLAS_2->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix(), mesh.GetMaterial());
 		m_TLAS.AddBLAS(m_BVH_BLAS_2);
 	}
 

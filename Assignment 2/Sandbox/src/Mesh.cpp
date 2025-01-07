@@ -48,13 +48,10 @@ bool GeometryLoader::LoadGeometryFromFile(const std::string& filepath, std::vect
 			vertices.emplace_back(position, normal, texCoord);
 		}
 	}
-	std::cout << "vertexCount: " << vertices.size() << std::endl;
-	std::cout << "trianglesCount: " << vertices.size() / 3 << std::endl;
 
 	triangles.reserve(vertices.size() / 3);
 	for (int i = 0; i < vertices.size(); i += 3)
 	{
-		std::cout << "Triangle " << i / 3 << ": " << glm::to_string(vertices[i + 0].position) << " | " << glm::to_string(vertices[i + 1].position) << " | " << glm::to_string(vertices[i + 2].position) << std::endl;
 		triangles.emplace_back(vertices[i + 0], vertices[i + 1], vertices[i + 2]);
 	}
 

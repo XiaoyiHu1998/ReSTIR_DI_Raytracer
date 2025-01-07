@@ -88,7 +88,6 @@ void BVH_BLAS::Traverse(Ray& ray)
 Triangle BVH_BLAS::GetRandomTriangle(uint32_t& seed) const
 {
 	// Find a random triangle using binary search.
-
 	float randomArea = Utils::RandomFloat(seed) * m_Area;
 
 	int left = 0; //inclusive
