@@ -29,23 +29,34 @@ public:
 		m_TLAS = TLAS();
 		m_TLAS_EmmisiveOnly = TLAS();
 		m_TLAS_NonEmmisiveOnly = TLAS();
-		std::shared_ptr<BVH_BLAS> m_BVH_BLAS = std::make_shared<BVH_BLAS>();
-		std::shared_ptr<BVH_BLAS> m_BVH_BLAS_Emmissive = std::make_shared<BVH_BLAS>();
 
 		std::vector<Triangle> triangles;
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
-		Transform meshTransform = Transform(glm::vec3(0, 0, 0.25), glm::vec3(0, 45.0f, 45.0f), glm::vec3(15.0f));
-		Material meshMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
-		Mesh mesh = Mesh(triangles, meshTransform, meshMaterial);
-		m_BVH_BLAS->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix(), mesh.GetMaterial());
-		m_TLAS.AddBLAS(m_BVH_BLAS);
 
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
-		meshMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0.5, 0.5, 1.2));
-		Mesh emmisiveSphereMesh = Mesh(triangles, Transform(glm::vec3(2.5, 2.5, 0), glm::vec3(0, 0, 0), glm::vec3(2.5)), meshMaterial);
-		m_BVH_BLAS_Emmissive->SetObject(emmisiveSphereMesh.GetTriangles(), emmisiveSphereMesh.GetTransform().GetTransformMatrix(), emmisiveSphereMesh.GetMaterial());
-		m_TLAS_EmmisiveOnly.AddBLAS(m_BVH_BLAS_Emmissive);
-		m_TLAS.AddBLAS(m_BVH_BLAS_Emmissive);
+		//ceiling
+		std::shared_ptr<BVH_BLAS> ceilingBLAS = std::make_shared<BVH_BLAS>();
+		Transform ceilingTransform = Transform(glm::vec3(0, 20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
+		Material ceilingMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(1.0));
+		Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
+		ceilingBLAS->SetObject(ceiling.GetTriangles(), ceiling.GetTransform(), ceiling.GetMaterial());
+		m_TLAS.AddBLAS(ceilingBLAS);
+		m_TLAS_EmmisiveOnly.AddBLAS(ceilingBLAS);
+
+		//floor
+		std::shared_ptr<BVH_BLAS> floorBLAS = std::make_shared<BVH_BLAS>();
+		Transform floorTransform = Transform(glm::vec3(0, -20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
+		Material floorMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
+		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
+		floorBLAS->SetObject(floor.GetTriangles(), floor.GetTransform(), floor.GetMaterial());
+		m_TLAS.AddBLAS(floorBLAS);
+
+		//sphere
+		std::shared_ptr<BVH_BLAS> sphereBLAS = std::make_shared<BVH_BLAS>();
+		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
+		Material sphereMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
+		Mesh sphere = Mesh(triangles, Transform(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(5)), sphereMaterial);
+		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
+		m_TLAS.AddBLAS(sphereBLAS);
 	}
 
 	~PathTracingLayer()

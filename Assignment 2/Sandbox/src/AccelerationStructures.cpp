@@ -21,20 +21,33 @@ void TLAS::Traverse(Ray& ray) const
 
 //=================== BVH_BLAS =====================
 
-void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4& transform, const Material& material)
+void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
 {
-	std::cout << "BVH_BLAS::SetObject() not properly implemented yet!" << std::endl;
 	m_BVH = tinybvh::BVH();
 	m_Area = 0.0f;
-	m_InverseTransform = glm::inverse(transform);
+	m_Transform = transform;
+	m_InverseTransformMatrix = transform.GetInverseTransformMatrix();
+	m_TransformMatrix = transform.GetTransformMatrix();
 	m_CumulativeArea.resize(triangles.size());
 	m_Material = material;
+
+	m_Vertices.clear();
+	m_Normals.clear();
+	m_TexCoords.clear();
 
 	for (int i = 0; i < triangles.size(); i++)
 	{
 		m_Vertices.emplace_back(triangles[i].GetVertex0().position.x, triangles[i].GetVertex0().position.y, triangles[i].GetVertex0().position.z, 0.0f);
 		m_Vertices.emplace_back(triangles[i].GetVertex1().position.x, triangles[i].GetVertex1().position.y, triangles[i].GetVertex1().position.z, 0.0f);
 		m_Vertices.emplace_back(triangles[i].GetVertex2().position.x, triangles[i].GetVertex2().position.y, triangles[i].GetVertex2().position.z, 0.0f);
+
+		m_Normals.push_back(triangles[i].GetVertex0().normal);
+		m_Normals.push_back(triangles[i].GetVertex1().normal);
+		m_Normals.push_back(triangles[i].GetVertex2().normal);
+		
+		m_TexCoords.push_back(triangles[i].GetVertex0().texCoord);
+		m_TexCoords.push_back(triangles[i].GetVertex1().texCoord);
+		m_TexCoords.push_back(triangles[i].GetVertex2().texCoord);
 
 		m_Area += triangles[i].Area();
 		m_CumulativeArea[i] = m_Area;
@@ -46,8 +59,8 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const glm::mat4
 void BVH_BLAS::Traverse(Ray& ray)
 {
 	// Transform Ray
-	glm::vec3 transformedOrigin = m_InverseTransform * glm::vec4(ray.origin, 1.0f);
-	glm::vec3 transformedDirection = m_InverseTransform * glm::vec4(ray.direction, 0.0f);
+	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
 
 	// Intersection Test
 	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
@@ -64,16 +77,27 @@ void BVH_BLAS::Traverse(Ray& ray)
 	if (hitInfo.hit)
 	{
 		// Triangle hit
-		glm::vec3 vertex0 = glm::vec3(m_Vertices[tinybvhRay.hit.prim + 0].x, m_Vertices[tinybvhRay.hit.prim + 0].y, m_Vertices[tinybvhRay.hit.prim + 0].z);
-		glm::vec3 vertex1 = glm::vec3(m_Vertices[tinybvhRay.hit.prim + 1].x, m_Vertices[tinybvhRay.hit.prim + 1].y, m_Vertices[tinybvhRay.hit.prim + 1].z);
-		glm::vec3 vertex2 = glm::vec3(m_Vertices[tinybvhRay.hit.prim + 2].x, m_Vertices[tinybvhRay.hit.prim + 2].y, m_Vertices[tinybvhRay.hit.prim + 2].z);
-		Triangle hitTriangle = Triangle(Vertex(vertex0), Vertex(vertex1), Vertex(vertex2));
+		glm::vec3 position0 = glm::vec3(m_Vertices[tinybvhRay.hit.prim + 0].x, m_Vertices[tinybvhRay.hit.prim + 0].y, m_Vertices[tinybvhRay.hit.prim + 0].z);
+		glm::vec3 position1 = glm::vec3(m_Vertices[tinybvhRay.hit.prim + 1].x, m_Vertices[tinybvhRay.hit.prim + 1].y, m_Vertices[tinybvhRay.hit.prim + 1].z);
+		glm::vec3 position2 = glm::vec3(m_Vertices[tinybvhRay.hit.prim + 2].x, m_Vertices[tinybvhRay.hit.prim + 2].y, m_Vertices[tinybvhRay.hit.prim + 2].z);
+
+		glm::vec3 normal0 = m_Normals[tinybvhRay.hit.prim + 0];
+		glm::vec3 normal1 = m_Normals[tinybvhRay.hit.prim + 1];
+		glm::vec3 normal2 = m_Normals[tinybvhRay.hit.prim + 2];
+		
+		glm::vec2 texCoord0 = m_TexCoords[tinybvhRay.hit.prim + 0];
+		glm::vec2 texCoord1 = m_TexCoords[tinybvhRay.hit.prim + 1];
+		glm::vec2 texCoord2 = m_TexCoords[tinybvhRay.hit.prim + 2];
+
+		Triangle hitTriangle = Triangle(Vertex(position0, normal0, texCoord0), Vertex(position1, normal1, texCoord1), Vertex(position2, normal2, texCoord2));
 
 		// HitInfo Data
 		hitInfo.distance = tinybvhRay.hit.t;
 		hitInfo.location = ray.origin + ray.direction * tinybvhRay.hit.t;
-		hitInfo.normal = hitTriangle.GetNormal();
-		hitInfo.tangent = hitTriangle.GetTangent();
+		hitInfo.normal = m_TransformMatrix * glm::vec4(hitTriangle.GetNormal(), 1.0f);
+		hitInfo.tangent = m_TransformMatrix * glm::vec4(hitTriangle.GetTangent(), 1.0f);
+		//hitInfo.normal = hitTriangle.GetNormal();
+		//hitInfo.tangent = hitTriangle.GetTangent();
 		hitInfo.objectArea = m_Area;
 		hitInfo.prevMaterial = hitInfo.material;
 		hitInfo.material = m_Material;
