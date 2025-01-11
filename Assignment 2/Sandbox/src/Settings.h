@@ -12,7 +12,7 @@ namespace Settings
 	uint32_t RenderResolutionWidth = 640;
 	uint32_t RenderResolutionHeight = 480;
 	uint32_t RenderingKernelSize = 16;
-	uint32_t SamplePerPixel = 1;
+	uint32_t SamplesPerPixel = 1;
 
 	uint32_t MaxRayDepth = 8;
 

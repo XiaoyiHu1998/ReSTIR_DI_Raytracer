@@ -27,28 +27,25 @@ public:
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 
 		m_TLAS = TLAS();
+		m_TLAS_EmmisiveOnly = TLAS();
+		m_TLAS_NonEmmisiveOnly = TLAS();
 		std::shared_ptr<BVH_BLAS> m_BVH_BLAS = std::make_shared<BVH_BLAS>();
-		std::shared_ptr<BVH_BLAS> m_BVH_BLAS_2 = std::make_shared<BVH_BLAS>();
+		std::shared_ptr<BVH_BLAS> m_BVH_BLAS_Emmissive = std::make_shared<BVH_BLAS>();
 
-		Triangle triangle = Triangle(
-			Vertex(glm::vec3(  0, -10, 0)),
-			Vertex(glm::vec3( 10,  10, 0)),
-			Vertex(glm::vec3(-10,  10, 0))
-		);
-		
 		std::vector<Triangle> triangles;
-		triangles.push_back(triangle);
-		
-		//m_BVH_BLAS->SetObject(triangles, glm::mat4(1));
-		//m_TLAS.AddBLAS(m_BVH_BLAS);
-
-		triangles.clear();
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
-		Transform meshTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3 (15.0f));
-		Mesh mesh = Mesh(triangles, meshTransform);
-		
-		m_BVH_BLAS_2->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix(), mesh.GetMaterial());
-		m_TLAS.AddBLAS(m_BVH_BLAS_2);
+		Transform meshTransform = Transform(glm::vec3(0, 0, 0.25), glm::vec3(0, 45.0f, 45.0f), glm::vec3(15.0f));
+		Material meshMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
+		Mesh mesh = Mesh(triangles, meshTransform, meshMaterial);
+		m_BVH_BLAS->SetObject(mesh.GetTriangles(), mesh.GetTransform().GetTransformMatrix(), mesh.GetMaterial());
+		m_TLAS.AddBLAS(m_BVH_BLAS);
+
+		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
+		meshMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0.5, 0.5, 1.2));
+		Mesh emmisiveSphereMesh = Mesh(triangles, Transform(glm::vec3(2.5, 2.5, 0), glm::vec3(0, 0, 0), glm::vec3(2.5)), meshMaterial);
+		m_BVH_BLAS_Emmissive->SetObject(emmisiveSphereMesh.GetTriangles(), emmisiveSphereMesh.GetTransform().GetTransformMatrix(), emmisiveSphereMesh.GetMaterial());
+		m_TLAS_EmmisiveOnly.AddBLAS(m_BVH_BLAS_Emmissive);
+		m_TLAS.AddBLAS(m_BVH_BLAS_Emmissive);
 	}
 
 	~PathTracingLayer()
@@ -106,6 +103,7 @@ private:
 	Camera m_Camera;
 	TLAS m_TLAS;
 	TLAS m_TLAS_EmmisiveOnly;
+	TLAS m_TLAS_NonEmmisiveOnly;
 	//Acceleration structure (objects + emmisives)
 	//Acceleration structure (emmisives only)
 private:

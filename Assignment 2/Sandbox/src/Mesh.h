@@ -20,7 +20,11 @@ private:
 	Material m_Material;
 public:
 	Mesh(const std::vector<Triangle>& triangles, const Transform& transform) :
-		m_Triangles{ triangles }, m_Transform{ transform }, m_Material { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f) ) }
+		m_Triangles{ triangles }, m_Transform{ transform }, m_Material{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) }
+	{}
+
+	Mesh(const std::vector<Triangle>&triangles, const Transform & transform, const Material& material) :
+		m_Triangles{ triangles }, m_Transform{ transform }, m_Material{ material }
 	{}
 
 	~Mesh() = default;
