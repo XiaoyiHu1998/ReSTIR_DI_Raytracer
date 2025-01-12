@@ -19,10 +19,12 @@ public:
 	PathTracingLayer() :
 		Layer("PathTracing")
 	{
+		m_Renderer = Renderer();
+		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 40);
+
 		m_FrameBuffer = std::make_shared<std::vector<uint8_t>>();
 		m_CurrentWidth = m_NextWidth = 640;
 		m_CurrentHeight = m_NextHeight = 480;
-		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 40);
 
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 
@@ -52,9 +54,11 @@ public:
 
 		//sphere
 		std::shared_ptr<BVH_BLAS> sphereBLAS = std::make_shared<BVH_BLAS>();
+		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
+		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
 		Material sphereMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
-		Mesh sphere = Mesh(triangles, Transform(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(5)), sphereMaterial);
+		Mesh sphere = Mesh(triangles, Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5)), sphereMaterial);
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
 	}
@@ -69,12 +73,9 @@ public:
 		m_CurrentWidth = m_NextWidth;
 		m_CurrentHeight = m_NextHeight;
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
+
 		RenderCommand::InitFrameBuffer(m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
-
-		Sphere sphere = Sphere(glm::vec3(0,0,0), 1.0f);
-
-		Renderer::RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly);
-
+		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly);
 		RenderCommand::SetFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
@@ -85,10 +86,15 @@ public:
 
 		ImVec2 nextFrameResolution = ImGui::GetContentRegionAvail();
 
-		m_NextWidth = std::max((uint32_t)1, static_cast<uint32_t>(nextFrameResolution.x));
-		m_NextHeight = std::max((uint32_t)1, static_cast<uint32_t>(nextFrameResolution.y));
+		m_NextWidth = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.x));
+		m_NextHeight = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.y));
 
 		ImGui::Image((void*)(intptr_t)m_FrameBufferID, ImVec2(m_CurrentWidth, m_CurrentHeight));
+		ImGui::End();
+
+		ImGui::Begin("Settings");
+		ImGui::Text("Debug Settings");
+		ImGui::Checkbox("Show Normals", &m_Renderer.GetSettings().ShowNormals);
 		ImGui::End();
 
 		RenderCommand::Clear();
@@ -109,6 +115,9 @@ private:
 	uint32_t m_FrameBufferID;
 	uint32_t m_CurrentWidth, m_CurrentHeight;
 	uint32_t m_NextWidth, m_NextHeight;
+
+	//Renderer
+	Renderer m_Renderer;
 
 	// World state
 	Camera m_Camera;

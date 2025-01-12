@@ -1,6 +1,5 @@
 #include "Renderer.h"
 #include "Utils.h"
-#include "Settings.h"
 #include "TaskBatch.h"
 
 glm::vec3 Renderer::Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal) {
@@ -68,23 +67,27 @@ glm::vec3 Renderer::CosineSampleHemisphere(const glm::vec3& position, const glm:
 glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
 {
 	glm::vec3 T(1);
-	glm::vec3 E(0);
+	glm::vec3 E(0.1f);
 	uint32_t currentRayDepth = 0;
 	float eta = 0.01f;
 
-	while (currentRayDepth < Settings::MaxRayDepth)
+	while (currentRayDepth < m_Settings.MaxRayDepth)
 	{
-		//Ray nonEmissiveRay = ray;
-		//Ray emmisiveRay = ray;
-		//tlas.Traverse(nonEmissiveRay);
-		//if (nonEmissiveRay.hitInfo.hit)
-		//	E = glm::vec3(0.8, 0.02, 0.2);
+		if (m_Settings.ShowNormals)
+		{
+			Ray nonEmissiveRay = ray;
+			Ray emmisiveRay = ray;
+			tlas.Traverse(nonEmissiveRay);
+			if (nonEmissiveRay.hitInfo.hit)
+				E = 0.5 * nonEmissiveRay.hitInfo.normal + glm::vec3(0.5f);
+
+			return glm::vec4(E, 1.0f);
+		}
 		//
 		//tlasEmmisive.Traverse(emmisiveRay);
 		//if (emmisiveRay.hitInfo.hit)
 		//	E = glm::vec3(0.2, 0.2, 0.8);
 		//
-		//return glm::vec4(E, 1.0f);
 
 		// Intersection Test
 		tlas.Traverse(ray);
@@ -141,12 +144,12 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 
 void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive)
 {
-	TaskBatch taskBatch(Settings::ThreadCount);
+	TaskBatch taskBatch(m_Settings.ThreadCount);
 	//TaskBatch taskBatch(1);
 
-	for (uint32_t y = 0; y < height; y += Settings::RenderingKernelSize)
+	for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
 	{
-		for (uint32_t x = 0; x < width; x += Settings::RenderingKernelSize)
+		for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
 		{
 			uint32_t pixelIndex = x + y * width;
 			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, pixelIndex); });
@@ -160,8 +163,8 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 
 void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + Settings::RenderingKernelSize, width);
-	uint32_t yMax = std::min(yMin + Settings::RenderingKernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
 
 	seed += static_cast<uint32_t>(std::time(nullptr));
 
@@ -172,12 +175,12 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 			Ray ray = camera.GetRay(x, y);
 			glm::vec4 colorAccumulator = glm::vec4(0);
 
-			for (int i = 0; i < Settings::SamplesPerPixel; i++)
+			for (int i = 0; i < m_Settings.SamplesPerPixel; i++)
 			{
 				colorAccumulator += Renderer::RenderRay(ray, tlas, tlasEmmisive, seed);
 			}
 
-			colorAccumulator /= static_cast<float>(Settings::SamplesPerPixel);
+			colorAccumulator /= static_cast<float>(m_Settings.SamplesPerPixel);
 
 			Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
 		}
