@@ -18,12 +18,12 @@ struct Transform
 
 	glm::mat4 GetTransformMatrix() const
 	{
-		glm::mat4 transformMatrix = glm::scale(glm::mat4(1), scale);
-		//IMPORTANT: do z -> x -> y rotation order in case of issues (unity order)
+		glm::mat4 transformMatrix = glm::translate(glm::mat4(1), translation);
+		//IMPORTANT: consider z -> x -> y rotation order in case of issues (unity order)
 		transformMatrix = glm::rotate(transformMatrix, glm::radians(rotation.x), glm::vec3(1, 0, 0));
 		transformMatrix = glm::rotate(transformMatrix, glm::radians(rotation.y), glm::vec3(0, 1, 0));
 		transformMatrix = glm::rotate(transformMatrix, glm::radians(rotation.z), glm::vec3(0, 0, 1));
-		return glm::translate(transformMatrix, translation);
+		return glm::scale(transformMatrix, scale);;
 	}
 
 	glm::mat4 GetInverseTransformMatrix() const
