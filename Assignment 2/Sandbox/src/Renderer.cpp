@@ -76,34 +76,24 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 
 	while (currentRayDepth < m_Settings.MaxRayDepth)
 	{
-		if (m_Settings.ShowNormals)
+		if (m_Settings.RenderNormals)
 		{
-			Ray nonEmissiveRay = ray;
-			Ray emmisiveRay = ray;
-			tlas.Traverse(nonEmissiveRay);
-			if (nonEmissiveRay.hitInfo.hit)
-				E = 0.5 * nonEmissiveRay.hitInfo.normal + glm::vec3(0.5f);
+			tlas.Traverse(ray);
+			if (ray.hitInfo.hit)
+				E = 0.5 * ray.hitInfo.normal + glm::vec3(0.5f);
 
 			return glm::vec4(E, 1.0f);
 		}
-		//
-		//tlasEmmisive.Traverse(emmisiveRay);
-		//if (emmisiveRay.hitInfo.hit)
-		//	E = glm::vec3(0.2, 0.2, 0.8);
-		//
 
 		// Intersection Test
 		tlas.Traverse(ray);
 		if (!ray.hitInfo.hit)
 			break;
 
-		E += glm::vec3(0.5);
 		if (ray.hitInfo.material.MaterialType == Material::Type::Emissive)
 		{
 			if (currentRayDepth == 0)
-			{
 				E = ray.hitInfo.material.Emmitance;
-			}
 
 			break;
 		}
@@ -120,7 +110,6 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 			Ray shadowRay = Ray(ray.hitInfo.location + eta * lightInfo.direction, lightInfo.direction, lightInfo.distance - eta);
 			tlas.Traverse(shadowRay);
 
-			//TODO: always hits for some reason
 			if (shadowRay.hitInfo.hit)
 			{
 				//std::cout << "light hit - intensity: " << lightInfo.intensity << std::endl;
@@ -131,11 +120,12 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 		}
 
 		// Indirect lighting contribution
-		glm::vec3 triangleTangent = ray.hitInfo.tangent;
-		//glm::vec3 reflectionDirection = RandomPointOnHemisphere(ray.hitInfo.normal, seed);
-		glm::vec3 reflectionDirection = CosineSampleHemisphere(ray.hitInfo.location, ray.hitInfo.normal, triangleTangent, seed);
-		//float hemispherePDF = 1.0f / (M_PI / 2.0f);
+		glm::vec3 reflectionDirection = CosineSampleHemisphere(ray.hitInfo.location, ray.hitInfo.normal, ray.hitInfo.tangent, seed);
 		float hemispherePDF = glm::dot(ray.hitInfo.normal, reflectionDirection) / M_PI;
+
+		//glm::vec3 reflectionDirection = RandomPointOnHemisphere(ray.hitInfo.normal, seed);
+		//float hemispherePDF = 1.0f / (M_PI / 2.0f);
+
 		Ray nextRay = Ray(ray.hitInfo.location + eta * reflectionDirection, reflectionDirection);
 		T *= (glm::dot(ray.hitInfo.normal, reflectionDirection) / hemispherePDF) * BRDF;
 		

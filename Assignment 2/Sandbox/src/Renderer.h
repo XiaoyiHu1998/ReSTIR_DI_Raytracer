@@ -24,7 +24,7 @@ public:
 
 		uint32_t MaxRayDepth = 8;
 
-		bool ShowNormals = true;
+		bool RenderNormals = true;
 	};
 private:
 	Settings m_Settings;

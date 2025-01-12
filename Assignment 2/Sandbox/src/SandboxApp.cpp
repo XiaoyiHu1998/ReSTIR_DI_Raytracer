@@ -114,7 +114,7 @@ public:
 		// Settings Window
 		ImGui::Begin("Settings");
 		ImGui::Text("Debug Settings");
-		ImGui::Checkbox("Show Normals", &m_Renderer.GetSettings().ShowNormals);
+		ImGui::Checkbox("Render Normals", &m_Renderer.GetSettings().RenderNormals);
 		ImGui::End();
 
 		RenderCommand::Clear();
