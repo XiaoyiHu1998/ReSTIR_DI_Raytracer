@@ -56,10 +56,12 @@ public:
 		//sphere
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
-		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
+		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
+		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
+		Transform sphereTransform = Transform(glm::vec3(0, -5, -5), glm::vec3(0, 0, 0), glm::vec3(10, 10, 10));
+		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
 		Material sphereMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
-		Mesh sphere = Mesh(triangles, Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5)), sphereMaterial);
+		Mesh sphere = Mesh(triangles, sphereTransform, sphereMaterial);
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
 	}

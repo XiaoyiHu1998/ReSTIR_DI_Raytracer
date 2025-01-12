@@ -48,8 +48,8 @@ public:
 		//m_Normal = glm::normalize(vertex0.normal + vertex1.normal + vertex2.normal);
 		//m_Normal = vertex0.normal;
 
-		//if (glm::dot(m_Normal, averageVertexNormal) <= 0)
-		//	m_Normal *= -1.0f;
+		if (glm::dot(m_Normal, averageVertexNormal) <= 0)
+			m_Normal *= -1.0f;
 	}
 
 	virtual bool Intersect(Ray& ray) const override;
