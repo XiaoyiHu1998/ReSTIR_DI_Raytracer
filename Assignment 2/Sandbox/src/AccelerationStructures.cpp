@@ -178,8 +178,8 @@ void Debug_BLAS::Traverse(Ray& ray)
 			ray.hitInfo.hit = true;
 			ray.hitInfo.distance = currentRay.hitInfo.distance;
 			ray.hitInfo.location = ray.origin + ray.direction * currentRay.hitInfo.distance;
-			ray.hitInfo.normal = m_TransformMatrix * glm::vec4(currentTriangle.GetNormal(), 1.0f);
-			ray.hitInfo.tangent = m_TransformMatrix * glm::vec4(currentTriangle.GetTangent(), 1.0f);
+			ray.hitInfo.normal = m_TransformMatrix * glm::vec4(currentTriangle.GetNormal(), 0.0f);
+			ray.hitInfo.tangent = m_TransformMatrix * glm::vec4(currentTriangle.GetTangent(), 0.0f);
 			ray.hitInfo.objectArea = m_Area;
 			ray.hitInfo.prevMaterial = ray.hitInfo.material;
 			ray.hitInfo.material = m_Material;
