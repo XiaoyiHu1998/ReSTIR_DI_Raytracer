@@ -25,10 +25,12 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 {
 	m_BVH = tinybvh::BVH();
 	m_Area = 0.0f;
+	m_CumulativeArea.resize(triangles.size());
+
 	m_Transform = transform;
 	m_InverseTransformMatrix = transform.GetInverseTransformMatrix();
 	m_TransformMatrix = transform.GetTransformMatrix();
-	m_CumulativeArea.resize(triangles.size());
+
 	m_Material = material;
 
 	m_Vertices.clear();
@@ -96,8 +98,8 @@ void BVH_BLAS::Traverse(Ray& ray)
 		hitInfo.location = ray.origin + ray.direction * tinybvhRay.hit.t;
 		hitInfo.normal = m_TransformMatrix * glm::vec4(hitTriangle.GetNormal(), 1.0f);
 		hitInfo.tangent = m_TransformMatrix * glm::vec4(hitTriangle.GetTangent(), 1.0f);
-		//hitInfo.normal = hitTriangle.GetNormal();
-		//hitInfo.tangent = hitTriangle.GetTangent();
+		hitInfo.normal = hitTriangle.GetNormal();
+		hitInfo.tangent = hitTriangle.GetTangent();
 		hitInfo.objectArea = m_Area;
 		hitInfo.prevMaterial = hitInfo.material;
 		hitInfo.material = m_Material;
@@ -137,4 +139,91 @@ Triangle BVH_BLAS::GetRandomTriangle(uint32_t& seed) const
 	glm::vec3 vertex2 = glm::vec3(m_Vertices[index + 2].x, m_Vertices[index + 2].y, m_Vertices[index + 2].z);
 
 	return Triangle(Vertex(vertex0), Vertex(vertex1), Vertex(vertex2));
+}
+
+//=================== Debug_BLAS ===================
+
+void Debug_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
+{
+	m_Triangles = triangles;
+	m_Area = 0.0f;
+	m_CumulativeArea.resize(triangles.size());
+
+	for (int i = 0; i < m_Triangles.size(); i++)
+	{
+		m_Area += triangles[i].Area();
+		m_CumulativeArea[i] = m_Area;
+	}
+
+	m_Transform = transform;
+	m_TransformMatrix = transform.GetTransformMatrix();
+	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix);
+
+	m_Material = material;
+}
+
+void Debug_BLAS::Traverse(Ray& ray)
+{
+	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
+
+	for (int i = 0; i < m_Triangles.size(); i++)
+	{
+		Ray currentRay = Ray(transformedOrigin, transformedDirection);
+		Triangle currentTriangle = m_Triangles[i];
+		if(m_Triangles[i].Intersect(currentRay) && currentRay.hitInfo.distance < ray.hitInfo.distance)
+		{
+			ray.hitInfo.hit = true;
+			ray.hitInfo.distance = currentRay.hitInfo.distance;
+			ray.hitInfo.location = ray.origin + ray.direction * currentRay.hitInfo.distance;
+			ray.hitInfo.normal = m_TransformMatrix * glm::vec4(currentTriangle.GetNormal(), 1.0f);
+			ray.hitInfo.tangent = m_TransformMatrix * glm::vec4(currentTriangle.GetTangent(), 1.0f);
+			ray.hitInfo.normal = currentTriangle.GetNormal();
+			ray.hitInfo.tangent = currentTriangle.GetTangent();
+			ray.hitInfo.objectArea = m_Area;
+			ray.hitInfo.prevMaterial = ray.hitInfo.material;
+			ray.hitInfo.material = m_Material;
+			ray.hitInfo.traversalStepsHitBVH = 1;
+			ray.hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + 1;
+		}
+	}
+}
+
+glm::mat4 Debug_BLAS::GetInverseTransform()
+{
+	return m_InverseTransformMatrix;
+}
+
+Triangle Debug_BLAS::GetRandomTriangle(uint32_t& seed) const
+{
+	// Find a random triangle using binary search.
+	float randomArea = Utils::RandomFloat(seed) * m_Area;
+
+	int left = 0; //inclusive
+	int right = m_CumulativeArea.size() - 1; //exclusive
+
+	while (left < right)
+	{
+		int mid = left + (right - left) / 2;
+		if (m_CumulativeArea[mid] < randomArea)
+		{
+			left = mid + 1;
+		}
+		else
+		{
+			right = mid;
+		}
+	}
+
+	return m_Triangles[left];
+}
+
+float Debug_BLAS::GetArea() const
+{
+	return m_Area;
+}
+
+Material Debug_BLAS::GetMaterial() const
+{
+	return m_Material;
 }

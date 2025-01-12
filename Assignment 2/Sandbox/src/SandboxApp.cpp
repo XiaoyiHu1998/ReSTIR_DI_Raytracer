@@ -35,8 +35,9 @@ public:
 		std::vector<Triangle> triangles;
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
 
+		using BLAS_TYPE = BVH_BLAS;
 		//ceiling
-		std::shared_ptr<BVH_BLAS> ceilingBLAS = std::make_shared<BVH_BLAS>();
+		std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
 		Transform ceilingTransform = Transform(glm::vec3(0, 20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
 		Material ceilingMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(1.0));
 		Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
@@ -45,7 +46,7 @@ public:
 		m_TLAS_EmmisiveOnly.AddBLAS(ceilingBLAS);
 
 		//floor
-		std::shared_ptr<BVH_BLAS> floorBLAS = std::make_shared<BVH_BLAS>();
+		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
 		Transform floorTransform = Transform(glm::vec3(0, -20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
 		Material floorMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
 		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
@@ -53,7 +54,7 @@ public:
 		m_TLAS.AddBLAS(floorBLAS);
 
 		//sphere
-		std::shared_ptr<BVH_BLAS> sphereBLAS = std::make_shared<BVH_BLAS>();
+		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
@@ -82,16 +83,34 @@ public:
 	virtual void OnImGuiRender()
 	{
 		DrawImGuiDockSpace();
+
+		// Viewport Window
 		ImGui::Begin("Viewport");
 
 		ImVec2 nextFrameResolution = ImGui::GetContentRegionAvail();
+		ImVec2 viewportPosition = ImGui::GetWindowPos();
 
 		m_NextWidth = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.x));
 		m_NextHeight = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.y));
 
 		ImGui::Image((void*)(intptr_t)m_FrameBufferID, ImVec2(m_CurrentWidth, m_CurrentHeight));
+
 		ImGui::End();
 
+		// Performance Metrics
+		ImGui::SetNextWindowBgAlpha(0.35f);
+		ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 16, viewportPosition.y + 36));
+		ImGui::SetNextWindowSize(ImVec2(100, 55));
+		ImGui::Begin("Performance Metrics", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::SetCursorPos(ImVec2(8, 8));
+		ImGui::Text("%dx%d", (int)(m_CurrentWidth), (int)(m_CurrentHeight));
+		ImGui::SetCursorPos(ImVec2(8, 20));
+		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
+		ImGui::SetCursorPos(ImVec2(8, 32));
+		ImGui::Text("%.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+		ImGui::End();
+
+		// Settings Window
 		ImGui::Begin("Settings");
 		ImGui::Text("Debug Settings");
 		ImGui::Checkbox("Show Normals", &m_Renderer.GetSettings().ShowNormals);
@@ -124,8 +143,6 @@ private:
 	TLAS m_TLAS;
 	TLAS m_TLAS_EmmisiveOnly;
 	TLAS m_TLAS_NonEmmisiveOnly;
-	//Acceleration structure (objects + emmisives)
-	//Acceleration structure (emmisives only)
 private:
 	void DrawImGuiDockSpace()
 	{

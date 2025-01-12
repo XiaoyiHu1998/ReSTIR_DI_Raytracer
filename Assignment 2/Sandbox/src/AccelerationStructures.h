@@ -72,9 +72,39 @@ public:
 	virtual void Traverse(Ray& ray) override;
 
 	virtual glm::mat4 GetInverseTransform() { return m_InverseTransformMatrix; }
-	virtual void SetTransform(const Transform& transform) override { m_Transform = transform; m_TransformMatrix = transform.GetTransformMatrix(); m_InverseTransformMatrix = transform.GetInverseTransformMatrix(); }
+	virtual void SetTransform(const Transform& transform) override { m_Transform = transform; m_TransformMatrix = transform.GetTransformMatrix(); m_InverseTransformMatrix = glm::inverse(m_TransformMatrix); }
 
 	virtual Triangle GetRandomTriangle(uint32_t& seed) const override;
 	virtual float GetArea() const override { return m_Area; }
 	virtual Material GetMaterial() const override { return m_Material; }
+};
+
+class Debug_BLAS : public BLAS
+{
+private:
+	std::vector<Triangle> m_Triangles;
+	std::vector<float> m_CumulativeArea;
+
+	float m_Area;
+	Transform m_Transform;
+	glm::mat4 m_InverseTransformMatrix;
+	glm::mat4 m_TransformMatrix;
+	Material m_Material;
+public:
+	Debug_BLAS():
+		m_Triangles{ std::vector<Triangle>() },m_CumulativeArea{ std::vector<float>() }, m_Area{ 0.0f }, m_Transform { Transform() }, 
+		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) }, m_Material { Material(Material::Type::Emissive, 1, 0, 0, glm::vec3(0.8, 0.2, 0.2), glm::vec3(0.8, 0.2, 0.2)) }
+	{}
+
+	~Debug_BLAS() = default;
+
+	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material) override;
+	virtual void Traverse(Ray& ray) override;
+
+	virtual glm::mat4 GetInverseTransform() override;
+	virtual void SetTransform(const Transform& transform) override { m_Transform = transform; m_TransformMatrix = transform.GetTransformMatrix(); m_InverseTransformMatrix = glm::inverse(m_TransformMatrix); }
+
+	virtual Triangle GetRandomTriangle(uint32_t& seed) const override;
+	virtual float GetArea() const override;
+	virtual Material GetMaterial() const override;
 };
