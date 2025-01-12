@@ -1,4 +1,7 @@
 #include "Renderer.h"
+
+#include <chrono>
+
 #include "Utils.h"
 #include "TaskBatch.h"
 
@@ -144,6 +147,7 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 
 void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive)
 {
+	auto timeStart = std::chrono::system_clock::now();
 	TaskBatch taskBatch(m_Settings.ThreadCount);
 	//TaskBatch taskBatch(1);
 
@@ -159,6 +163,9 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 	}
 
 	taskBatch.ExecuteTasks();
+	auto timeEnd = std::chrono::system_clock::now();
+
+	m_LastFrameTime = std::chrono::duration<float, std::ratio<1,1000>>(timeEnd - timeStart).count();
 }
 
 void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t seed)

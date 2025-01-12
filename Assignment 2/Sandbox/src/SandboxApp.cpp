@@ -94,20 +94,19 @@ public:
 		m_NextHeight = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.y));
 
 		ImGui::Image((void*)(intptr_t)m_FrameBufferID, ImVec2(m_CurrentWidth, m_CurrentHeight));
-
 		ImGui::End();
 
 		// Performance Metrics
 		ImGui::SetNextWindowBgAlpha(0.35f);
 		ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 16, viewportPosition.y + 36));
-		ImGui::SetNextWindowSize(ImVec2(100, 55));
+		ImGui::SetNextWindowSize(ImVec2(110, 55));
 		ImGui::Begin("Performance Metrics", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 		ImGui::SetCursorPos(ImVec2(8, 8));
 		ImGui::Text("%dx%d", (int)(m_CurrentWidth), (int)(m_CurrentHeight));
 		ImGui::SetCursorPos(ImVec2(8, 20));
-		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
+		ImGui::Text("%.1f FPS", 1000.0f / m_Renderer.GetLastFrameTime());
 		ImGui::SetCursorPos(ImVec2(8, 32));
-		ImGui::Text("%.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+		ImGui::Text("%.3f ms", m_Renderer.GetLastFrameTime());
 		ImGui::End();
 
 		// Settings Window

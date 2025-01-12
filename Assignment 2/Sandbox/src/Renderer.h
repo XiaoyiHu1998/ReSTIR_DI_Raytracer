@@ -24,10 +24,11 @@ public:
 
 		uint32_t MaxRayDepth = 8;
 
-		bool ShowNormals = false;
+		bool ShowNormals = true;
 	};
 private:
 	Settings m_Settings;
+	float m_LastFrameTime;
 
 	glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal);
 	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
@@ -42,5 +43,6 @@ public:
 	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive);
 	LightSampleInfo SampleRandomLight(const Ray& ray, const TLAS& tlasEmmisive, uint32_t& seed);
 
-	Settings& GetSettings() { return m_Settings; }
+	Settings& GetSettings()  { return m_Settings; }
+	float GetLastFrameTime() { return m_LastFrameTime; }
 };
