@@ -47,7 +47,6 @@ float Triangle::Area() const
 	return 0.5f * lengthEdge1 * lengthEdge2 * sinTheta;
 }
 
-
 bool Sphere::Intersect(Ray& ray) const
 {
 	glm::vec3 rayOriginSphereVector = ray.origin - m_Position;

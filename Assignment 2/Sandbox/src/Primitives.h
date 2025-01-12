@@ -43,7 +43,13 @@ public:
 	Triangle(const Vertex& vertex0, const Vertex& vertex1, const Vertex& vertex2):
 		m_Vertex0{ vertex0 }, m_Vertex1{ vertex1 }, m_Vertex2{ vertex2 }
 	{
-		m_Normal = glm::normalize(glm::cross(vertex2.position - vertex0.position, vertex1.position - vertex0.position));
+		glm::vec3 averageVertexNormal = glm::normalize(vertex0.normal + vertex1.normal + vertex2.normal);
+		m_Normal = glm::normalize(glm::cross(vertex1.position - vertex0.position, vertex2.position - vertex0.position));
+		//m_Normal = glm::normalize(vertex0.normal + vertex1.normal + vertex2.normal);
+		//m_Normal = vertex0.normal;
+
+		//if (glm::dot(m_Normal, averageVertexNormal) <= 0)
+		//	m_Normal *= -1.0f;
 	}
 
 	virtual bool Intersect(Ray& ray) const override;
