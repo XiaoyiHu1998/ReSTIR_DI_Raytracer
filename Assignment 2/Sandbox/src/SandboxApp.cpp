@@ -26,8 +26,9 @@ public:
 		m_CurrentWidth = m_NextWidth = 640;
 		m_CurrentHeight = m_NextHeight = 480;
 
+		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
-
+		
 		m_TLAS = TLAS();
 		m_TLAS_EmmisiveOnly = TLAS();
 		m_TLAS_NonEmmisiveOnly = TLAS();
@@ -56,8 +57,8 @@ public:
 		//sphere
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
-		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
+		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
+		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
 		Transform sphereTransform = Transform(glm::vec3(0, -15, 0), glm::vec3(0, 0, 0), glm::vec3(1.5, 1.5, 1.5));
 		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
 		Material sphereMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
@@ -77,9 +78,9 @@ public:
 		m_CurrentHeight = m_NextHeight;
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
 
-		RenderCommand::InitFrameBuffer(m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly);
-		RenderCommand::SetFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
 	virtual void OnImGuiRender()
@@ -133,6 +134,7 @@ private:
 	// Output Configuration
 	FrameBufferRef m_FrameBuffer;
 	uint32_t m_FrameBufferID;
+	uint32_t m_PixelBufferObjectID;
 	uint32_t m_CurrentWidth, m_CurrentHeight;
 	uint32_t m_NextWidth, m_NextHeight;
 

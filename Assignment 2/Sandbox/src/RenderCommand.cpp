@@ -2,6 +2,18 @@
 
 #include <iostream>
 
+void RenderCommand::GeneratePixelBufferObject(uint32_t& pixelObjectBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
+{
+	glGenBuffers(1, &pixelObjectBufferID);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelObjectBufferID);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, width * height * 4 * sizeof(unsigned char), frameBuffer->data(), GL_DYNAMIC_DRAW);
+}
+
+void RenderCommand::DeletePixelBufferObject(uint32_t& pixelBufferObjectID)
+{
+	glDeleteBuffers(1, &pixelBufferObjectID);
+}
+
 void RenderCommand::GenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
 	glGenTextures(1, &frameBufferID);
@@ -30,19 +42,33 @@ void RenderCommand::RegenerateFrameBufferTexture(uint32_t& frameBufferID, FrameB
 	GenerateFrameBufferTexture(frameBufferID, frameBuffer, width, height);
 }
 
-void RenderCommand::SetFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
-{
-	glBindTexture(GL_TEXTURE_2D, frameBufferID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer->data());
-	glGenerateMipmap(GL_TEXTURE_2D);
-}
-
-void RenderCommand::InitFrameBuffer(FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
+void RenderCommand::InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
 	if (width * height * 4 != frameBuffer->size())
 	{
 		frameBuffer->resize(width * height * 4, 0);
+
+		// Bind PBO
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID); //TODO replace with a raw TGexImage2D upload in case of issues
+
+		// Update Texture
+		glBindTexture(GL_TEXTURE_2D, frameBufferID);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	}
+}
+
+void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
+{
+	// Update PBO
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, frameBuffer->size() * sizeof(unsigned char), frameBuffer->data(), GL_STATIC_DRAW);
+
+	// Update Texture
+	glBindTexture(GL_TEXTURE_2D, frameBufferID);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
 void RenderCommand::Clear()
