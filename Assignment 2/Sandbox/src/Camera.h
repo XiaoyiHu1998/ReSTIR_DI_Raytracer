@@ -20,21 +20,19 @@ private:
 	glm::mat4 m_InverseTransformMatrix;
 
 	float m_CameraPlaneDistance;
-private:
-	void SetCameraMatrix();
 public:
 	Camera():
 		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_VerticalFov{ 90 },
 		m_Position{ glm::vec3(0, 0, 10) }, m_TargetPosition{ glm::vec3(0,0,0) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
-		SetCameraMatrix();
+		UpdateCameraMatrix();
 	}
 
 	Camera(uint32_t width, uint32_t height, float verticalFov = 90):
 		m_Width{ static_cast<float>(width) }, m_Height{ static_cast<float>(height) }, m_VerticalFov{ verticalFov },
 		m_Position{ glm::vec3(0, 0, 10) }, m_TargetPosition{ glm::vec3(0,0,0) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
-		SetCameraMatrix();
+		UpdateCameraMatrix();
 	}
 
 	~Camera() = default;
@@ -51,8 +49,10 @@ public:
 	glm::mat4 GetInverseCameraMatrix()	{ return m_InverseTransformMatrix; }
 	glm::i32vec2 GetResolution()		{ return glm::i32vec2(m_Width, m_Height); }
 
-	void SetPosition(glm::vec3 position) { m_Position = position; SetCameraMatrix(); }
-	void SetTargetPosition(glm::vec3 targetPosition) { m_TargetPosition = targetPosition; SetCameraMatrix(); }
-	void SetUpDirection(glm::vec3 upDirection) { m_UpDirection = glm::normalize(upDirection); SetCameraMatrix(); }
-	void SetResolution(uint32_t width, uint32_t height) { m_Width = static_cast<float>(width); m_Height = static_cast<float>(height); SetCameraMatrix(); }
+	void SetPosition(glm::vec3 position) { m_Position = position; UpdateCameraMatrix(); }
+	void SetTargetPosition(glm::vec3 targetPosition) { m_TargetPosition = targetPosition; UpdateCameraMatrix(); }
+	void SetUpDirection(glm::vec3 upDirection) { m_UpDirection = glm::normalize(upDirection); UpdateCameraMatrix(); }
+	void SetResolution(uint32_t width, uint32_t height) { m_Width = static_cast<float>(width); m_Height = static_cast<float>(height); UpdateCameraMatrix(); }
+
+	void UpdateCameraMatrix();
 };

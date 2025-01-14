@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-void Camera::SetCameraMatrix()
+void Camera::UpdateCameraMatrix()
 {	
 	m_TransformMatrix = glm::lookAt(m_Position, m_TargetPosition, m_UpDirection);
 	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix);
