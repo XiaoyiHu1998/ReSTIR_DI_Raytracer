@@ -40,11 +40,12 @@ namespace ReSTIR
 
 	Resevoir<glm::vec3> ResevoirSampling(const glm::vec3& sample, int candidateCount, uint32_t& seed)
 	{
-		Resevoir<glm::vec3> resevoir(glm::vec3(0), 1.0f / candidateCount);
+		float weight = 1.0f / candidateCount;
+		Resevoir<glm::vec3> resevoir(glm::vec3(0), weight);
 
 		for (int i = 0; i < candidateCount; i++)
 		{
-			resevoir.Update(sample, 1.0f / candidateCount, seed);
+			resevoir.Update(sample, weight, seed);
 		}
 
 
