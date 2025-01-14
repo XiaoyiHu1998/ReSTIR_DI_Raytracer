@@ -13,6 +13,8 @@
 #include "AccelerationStructures.h"
 #include "Mesh.h"
 
+using BLAS_TYPE = BVH_BLAS;
+
 class PathTracingLayer : public Hazel::Layer
 {
 public:
@@ -36,9 +38,9 @@ public:
 		std::vector<Triangle> triangles;
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
 
-		using BLAS_TYPE = BVH_BLAS;
 		//ceiling
 		std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
+		ceilingBLAS->SetName("Ceiling");
 		Transform ceilingTransform = Transform(glm::vec3(0, 20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
 		Material ceilingMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(1.0));
 		Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
@@ -48,20 +50,22 @@ public:
 
 		//floor
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
+		floorBLAS->SetName("Floor");
 		Transform floorTransform = Transform(glm::vec3(0, -20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
-		Material floorMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
+		Material floorMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
 		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
 		floorBLAS->SetObject(floor.GetTriangles(), floor.GetTransform(), floor.GetMaterial());
 		m_TLAS.AddBLAS(floorBLAS);
 
 		//sphere
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
+		sphereBLAS->SetName("Sphere");
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
 		Transform sphereTransform = Transform(glm::vec3(0, -15, 0), glm::vec3(0, 0, 0), glm::vec3(1.5, 1.5, 1.5));
 		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
-		Material sphereMaterial = Material(Material::Type::Dielectric, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
+		Material sphereMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
 		Mesh sphere = Mesh(triangles, sphereTransform, sphereMaterial);
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
@@ -89,17 +93,14 @@ public:
 
 		// Viewport Window
 		ImGui::Begin("Viewport");
-
 		ImVec2 nextFrameResolution = ImGui::GetContentRegionAvail();
 		ImVec2 viewportPosition = ImGui::GetWindowPos();
-
 		m_NextWidth = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.x));
 		m_NextHeight = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.y));
-
 		ImGui::Image((void*)(intptr_t)m_FrameBufferID, ImVec2(m_CurrentWidth, m_CurrentHeight));
 		ImGui::End();
 
-		// Performance Metrics
+		// Performance Metrics Subwindow
 		ImGui::SetNextWindowBgAlpha(0.35f);
 		ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 16, viewportPosition.y + 36));
 		ImGui::SetNextWindowSize(ImVec2(110, 55));
@@ -117,6 +118,132 @@ public:
 		ImGui::Text("Debug Settings");
 		ImGui::Checkbox("Render Normals", &m_Renderer.GetSettings().RenderNormals);
 		ImGui::End();
+
+		// Outliner Window
+		ImGui::Begin("Outliner");
+
+		// Configurate TreeNodeEX
+		static ImGuiTreeNodeFlags baseNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow |
+												  ImGuiTreeNodeFlags_OpenOnDoubleClick |
+												  ImGuiTreeNodeFlags_SpanAvailWidth |
+												  ImGuiTreeNodeFlags_SpanFullWidth;
+
+		// TreeNodeEX Drawing Lambda
+		auto DrawImGUiTreeNodeEX = [&](uint32_t index, const char* nodeName)
+		{
+			ImGuiTreeNodeFlags currentNodeFlag = baseNodeFlags;
+			currentNodeFlag |= ImGuiTreeNodeFlags_NoTreePushOnOpen;
+			if (m_SelectedNode == index)
+				currentNodeFlag |= ImGuiTreeNodeFlags_Selected;
+
+			ImGui::TreeNodeEx((void*)(intptr_t)index, currentNodeFlag, nodeName, index);
+
+			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+				m_SelectedNode = index;
+		};
+
+		// Draw Scene
+		DrawImGUiTreeNodeEX(0, "Camera");
+		for (uint32_t i = 0; i < m_TLAS.GetObjectCount(); i++)
+		{
+			DrawImGUiTreeNodeEX(i + 1, m_TLAS.GetBLAS(i)->GetName().c_str());
+		}
+
+		ImGui::End();
+
+		// Properties Window
+		ImGui::Begin("Properties");
+		if (m_SelectedNode == 0)
+		{
+			bool transformUpdated = false;
+
+			ImGui::PushID("Properties_Camera");
+
+			ImGui::Text("Camera");
+			ImGui::Separator();
+
+			ImGui::Text("Transform");
+			transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(m_Camera.GetPositionRef()), 0.05f);
+			//transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(m_Camera.GetTransformRef().rotation), 0.05f);
+			ImGui::Separator();
+
+			ImGui::Text("Camera Settings");
+			ImGui::DragFloat("Vertical FoV", &m_Camera.GetFOVRef(), 0.1f, 0.0f, 360.0f);
+
+			ImGui::PopID();
+
+			if (transformUpdated)
+				m_Camera.SetPosition(m_Camera.GetPosition());
+		}
+		else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount())
+		{
+			uint32_t blasIndex = m_SelectedNode - 1;
+			std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);
+			bool transformUpdated = false;
+
+			const char* materialTypes[] = { "Non_Emissive", "Emissive", "Mirror (Not Implemented!)", "Refractive (Not Implemented!)" };
+			int selectedMaterialType = 0;
+			switch (blas->GetMaterial().MaterialType)
+			{
+			case Material::Type::Non_Emissive:
+				selectedMaterialType = 0;
+				break;
+			case Material::Type::Emissive:
+				selectedMaterialType = 1;
+				break;
+			case Material::Type::Mirror:
+				selectedMaterialType = 2;
+				break;
+			case Material::Type::Refractive:
+				selectedMaterialType = 3;
+				break;
+			}
+
+			ImGui::PushID(blas->GetName().c_str());
+
+			ImGui::InputText("Name", &blas->GetNameRef()[0], blas->GetName().length());
+			ImGui::Separator();
+
+			ImGui::Text("Transform");
+			transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
+			transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
+			transformUpdated |= ImGui::DragFloat3("scale", glm::value_ptr(blas->GetTransformRef().scale), 0.05f);
+			ImGui::Separator();
+
+			ImGui::Text("Material");
+			ImGui::Combo("Material Type", &selectedMaterialType, materialTypes, IM_ARRAYSIZE(materialTypes));
+			ImGui::Spacing();
+			ImGui::Spacing();
+			ImGui::Spacing();
+			ImGui::ColorEdit3("Albedo", glm::value_ptr(blas->GetMaterialRef().Albedo));
+			ImGui::ColorEdit3("Emmitance", glm::value_ptr(blas->GetMaterialRef().Emmitance));
+			ImGui::DragFloat("Metallicness", &blas->GetMaterialRef().Metallicness, 0.001f, 0.0f, 1.0f);
+			ImGui::DragFloat("Roughness", &blas->GetMaterialRef().Roughness, 0.001f, 0.0f, 1.0f);
+			ImGui::DragFloat("IOR", &blas->GetMaterialRef().IOR, 0.001f);
+
+			ImGui::PopID();
+
+			switch (selectedMaterialType)
+			{
+			case 0:
+				blas->GetMaterialRef().MaterialType = Material::Type::Non_Emissive;
+				break;
+			case 1:
+				blas->GetMaterialRef().MaterialType = Material::Type::Emissive;
+				break;
+			case 2:
+				blas->GetMaterialRef().MaterialType = Material::Type::Mirror;
+				break;
+			case 3:
+				blas->GetMaterialRef().MaterialType = Material::Type::Refractive;
+				break;
+			}
+
+			if (transformUpdated)
+				blas->SetTransform(blas->GetTransform());
+		}
+		ImGui::End();
+
 
 		RenderCommand::Clear();
 	}
@@ -146,6 +273,9 @@ private:
 	TLAS m_TLAS;
 	TLAS m_TLAS_EmmisiveOnly;
 	TLAS m_TLAS_NonEmmisiveOnly;
+
+	// UI
+	int m_SelectedNode;
 private:
 	void DrawImGuiDockSpace()
 	{

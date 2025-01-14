@@ -41,7 +41,10 @@ public:
 
 	Ray GetRay(uint32_t x, uint32_t y, bool random = false);
 
-	glm::vec3 GetPosition()				{ return m_Position; }
+	float GetFOV() const { return m_VerticalFov; }
+	float& GetFOVRef() { return m_VerticalFov; }
+	glm::vec3 GetPosition() const { return m_Position; }
+	glm::vec3& GetPositionRef() { return m_Position; }
 	glm::vec3 GetTargetPosition()		{ return m_TargetPosition; }
 	glm::vec3 GetUpDirection()			{ return m_UpDirection; }
 	glm::mat4 GetCameraMatrix()			{ return m_TransformMatrix; }

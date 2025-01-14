@@ -7,9 +7,8 @@ struct Material
 public:
 	enum class Type
 	{
-		Dielectric,
+		Non_Emissive,
 		Emissive,
-		Mettalic,
 		Mirror,
 		Refractive
 	};

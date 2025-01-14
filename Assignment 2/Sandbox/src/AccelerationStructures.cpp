@@ -216,13 +216,3 @@ Triangle Debug_BLAS::GetRandomTriangle(uint32_t& seed) const
 
 	return m_Triangles[left];
 }
-
-float Debug_BLAS::GetArea() const
-{
-	return m_Area;
-}
-
-Material Debug_BLAS::GetMaterial() const
-{
-	return m_Material;
-}

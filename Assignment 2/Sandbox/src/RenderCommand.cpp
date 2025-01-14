@@ -68,6 +68,7 @@ void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBuff
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
+	// Unbind PBO to prevent interference with ImGui rendering
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
