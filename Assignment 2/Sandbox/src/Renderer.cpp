@@ -26,6 +26,7 @@ LightSampleInfo Renderer::SampleRandomLight(const Ray& ray, const TLAS& tlasEmmi
 	glm::vec3 randomPoint = randomTriangle.GetRandomPoint(seed);
 
 	LightSampleInfo lightInfo;
+	lightInfo.location = randomPoint;
 	lightInfo.direction = randomPoint - ray.hitInfo.location;
 	lightInfo.distance = glm::length(lightInfo.direction);
 	lightInfo.direction = glm::normalize(lightInfo.direction);
@@ -66,8 +67,36 @@ glm::vec3 Renderer::CosineSampleHemisphere(const glm::vec3& position, const glm:
 	return glm::normalize(transform * glm::vec4(randomPoint, 1.0f));
 }
 
+namespace RenderModeNormal
+{
+	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+	{
+		glm::vec3 E(0.1f);
 
-glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+		tlas.Traverse(ray);
+		if (ray.hitInfo.hit)
+			E = 0.5 * ray.hitInfo.normal + glm::vec3(0.5f);
+
+		return glm::vec4(E, 1.0f);
+	}
+}
+
+namespace RenderModeTraversalSteps
+{
+	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+	{
+		glm::vec3 E(0.1f);
+
+		tlas.Traverse(ray);
+		if (ray.hitInfo.hit)
+			E = 0.5 * glm::vec3(ray.hitInfo.traversalStepsHitBVH / 100.0f) + glm::vec3(0.5f);
+
+		return glm::vec4(E, 1.0f);
+	}
+}
+
+
+glm::vec4 Renderer::PathTraceRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
 {
 	glm::vec3 T(1);
 	glm::vec3 E(0.1f);
@@ -76,24 +105,6 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 
 	while (currentRayDepth < m_Settings.MaxRayDepth)
 	{
-		if (m_Settings.Mode == Settings::RenderMode::Normals)
-		{
-			tlas.Traverse(ray);
-			if (ray.hitInfo.hit)
-				E = 0.5 * ray.hitInfo.normal + glm::vec3(0.5f);
-
-			return glm::vec4(E, 1.0f);
-		}
-
-		if (m_Settings.Mode == Settings::RenderMode::TraversalSteps)
-		{
-			tlas.Traverse(ray);
-			if (ray.hitInfo.hit)
-				E = 0.5 * glm::vec3(ray.hitInfo.traversalStepsHitBVH / 100.0f) + glm::vec3(0.5f);
-
-			return glm::vec4(E, 1.0f);
-		}
-
 		// Intersection Test
 		tlas.Traverse(ray);
 		if (!ray.hitInfo.hit)
@@ -119,7 +130,7 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 			Ray shadowRay = Ray(ray.hitInfo.location + eta * lightInfo.direction, lightInfo.direction, lightInfo.distance - eta);
 			tlas.Traverse(shadowRay);
 
-			if (shadowRay.hitInfo.hit)
+			if (!shadowRay.hitInfo.hit)
 			{
 				//std::cout << "light hit - intensity: " << lightInfo.intensity << std::endl;
 				float solidAngle = (lightNormalDotLightDirection * lightInfo.Area) / (lightInfo.distance * lightInfo.distance);
@@ -148,14 +159,11 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 {
 	auto timeStart = std::chrono::system_clock::now();
 	TaskBatch taskBatch(m_Settings.ThreadCount);
-	//TaskBatch taskBatch(1);
 
 	for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
 	{
 		for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
 		{
-			uint32_t pixelIndex = x + y * width;
-			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, pixelIndex); });
 			uint32_t seed = x + y * width;
 			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, seed); });
 		}
@@ -163,7 +171,6 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 
 	taskBatch.ExecuteTasks();
 	auto timeEnd = std::chrono::system_clock::now();
-
 	m_LastFrameTime = std::chrono::duration<float, std::ratio<1,1000>>(timeEnd - timeStart).count();
 }
 
@@ -171,7 +178,6 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 {
 	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
 	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
-
 	seed += static_cast<uint32_t>(std::time(nullptr));
 
 	for (uint32_t y = yMin; y < yMax; y++)
@@ -183,13 +189,89 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 
 			for (int i = 0; i < m_Settings.SamplesPerPixel; i++)
 			{
-				colorAccumulator += Renderer::RenderRay(ray, tlas, tlasEmmisive, seed);
+				uint32_t index = x + y * width;
+				switch (m_Settings.Mode)
+				{
+					case Settings::RenderMode::Normals:
+						colorAccumulator += RenderModeNormal::RenderRay(ray, tlas, tlasEmmisive, seed);
+						break;
+					case Settings::RenderMode::TraversalSteps:
+						colorAccumulator += RenderModeTraversalSteps::RenderRay(ray, tlas, tlasEmmisive, seed);
+						break;
+					case Settings::RenderMode::Pathtrace:
+						colorAccumulator += PathTraceRay(ray, tlas, tlasEmmisive, seed);
+						break;
+					case Settings::RenderMode::ReSTIR:
+						GenerateSample(camera, glm::i32vec2(x, y), index, tlas, tlasEmmisive, seed);
+						colorAccumulator += RenderSample(m_SampleBuffer[index], tlas, tlasEmmisive, seed);
+						break;
+				}
 			}
 
 			colorAccumulator /= static_cast<float>(m_Settings.SamplesPerPixel);
-
 			Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
 		}
 	}
+}
+
+void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+{
+	Ray ray = camera.GetRay(pixel.x, pixel.y);
+	Ray shadowRay;
+	tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
+
+	float eta = 0.01f;
+	LightSampleInfo randomLightSample = SampleRandomLight(ray, tlasEmmisive, seed);
+
+	// Check if lightpoint is facing 
+	bool validDirectLighting = false;
+	float normalDotLightDirection = glm::dot(ray.hitInfo.normal, randomLightSample.direction);
+	float lightNormalDotLightDirection = glm::dot(randomLightSample.normal, -randomLightSample.direction);
+
+	if (normalDotLightDirection > 0 && lightNormalDotLightDirection > 0)
+	{
+		shadowRay = Ray(ray.hitInfo.location + eta * randomLightSample.direction, randomLightSample.direction, randomLightSample.distance - 2 * eta);
+		tlas.Traverse(shadowRay);
 		
+		validDirectLighting = !shadowRay.hitInfo.hit;
+	}
+
+	// Construct Sample
+	Sample sample;
+	sample.valid = ray.hitInfo.hit && ray.hitInfo.material.MaterialType != Material::Type::Emissive && validDirectLighting;
+	sample.CameraOrigin = camera.GetPosition();
+	sample.HitLocation = ray.hitInfo.location;
+	sample.LightLocation = randomLightSample.location;
+	sample.FirstRayHitInfo = ray.hitInfo;
+	sample.ShadowRayHitInfo = shadowRay.hitInfo;
+	sample.LightSample = randomLightSample;
+	
+	m_SampleBuffer[bufferIndex] = sample;
+}
+
+glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+{
+	if (!sample.valid)
+	{
+		// Handle Hitting Emmisive Surface on first hit
+		Material material = sample.FirstRayHitInfo.material;
+		bool hitEmmisiveSurface = sample.FirstRayHitInfo.hit && material.MaterialType == Material::Type::Emissive;
+		glm::vec3 outputColor = hitEmmisiveSurface ? material.Emmitance : glm::vec3(0.1f);
+
+		return glm::vec4(outputColor, 1.0f);
+	}
+
+	// Direct lighting calculation
+	float eta = 0.01f;
+	glm::vec3 outputColor(0.0f);
+	glm::vec3 BRDF = sample.FirstRayHitInfo.material.Albedo / M_PI;
+
+	float normalDotLightDirection = glm::dot(sample.FirstRayHitInfo.normal, sample.LightSample.direction);
+	float lightNormalDotLightDirection = glm::dot(sample.LightSample.normal, -sample.LightSample.direction);
+
+	float solidAngle = (lightNormalDotLightDirection * sample.LightSample.Area) / (sample.LightSample.distance * sample.LightSample.distance);
+	float lightPDF = 1 / solidAngle;
+	outputColor = (normalDotLightDirection / solidAngle) * BRDF * sample.LightSample.intensity;
+
+	return glm::vec4(outputColor, 1.0f);
 }

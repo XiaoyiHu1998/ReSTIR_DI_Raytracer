@@ -83,6 +83,7 @@ public:
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
 
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::UpdateSampleBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
 		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly);
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
@@ -117,7 +118,7 @@ public:
 		ImGui::Begin("Settings");
 		ImGui::Text("Debug Settings");
 
-		const char* RenderModes[] = { "Normals", "TraversalSteps", "PathTracing" };
+		const char* RenderModes[] = { "Normals", "TraversalSteps", "PathTracing", "ReSTIR"};
 		int selectedMode = static_cast<int>(m_Renderer.GetSettings().Mode);
 		ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
 		m_Renderer.GetSettings().Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);

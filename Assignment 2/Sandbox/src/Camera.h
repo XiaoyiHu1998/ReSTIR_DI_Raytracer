@@ -37,7 +37,7 @@ public:
 
 	~Camera() = default;
 
-	Ray GetRay(uint32_t x, uint32_t y, bool random = false);
+	Ray GetRay(uint32_t x, uint32_t y, bool random = false) const;
 
 	float GetFOV() const { return m_VerticalFov; }
 	float& GetFOVRef() { return m_VerticalFov; }

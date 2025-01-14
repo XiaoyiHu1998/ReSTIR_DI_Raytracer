@@ -10,7 +10,7 @@ void Camera::UpdateCameraMatrix()
 	m_CameraPlaneDistance = -m_Height / (2.0f * tan(m_VerticalFov / 2.0f));
 }
 
-Ray Camera::GetRay(uint32_t x, uint32_t y, bool random)
+Ray Camera::GetRay(uint32_t x, uint32_t y, bool random) const
 {
 	float directionX = (x + 0.5f) - static_cast<float>(m_Width) / 2.0f;
 	float directionY = -(y + 0.5f) + static_cast<float>(m_Height) / 2.0f; // this flips the image at the same time

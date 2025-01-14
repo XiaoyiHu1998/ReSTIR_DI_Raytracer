@@ -3,6 +3,7 @@
 #include "Glad/include/glad/glad.h"
 
 #include "Include.h"
+#include "Renderer.h"
 
 class RenderCommand
 {
@@ -15,4 +16,7 @@ public:
 	static void InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
 	static void UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
 	static void Clear();
+
+	//TODO: Get this out of RenderCommand
+	static void UpdateSampleBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight);
 };

@@ -42,6 +42,7 @@ public:
 	float distance;
 	float Area;
 
+	glm::vec3 location;
 	glm::vec3 direction;
 	glm::vec3 normal;
 	glm::vec3 intensity;
@@ -58,6 +59,8 @@ public:
 	glm::vec3 direction;
 	HitInfo hitInfo;
 public:
+	Ray() = default;
+
 	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().max()) :
 		origin{ origin }, direction{ direction }, hitInfo{ HitInfo() }
 	{}
