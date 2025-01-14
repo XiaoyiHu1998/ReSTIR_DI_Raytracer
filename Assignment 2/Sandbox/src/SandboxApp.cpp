@@ -116,7 +116,12 @@ public:
 		// Settings Window
 		ImGui::Begin("Settings");
 		ImGui::Text("Debug Settings");
-		ImGui::Checkbox("Render Normals", &m_Renderer.GetSettings().RenderNormals);
+
+		const char* RenderModes[] = { "Normals", "TraversalSteps", "PathTracing" };
+		int selectedMode = static_cast<int>(m_Renderer.GetSettings().Mode);
+		ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
+		m_Renderer.GetSettings().Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
+
 		ImGui::End();
 
 		// Outliner Window
@@ -173,9 +178,9 @@ public:
 			ImGui::PopID();
 
 			if (transformUpdated)
-				m_Camera.SetPosition(m_Camera.GetPosition());
+				m_Camera.UpdateCameraMatrix();
 		}
-		else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount())
+		else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 1)
 		{
 			uint32_t blasIndex = m_SelectedNode - 1;
 			std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);

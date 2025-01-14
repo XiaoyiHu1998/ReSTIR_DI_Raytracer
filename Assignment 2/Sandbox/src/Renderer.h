@@ -24,6 +24,15 @@ public:
 
 		uint32_t MaxRayDepth = 8;
 
+
+		enum class RenderMode
+		{
+			Normals = 0,
+			TraversalSteps = 1,
+			Pathtrace = 2
+		};
+
+		RenderMode Mode;
 		bool RenderNormals = true;
 	};
 private:

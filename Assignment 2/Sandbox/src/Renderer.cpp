@@ -76,11 +76,20 @@ glm::vec4 Renderer::RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisi
 
 	while (currentRayDepth < m_Settings.MaxRayDepth)
 	{
-		if (m_Settings.RenderNormals)
+		if (m_Settings.Mode == Settings::RenderMode::Normals)
 		{
 			tlas.Traverse(ray);
 			if (ray.hitInfo.hit)
 				E = 0.5 * ray.hitInfo.normal + glm::vec3(0.5f);
+
+			return glm::vec4(E, 1.0f);
+		}
+
+		if (m_Settings.Mode == Settings::RenderMode::TraversalSteps)
+		{
+			tlas.Traverse(ray);
+			if (ray.hitInfo.hit)
+				E = 0.5 * glm::vec3(ray.hitInfo.traversalStepsHitBVH / 100.0f) + glm::vec3(0.5f);
 
 			return glm::vec4(E, 1.0f);
 		}
