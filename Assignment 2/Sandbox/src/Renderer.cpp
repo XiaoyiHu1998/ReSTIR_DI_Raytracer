@@ -220,7 +220,7 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 	Ray shadowRay;
 	tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
 
-	float eta = 0.01f;
+	float eta = 0.000001f;
 	LightSampleInfo randomLightSample = SampleRandomLight(ray, tlasEmmisive, seed);
 
 	// Check if lightpoint is facing 
