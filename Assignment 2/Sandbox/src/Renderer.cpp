@@ -214,7 +214,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 	}
 }
 
-void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
 {
 	Ray ray = camera.GetRay(pixel.x, pixel.y);
 	Ray shadowRay;
@@ -232,21 +232,54 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 	{
 		shadowRay = Ray(ray.hitInfo.location + eta * randomLightSample.direction, randomLightSample.direction, randomLightSample.distance - 2 * eta);
 		tlas.Traverse(shadowRay);
-		
+
 		validDirectLighting = !shadowRay.hitInfo.hit;
 	}
 
 	// Construct Sample
 	Sample sample;
 	sample.valid = ray.hitInfo.hit && ray.hitInfo.material.MaterialType != Material::Type::Emissive && validDirectLighting;
-	sample.CameraOrigin = camera.GetPosition();
-	sample.HitLocation = ray.hitInfo.location;
-	sample.LightLocation = randomLightSample.location;
-	sample.FirstRayHitInfo = ray.hitInfo;
-	sample.ShadowRayHitInfo = shadowRay.hitInfo;
-	sample.LightSample = randomLightSample;
-	
-	m_SampleBuffer[bufferIndex] = sample;
+	sample.Path.CameraOrigin = camera.GetPosition();
+	sample.Path.HitLocation = ray.hitInfo.location;
+	sample.Path.LightLocation = randomLightSample.location;
+	sample.Path.FirstRayHitInfo = ray.hitInfo;
+	sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
+	sample.Path.LightSample = randomLightSample;
+	sample.Weight = 1;
+
+	return sample;
+}
+
+void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+{
+	Resevoir<PathDI> resevoir;
+	Sample sample;
+
+	auto colorToContribution = [](glm::vec3& color) {
+		return std::max(color.r, std::max(color.g, color.b));
+	};
+
+	for (int i = 0; i < m_Settings.CanidateCountReSTIR; i++)
+	{
+		sample = SampleAreaLights(camera, pixel, tlas, tlasEmmisive, seed);
+		float weight = (1 / m_Settings.CanidateCountReSTIR) * colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
+		resevoir.Update(sample.Path, weight, seed);
+	}
+
+	PathDI path = resevoir.GetSample();
+	float weight = 1 / colorToContribution(TargetDistribution(path)) * resevoir.GetWeightTotal();
+	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
+}
+
+glm::vec3 Renderer::TargetDistribution(const PathDI& path)
+{
+	glm::vec3 BRDF = path.FirstRayHitInfo.material.Albedo / M_PI;
+
+	float surfaceNormalDotLightDirection = glm::dot(path.FirstRayHitInfo.normal, path.LightSample.direction);
+	float lightNormalDotSurfaceDirection = glm::dot(path.LightSample.normal, -path.LightSample.direction);
+	float solidAngle = (lightNormalDotSurfaceDirection * path.LightSample.Area) / (path.LightSample.distance * path.LightSample.distance);
+
+	return BRDF * path.LightSample.intensity * (surfaceNormalDotLightDirection / solidAngle);
 }
 
 glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
@@ -254,9 +287,9 @@ glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, const TLAS& tl
 	if (!sample.valid)
 	{
 		// Handle Hitting Emmisive Surface on first hit
-		Material material = sample.FirstRayHitInfo.material;
-		bool hitEmmisiveSurface = sample.FirstRayHitInfo.hit && material.MaterialType == Material::Type::Emissive;
-		glm::vec3 outputColor = hitEmmisiveSurface ? material.Emmitance : glm::vec3(0.1f);
+		Material material = sample.Path.FirstRayHitInfo.material;
+		bool hitEmmisiveSurface = sample.Path.FirstRayHitInfo.hit && material.MaterialType == Material::Type::Emissive;
+		glm::vec3 outputColor = hitEmmisiveSurface ? material.Emmitance : glm::vec3(0.0f);
 
 		return glm::vec4(outputColor, 1.0f);
 	}
@@ -264,14 +297,14 @@ glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, const TLAS& tl
 	// Direct lighting calculation
 	float eta = 0.01f;
 	glm::vec3 outputColor(0.0f);
-	glm::vec3 BRDF = sample.FirstRayHitInfo.material.Albedo / M_PI;
+	glm::vec3 BRDF = sample.Path.FirstRayHitInfo.material.Albedo / M_PI;
 
-	float normalDotLightDirection = glm::dot(sample.FirstRayHitInfo.normal, sample.LightSample.direction);
-	float lightNormalDotLightDirection = glm::dot(sample.LightSample.normal, -sample.LightSample.direction);
+	float normalDotLightDirection = glm::dot(sample.Path.FirstRayHitInfo.normal, sample.Path.LightSample.direction);
+	float lightNormalDotLightDirection = glm::dot(sample.Path.LightSample.normal, -sample.Path.LightSample.direction);
 
-	float solidAngle = (lightNormalDotLightDirection * sample.LightSample.Area) / (sample.LightSample.distance * sample.LightSample.distance);
+	float solidAngle = (lightNormalDotLightDirection * sample.Path.LightSample.Area) / (sample.Path.LightSample.distance * sample.Path.LightSample.distance);
 	float lightPDF = 1 / solidAngle;
-	outputColor = (normalDotLightDirection / solidAngle) * BRDF * sample.LightSample.intensity;
+	outputColor = BRDF * sample.Path.LightSample.intensity * (normalDotLightDirection / solidAngle);
 
-	return glm::vec4(outputColor, 1.0f);
+	return glm::vec4(outputColor, 1.0f) * sample.Weight;
 }

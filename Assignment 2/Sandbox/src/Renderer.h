@@ -10,7 +10,7 @@
 #include "Primitives.h"
 #include "AccelerationStructures.h"
 
-struct Sample
+struct PathDI
 {
 	glm::vec3 CameraOrigin;
 	glm::vec3 HitLocation;
@@ -18,19 +18,39 @@ struct Sample
 
 	HitInfo FirstRayHitInfo;
 	HitInfo ShadowRayHitInfo;
-
 	LightSampleInfo LightSample;
 
-	float Weight;
+	PathDI() = default;
+
+	PathDI(const glm::vec3 cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation) :
+		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
+		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, LightSample{ LightSampleInfo() }
+	{}
+
+	PathDI(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation,
+		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const LightSampleInfo & LightSample) :
+		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
+		FirstRayHitInfo{ firstRayHitInfo }, ShadowRayHitInfo{ ShadowRayHitInfo }, LightSample{ LightSample }
+	{}
+};
+
+struct Sample
+{
 	bool valid;
+
+	PathDI Path;
+	float Weight;
 
 	Sample() :
 		valid{ false }
 	{}
 
-	Sample(const glm::vec3 cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation, float weight) :
-		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation }, Weight{ weight }, valid{ false },
-		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, LightSample{ LightSampleInfo() }
+	Sample(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation, float weight) :
+		valid{ false }, Path{ cameraOrigin, hitLocation, lightLocation}, Weight{weight}
+	{}
+
+	Sample(Sample sample, float weight) :
+		valid{ false }, Path{ sample.Path }, Weight{ weight }
 	{}
 };
 
@@ -38,13 +58,17 @@ template <class T>
 class Resevoir
 {
 private:
-	T m_Sample;
+	T m_SampleOut;
 	float m_WeightTotal;
 
 	int m_SampleCount;
 public:
+	Resevoir() :
+		m_SampleOut{ T()}, m_SampleCount{ 0 }, m_WeightTotal{ 0 }
+	{}
+
 	Resevoir(T initialSample, float weight) :
-		m_Sample{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ weight }
+		m_SampleOut{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ weight }
 	{}
 
 	bool Update(const T& sample, float weight, uint32_t& seed)
@@ -54,14 +78,15 @@ public:
 
 		if (Utils::RandomFloat(seed) < weight / m_WeightTotal)
 		{
-			m_Sample = sample;
+			m_SampleOut = sample;
 			return true;
 		}
 
 		return false;
 	}
 
-	T GetSample() { return m_Sample; }
+	T GetSample() { return m_SampleOut; }
+	float GetWeightTotal() { return m_WeightTotal; }
 };
 
 class Renderer
@@ -86,6 +111,9 @@ public:
 		uint32_t RenderingKernelSize = 16;
 		uint32_t SamplesPerPixel = 1;
 		uint32_t MaxRayDepth = 8;
+
+		// ReSTIR
+		uint32_t CanidateCountReSTIR = 4;
 	};
 private:
 	Settings m_Settings;
@@ -100,7 +128,9 @@ private:
 
 	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t seed);
 private:
+	Sample SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
 	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
+	glm::vec3 TargetDistribution(const PathDI& path);
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
 public:
 	Renderer() :
