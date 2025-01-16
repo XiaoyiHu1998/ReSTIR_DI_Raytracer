@@ -136,11 +136,19 @@ Triangle BVH_BLAS::GetRandomTriangle(uint32_t& seed) const
 
 	uint32_t index = left * 3;
 
-	glm::vec3 vertex0 = glm::vec3(m_Positions[index + 0].x, m_Positions[index + 0].y, m_Positions[index + 0].z);
-	glm::vec3 vertex1 = glm::vec3(m_Positions[index + 1].x, m_Positions[index + 1].y, m_Positions[index + 1].z);
-	glm::vec3 vertex2 = glm::vec3(m_Positions[index + 2].x, m_Positions[index + 2].y, m_Positions[index + 2].z);
+	glm::vec3 position0 = m_TransformMatrix * glm::vec4(m_Positions[index + 0].x, m_Positions[index + 0].y, m_Positions[index + 0].z, 1.0f);
+	glm::vec3 position1 = m_TransformMatrix * glm::vec4(m_Positions[index + 1].x, m_Positions[index + 1].y, m_Positions[index + 1].z, 1.0f);
+	glm::vec3 position2 = m_TransformMatrix * glm::vec4(m_Positions[index + 2].x, m_Positions[index + 2].y, m_Positions[index + 2].z, 1.0f);
 
-	return Triangle(Vertex(vertex0), Vertex(vertex1), Vertex(vertex2));
+	glm::vec3 normal0 = m_Normals[index * 3 + 0];
+	glm::vec3 normal1 = m_Normals[index * 3 + 1];
+	glm::vec3 normal2 = m_Normals[index * 3 + 2];
+
+	glm::vec2 texCoord0 = m_TexCoords[index * 3 + 0];
+	glm::vec2 texCoord1 = m_TexCoords[index * 3 + 1];
+	glm::vec2 texCoord2 = m_TexCoords[index * 3 + 2];
+
+	return Triangle(Vertex(position0, normal0, texCoord0), Vertex(position1, normal1, texCoord1), Vertex(position2, normal2, texCoord2));
 }
 
 //=================== Debug_BLAS ===================
@@ -214,5 +222,13 @@ Triangle Debug_BLAS::GetRandomTriangle(uint32_t& seed) const
 		}
 	}
 
-	return m_Triangles[left];
+	Vertex vertex0 = m_Triangles[left].GetVertex0();
+	Vertex vertex1 = m_Triangles[left].GetVertex1();
+	Vertex vertex2 = m_Triangles[left].GetVertex2();
+
+	Vertex vertex0WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f), vertex0.normal, vertex0.texCoord);
+	Vertex vertex1WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f), vertex1.normal, vertex1.texCoord);
+	Vertex vertex2WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f), vertex2.normal, vertex2.texCoord);
+
+	return Triangle(vertex0WorldSpace, vertex1WorldSpace, vertex2WorldSpace);
 }
