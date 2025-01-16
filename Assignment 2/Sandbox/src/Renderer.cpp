@@ -225,10 +225,10 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 
 	// Check if lightpoint is facing 
 	bool validDirectLighting = false;
-	float normalDotLightDirection = glm::dot(ray.hitInfo.normal, randomLightSample.direction);
-	float lightNormalDotLightDirection = glm::dot(randomLightSample.normal, -randomLightSample.direction);
+	float surfaceFacingLight = glm::dot(ray.hitInfo.normal, randomLightSample.direction);
+	float lightFacingSurface = glm::dot(randomLightSample.normal, -randomLightSample.direction);
 
-	if (normalDotLightDirection > 0 && lightNormalDotLightDirection > 0)
+	if (surfaceFacingLight > 0 && lightFacingSurface > 0)
 	{
 		shadowRay = Ray(ray.hitInfo.location + eta * randomLightSample.direction, randomLightSample.direction, randomLightSample.distance - 2 * eta);
 		tlas.Traverse(shadowRay);
