@@ -43,19 +43,28 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 
 	for (int i = 0; i < triangles.size(); i++)
 	{
-		m_Positions.emplace_back(triangles[i].GetVertex0().position.x, triangles[i].GetVertex0().position.y, triangles[i].GetVertex0().position.z, 0.0f);
-		m_Positions.emplace_back(triangles[i].GetVertex1().position.x, triangles[i].GetVertex1().position.y, triangles[i].GetVertex1().position.z, 0.0f);
-		m_Positions.emplace_back(triangles[i].GetVertex2().position.x, triangles[i].GetVertex2().position.y, triangles[i].GetVertex2().position.z, 0.0f);
+		Vertex vertex0 = triangles[i].GetVertex0();
+		Vertex vertex1 = triangles[i].GetVertex1();
+		Vertex vertex2 = triangles[i].GetVertex2();
 
-		m_Normals.push_back(triangles[i].GetVertex0().normal);
-		m_Normals.push_back(triangles[i].GetVertex1().normal);
-		m_Normals.push_back(triangles[i].GetVertex2().normal);
+		m_Positions.emplace_back(vertex0.position.x, vertex0.position.y, vertex0.position.z, 0.0f);
+		m_Positions.emplace_back(vertex1.position.x, vertex1.position.y, vertex1.position.z, 0.0f);
+		m_Positions.emplace_back(vertex2.position.x, vertex2.position.y, vertex2.position.z, 0.0f);
+
+		m_Normals.push_back(vertex0.normal);
+		m_Normals.push_back(vertex1.normal);
+		m_Normals.push_back(vertex2.normal);
 		
-		m_TexCoords.push_back(triangles[i].GetVertex0().texCoord);
-		m_TexCoords.push_back(triangles[i].GetVertex1().texCoord);
-		m_TexCoords.push_back(triangles[i].GetVertex2().texCoord);
+		m_TexCoords.push_back(vertex0.texCoord);
+		m_TexCoords.push_back(vertex1.texCoord);
+		m_TexCoords.push_back(vertex2.texCoord);
 
-		m_Area += triangles[i].Area();
+		// Need to account for transforms
+		Triangle transformedTriangle = Triangle(Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f)),
+												Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f)),
+												Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f)));
+
+		m_Area += transformedTriangle.Area();
 		m_CumulativeArea[i] = m_Area;
 	}
 
@@ -145,9 +154,9 @@ Triangle BVH_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) c
 	glm::vec3 position1 = m_TransformMatrix * glm::vec4(m_Positions[index + 1].x, m_Positions[index + 1].y, m_Positions[index + 1].z, 1.0f);
 	glm::vec3 position2 = m_TransformMatrix * glm::vec4(m_Positions[index + 2].x, m_Positions[index + 2].y, m_Positions[index + 2].z, 1.0f);
 
-	glm::vec3 normal0 = m_Normals[index * 3 + 0];
-	glm::vec3 normal1 = m_Normals[index * 3 + 1];
-	glm::vec3 normal2 = m_Normals[index * 3 + 2];
+	glm::vec3 normal0 = m_TransformMatrix * glm::vec4(m_Normals[index * 3 + 0], 0.0f);
+	glm::vec3 normal1 = m_TransformMatrix * glm::vec4(m_Normals[index * 3 + 1], 0.0f);
+	glm::vec3 normal2 = m_TransformMatrix * glm::vec4(m_Normals[index * 3 + 2], 0.0f);
 
 	glm::vec2 texCoord0 = m_TexCoords[index * 3 + 0];
 	glm::vec2 texCoord1 = m_TexCoords[index * 3 + 1];
@@ -166,7 +175,15 @@ void Debug_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transfo
 
 	for (int i = 0; i < m_Triangles.size(); i++)
 	{
-		m_Area += triangles[i].Area();
+		Vertex vertex0 = triangles[i].GetVertex0();
+		Vertex vertex1 = triangles[i].GetVertex1();
+		Vertex vertex2 = triangles[i].GetVertex2();
+
+		Triangle transformedTriangle = Triangle(Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f)),
+												Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f)),
+												Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f)));
+
+		m_Area += transformedTriangle.Area();
 		m_CumulativeArea[i] = m_Area;
 	}
 
@@ -236,9 +253,9 @@ Triangle Debug_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed)
 	Vertex vertex1 = m_Triangles[left].GetVertex1();
 	Vertex vertex2 = m_Triangles[left].GetVertex2();
 
-	Vertex vertex0WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f), vertex0.normal, vertex0.texCoord);
-	Vertex vertex1WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f), vertex1.normal, vertex1.texCoord);
-	Vertex vertex2WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f), vertex2.normal, vertex2.texCoord);
+	Vertex vertex0WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f), m_TransformMatrix * glm::vec4(vertex0.normal, 0.0f), vertex0.texCoord);
+	Vertex vertex1WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f), m_TransformMatrix * glm::vec4(vertex1.normal, 0.0f), vertex1.texCoord);
+	Vertex vertex2WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f), m_TransformMatrix * glm::vec4(vertex2.normal, 0.0f), vertex2.texCoord);
 
 	return Triangle(vertex0WorldSpace, vertex1WorldSpace, vertex2WorldSpace);
 }

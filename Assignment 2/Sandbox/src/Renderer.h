@@ -114,7 +114,7 @@ public:
 		uint32_t MaxRayDepth = 1;
 
 		// ReSTIR
-		uint32_t CanidateCountReSTIR = 5;
+		uint32_t CanidateCountReSTIR = 1;
 	};
 private:
 	Settings m_Settings;
@@ -142,7 +142,7 @@ public:
 
 	glm::vec4 PathTraceRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
 	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive);
-	LightSampleInfo SampleRandomLight(const Ray& ray, const TLAS& tlasEmmisive, uint32_t& seed);
+	LightSampleInfo SampleRandomLight(const glm::vec3& hitLocation, const TLAS& tlasEmmisive, uint32_t& seed);
 
 	Settings& GetSettings()  { return m_Settings; }
 	float GetLastFrameTime() { return m_LastFrameTime; }

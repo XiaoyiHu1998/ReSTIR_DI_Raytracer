@@ -24,15 +24,15 @@ public:
 	HitInfo():
 		hit{ false }, distance{ std::numeric_limits<float>().max() }, objectArea{ 0 }, location{ glm::vec3(0) },
 		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
-		material { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) },
-		prevMaterial { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) },
+		material { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) },
+		prevMaterial { Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) },
 		normal { glm::vec3(0)}, tangent{ glm::vec3(0) }
 	{}
 
 	HitInfo(bool hit) : // Members should be set manually after initialization
 		hit{ hit },
-		material{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) },
-		prevMaterial{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f)) }
+		material{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f),1 ) },
+		prevMaterial{ Material(Material::Type::Emissive, 1, 1, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) }
 	{}
 };
 
@@ -41,15 +41,16 @@ struct LightSampleInfo
 public:
 	float distance;
 	float Area;
+	float emissiveIntensity;
 	float Probability; // Probability of finding this specific point on the light from the whole scene
 
 	glm::vec3 location;
 	glm::vec3 direction;
 	glm::vec3 normal;
-	glm::vec3 intensity;
+	glm::vec3 emissiveColor;
 public:
 	LightSampleInfo() :
-		distance{ std::numeric_limits<float>().max() }, Area{ 0 }, direction{ glm::vec3(0) }, normal{ glm::vec3(0) }, intensity{ glm::vec3(0) }, Probability{ 0 }
+		distance{ std::numeric_limits<float>().max() }, Area{ 0 }, direction{ glm::vec3(0) }, normal{ glm::vec3(0) }, emissiveColor{ glm::vec3(0) }, emissiveIntensity{ 0 }, Probability{ 0 }
 	{}
 };
 
