@@ -21,12 +21,12 @@ public:
 	PathTracingLayer() :
 		Layer("PathTracing")
 	{
-		m_Renderer = Renderer();
-		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 40);
-
 		m_FrameBuffer = std::make_shared<std::vector<uint8_t>>();
 		m_CurrentWidth = m_NextWidth = 640;
 		m_CurrentHeight = m_NextHeight = 480;
+
+		m_Renderer = Renderer();
+		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 50);
 
 		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
@@ -41,7 +41,7 @@ public:
 		//ceiling
 		std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
 		ceilingBLAS->SetName("Ceiling");
-		Transform ceilingTransform = Transform(glm::vec3(0, 20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
+		Transform ceilingTransform = Transform(glm::vec3(0, 20, 0), glm::vec3(0), glm::vec3(200, 0.1f, 200));
 		Material ceilingMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(1.0));
 		Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
 		ceilingBLAS->SetObject(ceiling.GetTriangles(), ceiling.GetTransform(), ceiling.GetMaterial());
@@ -49,20 +49,22 @@ public:
 		m_TLAS_EmmisiveOnly.AddBLAS(ceilingBLAS);
 
 		//floor
+		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza.obj", triangles);
+		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
 		floorBLAS->SetName("Floor");
-		Transform floorTransform = Transform(glm::vec3(0, -20, 0), glm::vec3(0), glm::vec3(200, 1, 50));
+		Transform floorTransform = Transform(glm::vec3(0, -20, 0), glm::vec3(0), glm::vec3(1));
 		Material floorMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
 		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
 		floorBLAS->SetObject(floor.GetTriangles(), floor.GetTransform(), floor.GetMaterial());
 		m_TLAS.AddBLAS(floorBLAS);
 
 		//sphere
-		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
-		sphereBLAS->SetName("Sphere");
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
+		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
+		sphereBLAS->SetName("Sphere");
 		Transform sphereTransform = Transform(glm::vec3(0, -15, 0), glm::vec3(0, 0, 0), glm::vec3(1.5, 1.5, 1.5));
 		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
 		Material sphereMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
@@ -161,7 +163,7 @@ public:
 		ImGui::Begin("Properties");
 		if (m_SelectedNode == 0)
 		{
-			bool transformUpdated = false;
+			bool cameraUpdated = false;
 
 			ImGui::PushID("Properties_Camera");
 
@@ -169,8 +171,8 @@ public:
 			ImGui::Separator();
 
 			ImGui::Text("Transform");
-			transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(m_Camera.GetPositionRef()), 0.05f);
-			//transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(m_Camera.GetTransformRef().rotation), 0.05f);
+			cameraUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.GetTransformRef().translation), 0.05f);
+			cameraUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.GetTransformRef().rotation), 0.05f);
 			ImGui::Separator();
 
 			ImGui::Text("Camera Settings");
@@ -178,7 +180,7 @@ public:
 
 			ImGui::PopID();
 
-			if (transformUpdated)
+			if (cameraUpdated)
 				m_Camera.UpdateCameraMatrix();
 		}
 		else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 1)
