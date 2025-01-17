@@ -80,8 +80,16 @@ float Sphere::Area() const
 
 const glm::vec3 Triangle::GetRandomPoint(uint32_t& seed)
 {
+	// Coordinates on parallelogram
 	float u = Utils::RandomFloat(seed);
 	float v = Utils::RandomFloat(seed);
+
+	// Flip coordinates on parallelogram outisde of triangle
+	if (u + v > 1)
+	{
+		u = 1 - u;
+		v = 1 - v;
+	}
 
 	glm::vec3 edge1 = m_Vertex1.position - m_Vertex0.position;
 	glm::vec3 edge2 = m_Vertex2.position - m_Vertex0.position;
