@@ -22,13 +22,13 @@ private:
 	float m_CameraPlaneDistance;
 public:
 	Camera():
-		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_VerticalFov{ 90 },
+		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_VerticalFov{ 60 },
 		m_Position{ glm::vec3(0, 0, 10) }, m_TargetPosition{ glm::vec3(0,0,0) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
 		UpdateCameraMatrix();
 	}
 
-	Camera(uint32_t width, uint32_t height, float verticalFov = 90):
+	Camera(uint32_t width, uint32_t height, float verticalFov = 60):
 		m_Width{ static_cast<float>(width) }, m_Height{ static_cast<float>(height) }, m_VerticalFov{ verticalFov },
 		m_Position{ glm::vec3(0, 0, 10) }, m_TargetPosition{ glm::vec3(0,0,0) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{

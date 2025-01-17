@@ -7,7 +7,7 @@ void Camera::UpdateCameraMatrix()
 	m_TransformMatrix = glm::lookAt(m_Position, m_TargetPosition, m_UpDirection);
 	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix);
 
-	m_CameraPlaneDistance = -m_Height / (2.0f * tan(m_VerticalFov / 2.0f));
+	m_CameraPlaneDistance = -m_Height / (2.0f * tan(glm::radians(m_VerticalFov) / 2.0f));
 }
 
 Ray Camera::GetRay(uint32_t x, uint32_t y, bool random) const
