@@ -50,7 +50,7 @@ struct Sample
 	{}
 
 	Sample(Sample sample, float weight) :
-		valid{ false }, Path{ sample.Path }, Weight{ weight }
+		valid{ sample.valid }, Path{ sample.Path }, Weight{ weight }
 	{}
 };
 
@@ -76,7 +76,8 @@ public:
 		m_SampleCount++;
 		m_WeightTotal += weight;
 
-		if (Utils::RandomFloat(seed) < weight / m_WeightTotal)
+		
+		if (Utils::RandomFloat(seed) < weight / m_WeightTotal || m_SampleCount == 1)
 		{
 			m_SampleOut = sample;
 			return true;
@@ -110,10 +111,10 @@ public:
 		uint32_t RenderResolutionHeight = 480;
 		uint32_t RenderingKernelSize = 16;
 		uint32_t SamplesPerPixel = 1;
-		uint32_t MaxRayDepth = 8;
+		uint32_t MaxRayDepth = 1;
 
 		// ReSTIR
-		uint32_t CanidateCountReSTIR = 4;
+		uint32_t CanidateCountReSTIR = 5;
 	};
 private:
 	Settings m_Settings;

@@ -41,7 +41,7 @@ struct LightSampleInfo
 public:
 	float distance;
 	float Area;
-	float PDF; // Chance of finding this specific point on the light from the whole scene
+	float Probability; // Probability of finding this specific point on the light from the whole scene
 
 	glm::vec3 location;
 	glm::vec3 direction;
@@ -49,7 +49,7 @@ public:
 	glm::vec3 intensity;
 public:
 	LightSampleInfo() :
-		distance{ std::numeric_limits<float>().max() }, Area{ 0 }, direction{ glm::vec3(0) }, normal{ glm::vec3(0) }, intensity{ glm::vec3(0) }, PDF{ 0 }
+		distance{ std::numeric_limits<float>().max() }, Area{ 0 }, direction{ glm::vec3(0) }, normal{ glm::vec3(0) }, intensity{ glm::vec3(0) }, Probability{ 0 }
 	{}
 };
 

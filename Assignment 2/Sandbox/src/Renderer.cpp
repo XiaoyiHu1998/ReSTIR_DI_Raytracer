@@ -20,9 +20,10 @@ glm::vec3 Renderer::Refract(const glm::vec3& incomingDirection, const glm::vec3&
 
 LightSampleInfo Renderer::SampleRandomLight(const Ray& ray, const TLAS& tlasEmmisive, uint32_t& seed)
 {
+	float triangleChance;
 	uint32_t randomLightId = Utils::RandomInt(0, tlasEmmisive.GetObjectCount(), seed);
 	std::shared_ptr<BLAS> lightBLAS = tlasEmmisive.GetBLAS(randomLightId);
-	Triangle randomTriangle = lightBLAS->GetRandomTriangle(seed);
+	Triangle randomTriangle = lightBLAS->GetRandomTriangle(triangleChance, seed);
 	glm::vec3 randomPoint = randomTriangle.GetRandomPoint(seed);
 
 	LightSampleInfo lightInfo;
@@ -33,6 +34,7 @@ LightSampleInfo Renderer::SampleRandomLight(const Ray& ray, const TLAS& tlasEmmi
 	lightInfo.Area = lightBLAS->GetArea();
 	lightInfo.normal = randomTriangle.GetNormal();
 	lightInfo.intensity = lightBLAS->GetMaterial().Emmitance;
+	lightInfo.Probability = (1.0f / static_cast<float>(tlasEmmisive.GetObjectCount())) * (1.0f / lightBLAS->GetArea());
 
 	return lightInfo;
 }
@@ -239,35 +241,35 @@ Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixe
 	// Construct Sample
 	Sample sample;
 	sample.valid = ray.hitInfo.hit && ray.hitInfo.material.MaterialType != Material::Type::Emissive && validDirectLighting;
-	sample.Path.CameraOrigin = camera.GetPosition();
+	sample.Path.CameraOrigin = camera.GetTransform().translation;
 	sample.Path.HitLocation = ray.hitInfo.location;
 	sample.Path.LightLocation = randomLightSample.location;
 	sample.Path.FirstRayHitInfo = ray.hitInfo;
 	sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
 	sample.Path.LightSample = randomLightSample;
-	sample.Weight = 1;
+	sample.Weight = 1.0f / randomLightSample.Probability; // 1 / PDF
 
 	return sample;
 }
 
 void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
 {
-	Resevoir<PathDI> resevoir;
+	Resevoir<Sample> resevoir;
 	Sample sample;
 
-	auto colorToContribution = [](glm::vec3& color) {
+	auto colorToContribution = [](const glm::vec3& color) {
 		return std::max(color.r, std::max(color.g, color.b));
 	};
 
 	for (int i = 0; i < m_Settings.CanidateCountReSTIR; i++)
 	{
 		sample = SampleAreaLights(camera, pixel, tlas, tlasEmmisive, seed);
-		float weight = (1 / m_Settings.CanidateCountReSTIR) * colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
-		resevoir.Update(sample.Path, weight, seed);
+		float weight = (1.0f / static_cast<float>(m_Settings.CanidateCountReSTIR)) * colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
+		resevoir.Update(sample, weight, seed);
 	}
 
-	PathDI path = resevoir.GetSample();
-	float weight = 1 / colorToContribution(TargetDistribution(path)) * resevoir.GetWeightTotal();
+	sample = resevoir.GetSample();
+	float weight = 1 / colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
 	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
 
