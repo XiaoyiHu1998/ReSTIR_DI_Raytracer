@@ -41,8 +41,8 @@ public:
 		//ceiling
 		std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
 		ceilingBLAS->SetName("Ceiling");
-		Transform ceilingTransform = Transform(glm::vec3(0, 20, 0), glm::vec3(0), glm::vec3(200, 0.1f, 200));
-		Material ceilingMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(1.0));
+		Transform ceilingTransform = Transform(glm::vec3(0, 2, 0), glm::vec3(0), glm::vec3(1, 1, 1));
+		Material ceilingMaterial = Material(Material::Type::Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(1.0), 1.0f);
 		Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
 		ceilingBLAS->SetObject(ceiling.GetTriangles(), ceiling.GetTransform(), ceiling.GetMaterial());
 		m_TLAS.AddBLAS(ceilingBLAS);
@@ -53,8 +53,8 @@ public:
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
 		floorBLAS->SetName("Floor");
-		Transform floorTransform = Transform(glm::vec3(0, -20, 0), glm::vec3(0), glm::vec3(1));
-		Material floorMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0));
+		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
+		Material floorMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.5f), glm::vec3(0) , 0.0f);
 		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
 		floorBLAS->SetObject(floor.GetTriangles(), floor.GetTransform(), floor.GetMaterial());
 		m_TLAS.AddBLAS(floorBLAS);
@@ -65,9 +65,9 @@ public:
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
 		sphereBLAS->SetName("Sphere");
-		Transform sphereTransform = Transform(glm::vec3(0, -15, 0), glm::vec3(0, 0, 0), glm::vec3(1.5, 1.5, 1.5));
+		Transform sphereTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(1.5, 1.5, 1.5));
 		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
-		Material sphereMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0));
+		Material sphereMaterial = Material(Material::Type::Non_Emissive, 1, 0, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0), 0.0f);
 		Mesh sphere = Mesh(triangles, sphereTransform, sphereMaterial);
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
@@ -224,7 +224,8 @@ public:
 			ImGui::Spacing();
 			ImGui::Spacing();
 			ImGui::ColorEdit3("Albedo", glm::value_ptr(blas->GetMaterialRef().Albedo));
-			ImGui::ColorEdit3("Emmitance", glm::value_ptr(blas->GetMaterialRef().Emmitance));
+			ImGui::ColorEdit3("EmissiveColor", glm::value_ptr(blas->GetMaterialRef().EmissiveColor));
+			ImGui::DragFloat("EmmisiveIntensity", &blas->GetMaterialRef().EmissiveIntensity);
 			ImGui::DragFloat("Metallicness", &blas->GetMaterialRef().Metallicness, 0.001f, 0.0f, 1.0f);
 			ImGui::DragFloat("Roughness", &blas->GetMaterialRef().Roughness, 0.001f, 0.0f, 1.0f);
 			ImGui::DragFloat("IOR", &blas->GetMaterialRef().IOR, 0.001f);
