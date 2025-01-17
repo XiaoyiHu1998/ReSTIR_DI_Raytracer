@@ -113,7 +113,7 @@ void BVH_BLAS::Traverse(Ray& ray)
 	}
 }
 
-Triangle BVH_BLAS::GetRandomTriangle(uint32_t& seed) const
+Triangle BVH_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
 {
 	// Find a random triangle using binary search.
 	float randomArea = Utils::RandomFloat(seed) * m_Area;
@@ -134,6 +134,11 @@ Triangle BVH_BLAS::GetRandomTriangle(uint32_t& seed) const
 		}
 	}
 
+	// Set chance of selecting the triangle found
+	float triangleArea = (left > 0) ? m_CumulativeArea[left] - m_CumulativeArea[left - 1] : m_CumulativeArea[left];
+	triangleChanceOut = triangleArea / m_Area;
+
+	// Construct Triangle
 	uint32_t index = left * 3;
 
 	glm::vec3 position0 = m_TransformMatrix * glm::vec4(m_Positions[index + 0].x, m_Positions[index + 0].y, m_Positions[index + 0].z, 1.0f);
@@ -201,7 +206,7 @@ void Debug_BLAS::Traverse(Ray& ray)
 	}
 }
 
-Triangle Debug_BLAS::GetRandomTriangle(uint32_t& seed) const
+Triangle Debug_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
 {
 	// Find a random triangle using binary search.
 	float randomArea = Utils::RandomFloat(seed) * m_Area;
@@ -222,6 +227,11 @@ Triangle Debug_BLAS::GetRandomTriangle(uint32_t& seed) const
 		}
 	}
 
+	// Set chance of selecting the triangle found
+	float triangleArea = (left > 0) ? m_CumulativeArea[left] - m_CumulativeArea[left - 1] : m_CumulativeArea[left];
+	triangleChanceOut = triangleArea / m_Area;
+
+	// Construct Triangle
 	Vertex vertex0 = m_Triangles[left].GetVertex0();
 	Vertex vertex1 = m_Triangles[left].GetVertex1();
 	Vertex vertex2 = m_Triangles[left].GetVertex2();

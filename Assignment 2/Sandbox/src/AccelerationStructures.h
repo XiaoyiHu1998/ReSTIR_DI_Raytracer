@@ -28,7 +28,7 @@ public:
 	virtual Transform& GetTransformRef() = 0;
 	virtual glm::mat4 GetTransformMatrix() const = 0;
 	virtual glm::mat4 GetInverseTransformMatrix() const = 0;
-	virtual Triangle GetRandomTriangle(uint32_t& seed) const = 0;
+	virtual Triangle GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const = 0;
 };
 
 
@@ -92,7 +92,7 @@ public:
 	virtual Transform& GetTransformRef() override { return m_Transform; }
 	virtual glm::mat4 GetTransformMatrix() const override { return m_TransformMatrix; }
 	virtual glm::mat4 GetInverseTransformMatrix() const override { return m_InverseTransformMatrix; }
-	virtual Triangle GetRandomTriangle(uint32_t& seed) const override;
+	virtual Triangle GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const override;
 };
 
 class Debug_BLAS : public BLAS
@@ -131,5 +131,5 @@ public:
 	virtual Transform& GetTransformRef() override { return m_Transform; }
 	virtual glm::mat4 GetTransformMatrix() const override { return m_TransformMatrix; }
 	virtual glm::mat4 GetInverseTransformMatrix() const override { return m_InverseTransformMatrix; }
-	virtual Triangle GetRandomTriangle(uint32_t& seed) const override;
+	virtual Triangle GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const override;
 };
