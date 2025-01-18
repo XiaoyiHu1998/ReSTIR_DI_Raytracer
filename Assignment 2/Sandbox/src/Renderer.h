@@ -77,7 +77,7 @@ public:
 		m_WeightTotal += weight;
 
 		
-		if (Utils::RandomFloat(seed) < weight / m_WeightTotal || m_SampleCount == 1)
+		if (Utils::RandomFloat(seed) < weight / m_WeightTotal)
 		{
 			m_SampleOut = sample;
 			return true;

@@ -144,7 +144,7 @@ glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Spher
 			bool lightOccluded = tlas.IsOccluded(shadowRay);
 			if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
 			{
-				glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
+				//glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
 				return lightIntensity * lightColor * glm::dot(ray.hitInfo.normal, lightDirection) / (lightDistance * lightDistance);
 			}
 		}
@@ -195,7 +195,10 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 {
 	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
 	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
-	seed += static_cast<uint32_t>(std::time(nullptr));
+
+	auto duration = std::chrono::system_clock::now().time_since_epoch();
+	auto milliseconds = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+	seed += milliseconds;
 
 	for (uint32_t y = yMin; y < yMax; y++)
 	{
