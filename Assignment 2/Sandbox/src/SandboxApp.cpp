@@ -38,24 +38,26 @@ public:
 		m_TLAS_EmmisiveOnly = TLAS();
 		m_TLAS_NonEmmisiveOnly = TLAS();
 
-		uint32_t lightCount = 5;
+		uint32_t lightCount = 10;
 		m_SphereLights = std::vector<Sphere>();
 		m_SphereLights.reserve(lightCount);
-		uint32_t sphereGenerationSeed = 0;
+		uint32_t sphereLocationSeed = 0;
+		uint32_t sphereColorSeed = 0;
 		for (int i = 0; i < lightCount; i++)
 		{
-			float x = Utils::RandomFloat(sphereGenerationSeed) * 10;
-			float y = Utils::RandomFloat(sphereGenerationSeed) * 0;
-			float z = Utils::RandomFloat(sphereGenerationSeed) * 10;
+			float x = Utils::RandomFloat(sphereLocationSeed) * 10;
+			float y = Utils::RandomFloat(sphereLocationSeed) * 0;
+			float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
 			glm::vec3 position = glm::vec3(x, y, z);
 
 			float radius = 1.0f;
-			//float radius = std::max(0.2f, Utils::RandomFloat(sphereGenerationSeed) * 2);
 
-			float colorLevel = 1.0f;
-			//float colorLevel = Utils::RandomFloat(sphereGenerationSeed);
-			glm::vec3 emissiveColor = glm::vec3(1.0f);
-			float emissiveStrength = 2.0f;
+			//float uniformColor = 1.0f;
+			float r = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
+			float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
+			float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
+			glm::vec3 emissiveColor = glm::vec3(r, g, b);
+			float emissiveStrength = 3.0f;
 			Material material = Material(Material::Type::Emissive, 0, emissiveColor, emissiveColor, emissiveStrength);
 
 			m_SphereLights.emplace_back(position, radius, material);
@@ -150,12 +152,13 @@ public:
 		{
 			ImGui::Begin("Settings");
 			Renderer::Settings& settings = m_Renderer.GetSettings();
-
-			ImGui::Text("Debug Settings");
+			ImGui::Text("Render Settings");
 			const char* RenderModes[] = { "Normals", "TraversalSteps", "Direct Illumination", "ReSTIR" };
 			int selectedMode = static_cast<int>(settings.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
 			settings.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
+			ImGui::Checkbox("Random Seed", &settings.RandomSeed);
+			ImGui::DragFloat("Eta size", &settings.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Separator();
 
 			if (settings.Mode == Renderer::Settings::RenderMode::DI)

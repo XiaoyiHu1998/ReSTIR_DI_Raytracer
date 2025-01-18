@@ -145,7 +145,8 @@ glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Spher
 			if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
 			{
 				//glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
-				return lightIntensity * lightColor * glm::dot(ray.hitInfo.normal, lightDirection) / (lightDistance * lightDistance);
+				float BRDF = glm::dot(ray.hitInfo.normal, lightDirection);
+				return BRDF * lightIntensity * lightColor / (lightDistance * lightDistance);
 			}
 		}
 
@@ -196,9 +197,12 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
 	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
 
-	auto duration = std::chrono::system_clock::now().time_since_epoch();
-	auto milliseconds = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
-	seed += milliseconds;
+	if (m_Settings.RandomSeed)
+	{
+		auto duration = std::chrono::system_clock::now().time_since_epoch();
+		auto milliseconds = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+		seed += milliseconds;
+	}
 
 	for (uint32_t y = yMin; y < yMax; y++)
 	{
@@ -299,7 +303,8 @@ glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 	float lightDistance = glm::length(lightDirection);
 	lightDirection = glm::normalize(lightDirection);
 
-	return path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor * glm::dot(path.FirstRayHitInfo.normal, lightDirection) / (lightDistance * lightDistance);
+	float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
+	return BRDF * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
 }
 
 glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed)

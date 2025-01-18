@@ -113,6 +113,7 @@ public:
 		uint32_t SamplesPerPixel = 1;
 		uint32_t MaxRayDepth = 1;
 
+		bool RandomSeed = true;
 		float Eta = 0.001f;
 
 		// DI Rendering
