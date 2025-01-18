@@ -38,10 +38,11 @@ public:
 		m_TLAS_EmmisiveOnly = TLAS();
 		m_TLAS_NonEmmisiveOnly = TLAS();
 
+		uint32_t lightCount = 5;
 		m_SphereLights = std::vector<Sphere>();
-		m_SphereLights.reserve(10);
+		m_SphereLights.reserve(lightCount);
 		uint32_t sphereGenerationSeed = 0;
-		for (int i = 0; i < 5; i++)
+		for (int i = 0; i < lightCount; i++)
 		{
 			float x = Utils::RandomFloat(sphereGenerationSeed) * 10;
 			float y = Utils::RandomFloat(sphereGenerationSeed) * 0;
@@ -63,15 +64,15 @@ public:
 
 
 		std::vector<Triangle> triangles;
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
-
-		//ceiling
-		std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
-		ceilingBLAS->SetName("Ceiling");
-		Transform ceilingTransform = Transform(glm::vec3(0, 2, 0), glm::vec3(0), glm::vec3(1, 1, 1));
-		Material ceilingMaterial = Material(Material::Type::Emissive, 1, glm::vec3(0.5f), glm::vec3(1.0), 1.0f);
-		Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
-		ceilingBLAS->SetObject(ceiling.GetTriangles(), ceiling.GetTransform(), ceiling.GetMaterial());
+		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
+		//
+		////ceiling
+		//std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
+		//ceilingBLAS->SetName("Ceiling");
+		//Transform ceilingTransform = Transform(glm::vec3(0, 2, 0), glm::vec3(0), glm::vec3(1, 1, 1));
+		//Material ceilingMaterial = Material(Material::Type::Emissive, 1, glm::vec3(0.5f), glm::vec3(1.0), 1.0f);
+		//Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
+		//ceilingBLAS->SetObject(ceiling.GetTriangles(), ceiling.GetTransform(), ceiling.GetMaterial());
 		//m_TLAS.AddBLAS(ceilingBLAS);
 		//m_TLAS_EmmisiveOnly.AddBLAS(ceilingBLAS);
 
@@ -79,7 +80,7 @@ public:
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza_small.obj", triangles);
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
-		floorBLAS->SetName("Floor");
+		floorBLAS->SetName("Sponza");
 		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
 		Material floorMaterial = Material(Material::Type::Non_Emissive, 1, glm::vec3(0.5f), glm::vec3(0) , 0.0f);
 		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
@@ -270,7 +271,8 @@ public:
 				ImGui::Text("Transform");
 				transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
 				transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
-				transformUpdated |= ImGui::DragFloat3("scale", glm::value_ptr(blas->GetTransformRef().scale), 0.05f);
+				// Not accessible until ray transform issues are fixed
+				//transformUpdated |= ImGui::DragFloat3("scale", glm::value_ptr(blas->GetTransformRef().scale), 0.05f); 
 				ImGui::Separator();
 
 				ImGui::Text("Material");

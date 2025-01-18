@@ -94,7 +94,7 @@ glm::vec3 Renderer::CosineSampleHemisphere(const glm::vec3& position, const glm:
 
 namespace RenderModeNormal
 {
-	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, uint32_t& seed)
 	{
 		glm::vec3 E(0.1f);
 
@@ -108,7 +108,7 @@ namespace RenderModeNormal
 
 namespace RenderModeTraversalSteps
 {
-	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, uint32_t& seed)
 	{
 		glm::vec3 E(0.1f);
 
@@ -121,7 +121,7 @@ namespace RenderModeTraversalSteps
 }
 
 
-glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	glm::vec3 E(0);
 	
@@ -210,17 +210,17 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 				switch (m_Settings.Mode)
 				{
 					case Settings::RenderMode::Normals:
-						colorAccumulator += RenderModeNormal::RenderRay(ray, tlas, tlasEmmisive, seed);
+						colorAccumulator += RenderModeNormal::RenderRay(ray, tlas, seed);
 						break;
 					case Settings::RenderMode::TraversalSteps:
-						colorAccumulator += RenderModeTraversalSteps::RenderRay(ray, tlas, tlasEmmisive, seed);
+						colorAccumulator += RenderModeTraversalSteps::RenderRay(ray, tlas, seed);
 						break;
 					case Settings::RenderMode::DI:
-						colorAccumulator += RenderDI(ray, tlas, tlasEmmisive, sphereLights, seed);
+						colorAccumulator += RenderDI(ray, tlas, sphereLights, seed);
 						break;
 					case Settings::RenderMode::ReSTIR:
-						GenerateSample(camera, glm::i32vec2(x, y), index, tlas, tlasEmmisive, sphereLights, seed);
-						colorAccumulator += RenderSample(m_SampleBuffer[index], tlas, tlasEmmisive, seed);
+						GenerateSample(camera, glm::i32vec2(x, y), index, tlas, sphereLights, seed);
+						colorAccumulator += RenderSample(m_SampleBuffer[index], tlas, seed);
 						break;
 				}
 			}
@@ -231,7 +231,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 	}
 }
 
-Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Ray ray = camera.GetRay(pixel.x, pixel.y);
 	tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
@@ -269,7 +269,7 @@ Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixe
 	return sample;
 }
 
-void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Resevoir<Sample> resevoir;
 	Sample sample;
@@ -280,7 +280,7 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 
 	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
 	{
-		sample = SampleAreaLights(camera, pixel, tlas, tlasEmmisive, sphereLights, seed);
+		sample = SampleAreaLights(camera, pixel, tlas, sphereLights, seed);
 		float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
 		resevoir.Update(sample, weight, seed);
 	}
@@ -299,7 +299,7 @@ glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 	return path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor * glm::dot(path.FirstRayHitInfo.normal, lightDirection) / (lightDistance * lightDistance);
 }
 
-glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed)
+glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed)
 {
 	if (!sample.valid)
 	{
@@ -334,5 +334,5 @@ glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, const TLAS& tl
 	if (validDirectLighting)
 		outputColor = TargetDistribution(sample.Path);
 
-	return glm::vec4(outputColor, 1.0f) * sample.Weight;
+	return glm::vec4(outputColor, 1.0f) ;
 }
