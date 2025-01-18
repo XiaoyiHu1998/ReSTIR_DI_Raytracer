@@ -264,7 +264,7 @@ Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixe
 	sample.Path.FirstRayHitInfo = ray.hitInfo;
 	sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
 	sample.Path.Light = randomSphere;
-	sample.Weight = 1.0f / sphereLights.size(); // 1 / PDF
+	sample.Weight = 1.0f / (1.0f / sphereLights.size()); // 1 / PDF
 
 	return sample;
 }
@@ -287,7 +287,7 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 
 	sample = resevoir.GetSample();
 	float weight = 1 / colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
-	m_SampleBuffer[bufferIndex] = Sample(sample, 1.0f / m_Settings.CandidateCountReSTIR);
+	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
 
 glm::vec3 Renderer::TargetDistribution(const PathDI& path)
