@@ -49,10 +49,10 @@ float Triangle::Area() const
 
 bool Sphere::Intersect(Ray& ray) const
 {
-	glm::vec3 rayOriginSphereVector = ray.origin - m_Position;
+	glm::vec3 rayOriginSphereVector = ray.origin - position;
 	float a = glm::dot(ray.direction, ray.direction);
 	float b = 2.0f * glm::dot(rayOriginSphereVector, ray.direction);
-	float c = glm::dot(rayOriginSphereVector, rayOriginSphereVector) - m_Radius * m_Radius;
+	float c = glm::dot(rayOriginSphereVector, rayOriginSphereVector) - radius * radius;
 	float D = b * b - 4 * a * c;
 	
 	if (D < 0)
@@ -75,7 +75,7 @@ bool Sphere::Intersect(Ray& ray) const
 
 float Sphere::Area() const
 {
-	return 4 * glm::pi<float>() * m_Radius;
+	return 4 * glm::pi<float>() * radius;
 }
 
 const glm::vec3 Triangle::GetRandomPoint(uint32_t& seed)

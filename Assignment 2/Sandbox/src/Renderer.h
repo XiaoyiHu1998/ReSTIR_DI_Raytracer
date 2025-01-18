@@ -18,19 +18,19 @@ struct PathDI
 
 	HitInfo FirstRayHitInfo;
 	HitInfo ShadowRayHitInfo;
-	LightSampleInfo LightSample;
+	Sphere Light;
 
 	PathDI() = default;
 
 	PathDI(const glm::vec3 cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation) :
 		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, LightSample{ LightSampleInfo() }
+		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, Light{ Sphere() }
 	{}
 
 	PathDI(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation,
-		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const LightSampleInfo & LightSample) :
+		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const Sphere & light) :
 		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ firstRayHitInfo }, ShadowRayHitInfo{ ShadowRayHitInfo }, LightSample{ LightSample }
+		FirstRayHitInfo{ firstRayHitInfo }, ShadowRayHitInfo{ ShadowRayHitInfo }, Light{ light }
 	{}
 };
 
@@ -99,11 +99,11 @@ public:
 		{
 			Normals = 0,
 			TraversalSteps = 1,
-			Pathtrace = 2,
+			DI = 2,
 			ReSTIR = 3
 		};
 
-		RenderMode Mode = RenderMode::ReSTIR;
+		RenderMode Mode = RenderMode::DI;
 
 		uint32_t ThreadCount = std::thread::hardware_concurrency() - 2;
 
@@ -113,8 +113,19 @@ public:
 		uint32_t SamplesPerPixel = 1;
 		uint32_t MaxRayDepth = 1;
 
-		// ReSTIR
-		uint32_t CanidateCountReSTIR = 1;
+		float Eta = 0.001f;
+
+		// DI Rendering
+		bool LightOcclusionCheckDI = true;
+		bool SampleAllLightsDI = false;
+
+		int CandidateCountDI = 1;
+
+		// ReSTIR Rendering
+		bool LightOcclusionCheckCandidatesReSTIR = false;
+		bool LightOcclusionCheckShadingReSTIR = true;
+
+		int CandidateCountReSTIR = 1;
 	};
 private:
 	Settings m_Settings;
@@ -126,11 +137,14 @@ private:
 	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
 	glm::vec3 RandomPointOnHemisphere(const glm::vec3& normal, uint32_t& seed);
 	glm::vec3 CosineSampleHemisphere(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& tangent, uint32_t& seed);
-
-	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t seed);
+	LightSampleInfo SampleRandomLight(const glm::vec3& hitLocation, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	LightSampleInfo SampleRandomLight(const glm::vec3& hitLocation, const TLAS& tlasEmmisive, uint32_t& seed);
 private:
-	Sample SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
-	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
+	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t seed);
+	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	
+	Sample SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
 public:
@@ -140,9 +154,7 @@ public:
 		m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
 	}
 
-	glm::vec4 PathTraceRay(Ray& ray, const TLAS& tlas, const TLAS& tlasEmmisive, uint32_t& seed);
-	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive);
-	LightSampleInfo SampleRandomLight(const glm::vec3& hitLocation, const TLAS& tlasEmmisive, uint32_t& seed);
+	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights);
 
 	Settings& GetSettings()  { return m_Settings; }
 	float GetLastFrameTime() { return m_LastFrameTime; }

@@ -67,13 +67,18 @@ public:
 
 class Sphere : public Primitive
 {
-private:
-	glm::vec3 m_Position;
-	float m_Radius;
+public:
+	glm::vec3 position;
+	float radius;
+	Material material;
 
 public:
-	Sphere(const glm::vec3& position, float radius):
-		m_Position{ position }, m_Radius{ radius }
+	Sphere():
+		position{ glm::vec3(0) }, radius{ 0 }, material{ Material(Material::Type::Emissive, 0 , glm::vec3(0), glm::vec3(0), 0) }
+	{}
+
+	Sphere(const glm::vec3& position, float radius, const Material& material):
+		position{ position }, radius{ radius }, material{ material }
 	{}
 
 	virtual bool Intersect(Ray& ray) const override;

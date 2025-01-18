@@ -79,23 +79,23 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 		m_CumulativeArea[i] = m_Area;
 	}
 
-	m_BVH.BuildHQ(m_Positions.data(), m_Positions.size() / 3);
+	m_BVH.Build(m_Positions.data(), m_Positions.size() / 3);
 }
 
 void BVH_BLAS::Traverse(Ray& ray)
 {
 	// Transform Ray
-	//glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
-	//glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
+	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
 
 	// Intersection Test
-	//tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
-	//tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
-	//float prevClosestHitDistance = ray.hitInfo.distance;
-	
-	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
-	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
+	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
+	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
 	float prevClosestHitDistance = ray.hitInfo.distance;
+	
+	//tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
+	//tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
+	//float prevClosestHitDistance = ray.hitInfo.distance;
 
 	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, prevClosestHitDistance);
 	int32_t traversalSteps = m_BVH.Intersect(tinybvhRay);
@@ -150,9 +150,9 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 
 	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
 	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
-	float prevClosestHitDistance = ray.hitInfo.distance;
+	float maxDistance = ray.hitInfo.distance;
 
-	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, prevClosestHitDistance);
+	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, maxDistance);
 	return m_BVH.IsOccluded(tinybvhRay);
 }
 
