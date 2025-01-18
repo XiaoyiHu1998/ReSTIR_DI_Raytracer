@@ -238,7 +238,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 	}
 }
 
-Sample Renderer::SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+Sample Renderer::SampleLightsPoint(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Ray ray = camera.GetRay(pixel.x, pixel.y);
 	tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
@@ -293,7 +293,8 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 	}
 
 	sample = resevoir.GetSample();
-	float weight = 1 / colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
+	//float weight = 1 / colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
+	float weight = 1.0f / (1.0f / sphereLights.size());
 	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
 

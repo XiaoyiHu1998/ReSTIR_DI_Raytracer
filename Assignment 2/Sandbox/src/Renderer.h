@@ -144,7 +144,7 @@ private:
 	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	
-	Sample SampleAreaLights(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	Sample SampleLightsPoint(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed);
