@@ -19,11 +19,22 @@ void TLAS::Traverse(Ray& ray) const
 	}
 }
 
+bool TLAS::IsOccluded(const Ray& ray) const
+{
+	bool occluded = false;
+	for (int i = 0; i < m_Scene.size(); i++)
+	{
+		occluded |= m_Scene[i]->IsOccluded(ray);
+	}
+
+	return occluded;
+}
+
 //=================== BVH_BLAS =====================
 
 void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
 {
-	m_BVH = tinybvh::BVH();
+	m_BVH = tinybvh::BVH4_CPU();
 	m_Area = 0.0f;
 	m_CumulativeArea.resize(triangles.size());
 
@@ -74,12 +85,16 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 void BVH_BLAS::Traverse(Ray& ray)
 {
 	// Transform Ray
-	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
-	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
+	//glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	//glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
 
 	// Intersection Test
-	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
-	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
+	//tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
+	//tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
+	//float prevClosestHitDistance = ray.hitInfo.distance;
+	
+	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
+	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
 	float prevClosestHitDistance = ray.hitInfo.distance;
 
 	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, prevClosestHitDistance);
@@ -120,6 +135,25 @@ void BVH_BLAS::Traverse(Ray& ray)
 		// Set new HitInfo
 		ray.hitInfo = hitInfo;
 	}
+}
+
+bool BVH_BLAS::IsOccluded(const Ray& ray)
+{
+	// Transform Ray
+	//glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	//glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
+
+	// Intersection Test
+	//tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
+	//tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
+	//float prevClosestHitDistance = ray.hitInfo.distance;
+
+	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
+	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
+	float prevClosestHitDistance = ray.hitInfo.distance;
+
+	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, prevClosestHitDistance);
+	return m_BVH.IsOccluded(tinybvhRay);
 }
 
 Triangle BVH_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
@@ -221,6 +255,14 @@ void Debug_BLAS::Traverse(Ray& ray)
 			//ray.hitInfo.tangent = currentTriangle.GetTangent();
 		}
 	}
+}
+
+bool Debug_BLAS::IsOccluded(const Ray& ray)
+{
+	Ray occlusionRay = ray;
+	Traverse(occlusionRay);
+
+	return ray.hitInfo.hit;
 }
 
 Triangle Debug_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
