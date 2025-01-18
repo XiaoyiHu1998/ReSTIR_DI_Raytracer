@@ -11,5 +11,8 @@
     <None Include="..\traverse.cl" />
     <None Include="..\wavefront.cl" />
     <None Include="..\tools.cl" />
+    <None Include="..\traverse_bvh2.cl" />
+    <None Include="..\traverse_bvh4.cl" />
+    <None Include="..\traverse_cwbvh.cl" />
   </ItemGroup>
 </Project>

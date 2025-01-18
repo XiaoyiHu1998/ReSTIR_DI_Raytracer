@@ -37,3 +37,22 @@ float3 CosWeightedDiffReflection( const float3 N, const float r0, const float r1
 	const float3 R = (float3)( cos( phi ) * r, sin( phi ) * r, r1);
 	return fast_normalize( N + R );
 }
+
+// TransformPoint - apply a 4x4 matrix transform to a 3D position
+float3 TransformPoint( const float3 v, const float* T )
+{
+	const float3 res = (float3)(
+		T[0] * v.x + T[1] * v.y + T[2] * v.z + T[3],
+		T[4] * v.x + T[5] * v.y + T[6] * v.z + T[7],
+		T[8] * v.x + T[9] * v.y + T[10] * v.z + T[11] 
+	);
+	const float w = T[12] * v.x + T[13] * v.y + T[14] * v.z + T[15];
+	if (w == 1.0f) return res; else return res * (1.0f / w);
+}
+
+// TransformVector - apply a 4x4 matrix transform to a 3D vector.
+float3 TransformVector( const float3 v, const float* T )
+{
+	return (float3)( T[0] * v.x + T[1] * v.y + T[2] * v.z, T[4] * v.x +
+		T[5] * v.y + T[6] * v.z, T[8] * v.x + T[9] * v.y + T[10] * v.z );
+}

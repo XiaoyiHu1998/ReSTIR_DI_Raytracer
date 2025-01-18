@@ -82,7 +82,6 @@ void Init()
 	// create OpenCL buffers for wavefront path tracing
 	int N = SCRWIDTH * SCRHEIGHT;
 	pixels = new Buffer( N * sizeof( uint32_t ) );
-	accumulator = new Buffer( N * sizeof( bvhvec4 ) );
 	raysIn = new Buffer( N * sizeof( bvhvec4 ) * 4 );
 	raysOut = new Buffer( N * sizeof( bvhvec4 ) * 4 );
 	connections = new Buffer( N * 3 * sizeof( bvhvec4 ) * 3 );
@@ -92,24 +91,16 @@ void Init()
 	noise = new Buffer( 128 * 128 * 8 * sizeof( uint32_t ), blueNoise );
 	noise->CopyToDevice();
 	// load raw vertex data
-	AddMesh( "./testdata/cryteksponza.bin", 1, bvhvec3( 0 ), 0xffffff );
-	AddMesh( "./testdata/lucy.bin", 1.1f, bvhvec3( -2, 4.1f, -3 ), 0x2ffff88 );
-	AddQuad( bvhvec3( 0, 30, -1 ), 9, 5, 0x1ffffff ); // hard-coded light source
+	// AddMesh( "./testdata/cryteksponza.bin", 1, bvhvec3( 0 ), 0xffffff );
+	// AddMesh( "./testdata/lucy.bin", 1.1f, bvhvec3( -2, 4.1f, -3 ), 0x2ffff88 );
+	AddQuad( bvhvec3( -22, 12, 2 ), 9, 5, 0x1ffffff ); // hard-coded light source
+	AddMesh( "./testdata/bistro_ext_part1.bin", 1, bvhvec3( 0 ) );
+	AddMesh( "./testdata/bistro_ext_part2.bin", 1, bvhvec3( 0 ) );
 	// build bvh (here: 'compressed wide bvh', for efficient GPU rendering)
-	if (!bvh.Load( "cwbvh.bin" ))
+	if (!bvh.Load( "cwbvh.bin", triCount ))
 	{
-		// optimizing a BVH: from BVH to BVH_Verbose, optimize, then back to BVH.
-		BVH bvh2;
-		bvh2.Build( tris, triCount );
-		BVH_Verbose verbose;
-		verbose.ConvertFrom( bvh2 );
-		verbose.Optimize( 1000000 ); // this will take a while: Next time, use cache.
-		bvh2.ConvertFrom( verbose );
-		// building a cwbvh without the convenient constructor: From BVH, via BVH8.
-		BVH8 bvh8;
-		bvh8.ConvertFrom( bvh2 );
-		bvh.ConvertFrom( bvh8 );
-		bvh.Save( "cwbvh.bin" );
+		bvh.Build( tris, triCount );
+		bvh.Save( "cwbvh.bin" ); // cache for next run.
 	}
 	// create OpenCL buffers for BVH data
 	cwbvhNodes = new Buffer( bvh.usedBlocks * sizeof( bvhvec4 ), bvh.bvh8Data );

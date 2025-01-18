@@ -15,22 +15,19 @@
 #include <atomic>
 #include <fstream>
 #include <thread>
+#include <vector>
 
 using namespace tinybvh;
 
 // Application variables
 
-#if defined BVH_USEAVX || defined BVH_USENEON
-static BVH4 bvh;
-#else
 static BVH bvh;
-#endif
 static bvhvec4* tris = 0;
 static int triCount = 0, frameIdx = 0, spp = 0;
 static bvhvec3 accumulator[SCRWIDTH * SCRHEIGHT];
 static std::atomic<int> tileIdx( 0 );
 
-// Multi-therading
+// Multi-threading
 static unsigned threadCount = std::thread::hardware_concurrency();
 
 // Setup view pyramid for a pinhole camera:

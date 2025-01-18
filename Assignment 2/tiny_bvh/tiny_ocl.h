@@ -275,6 +275,46 @@ public:
 		S( 8, i ); S( 9, j ); S( 10, k ); S( 11, l ); S( 12, m ), S( 13, n ); S( 14, o ), S( 15, p );
 		S( 16, q ), S( 17, r ), S( 18, t ), S( 19, u );
 	}
+	template<T_ A, T_ B, T_ C, T_ D, T_ E, T_ F, T_ G, T_ H, T_ I, T_ J, T_ K, T_ L, T_ M, T_ N, T_ O, T_ P, T_ Q, T_ R, T_ T, T_ U, T_ V>
+	void SetArguments( A a, B b, C c, D d, E e, F f, G g, H h, I i, J j, K k, L l, M m, N n, O o, P p, Q q, R r, T t, U u, V v )
+	{
+		InitArgs();
+		S( 0, a ); S( 1, b ); S( 2, c ); S( 3, d ); S( 4, e ); S( 5, f ); S( 6, g ); S( 7, h );
+		S( 8, i ); S( 9, j ); S( 10, k ); S( 11, l ); S( 12, m ), S( 13, n ); S( 14, o ), S( 15, p );
+		S( 16, q ), S( 17, r ), S( 18, t ), S( 19, u ), S( 20, v );
+	}
+	template<T_ A, T_ B, T_ C, T_ D, T_ E, T_ F, T_ G, T_ H, T_ I, T_ J, T_ K, T_ L, T_ M, T_ N, T_ O, T_ P, T_ Q, T_ R, T_ T, T_ U, T_ V, T_ W>
+	void SetArguments( A a, B b, C c, D d, E e, F f, G g, H h, I i, J j, K k, L l, M m, N n, O o, P p, Q q, R r, T t, U u, V v, W w )
+	{
+		InitArgs();
+		S( 0, a ); S( 1, b ); S( 2, c ); S( 3, d ); S( 4, e ); S( 5, f ); S( 6, g ); S( 7, h );
+		S( 8, i ); S( 9, j ); S( 10, k ); S( 11, l ); S( 12, m ), S( 13, n ); S( 14, o ), S( 15, p );
+		S( 16, q ), S( 17, r ), S( 18, t ), S( 19, u ), S( 20, v ), S( 21, w );
+	}
+	template<T_ A, T_ B, T_ C, T_ D, T_ E, T_ F, T_ G, T_ H, T_ I, T_ J, T_ K, T_ L, T_ M, T_ N, T_ O, T_ P, T_ Q, T_ R, T_ T, T_ U, T_ V, T_ W, T_ X>
+	void SetArguments( A a, B b, C c, D d, E e, F f, G g, H h, I i, J j, K k, L l, M m, N n, O o, P p, Q q, R r, T t, U u, V v, W w, X x )
+	{
+		InitArgs();
+		S( 0, a ); S( 1, b ); S( 2, c ); S( 3, d ); S( 4, e ); S( 5, f ); S( 6, g ); S( 7, h );
+		S( 8, i ); S( 9, j ); S( 10, k ); S( 11, l ); S( 12, m ), S( 13, n ); S( 14, o ), S( 15, p );
+		S( 16, q ), S( 17, r ), S( 18, t ), S( 19, u ), S( 20, v ), S( 21, w ), S( 22, x );
+	}
+	template<T_ A, T_ B, T_ C, T_ D, T_ E, T_ F, T_ G, T_ H, T_ I, T_ J, T_ K, T_ L, T_ M, T_ N, T_ O, T_ P, T_ Q, T_ R, T_ T, T_ U, T_ V, T_ W, T_ X, T_ Y>
+	void SetArguments( A a, B b, C c, D d, E e, F f, G g, H h, I i, J j, K k, L l, M m, N n, O o, P p, Q q, R r, T t, U u, V v, W w, X x, Y y )
+	{
+		InitArgs();
+		S( 0, a ); S( 1, b ); S( 2, c ); S( 3, d ); S( 4, e ); S( 5, f ); S( 6, g ); S( 7, h );
+		S( 8, i ); S( 9, j ); S( 10, k ); S( 11, l ); S( 12, m ), S( 13, n ); S( 14, o ), S( 15, p );
+		S( 16, q ), S( 17, r ), S( 18, t ), S( 19, u ), S( 20, v ), S( 21, w ), S( 22, x ), S( 23, y );
+	}
+	template<T_ A, T_ B, T_ C, T_ D, T_ E, T_ F, T_ G, T_ H, T_ I, T_ J, T_ K, T_ L, T_ M, T_ N, T_ O, T_ P, T_ Q, T_ R, T_ T, T_ U, T_ V, T_ W, T_ X, T_ Y, T_ Z>
+	void SetArguments( A a, B b, C c, D d, E e, F f, G g, H h, I i, J j, K k, L l, M m, N n, O o, P p, Q q, R r, T t, U u, V v, W w, X x, Y y, Z z )
+	{
+		InitArgs();
+		S( 0, a ); S( 1, b ); S( 2, c ); S( 3, d ); S( 4, e ); S( 5, f ); S( 6, g ); S( 7, h );
+		S( 8, i ); S( 9, j ); S( 10, k ); S( 11, l ); S( 12, m ), S( 13, n ); S( 14, o ), S( 15, p );
+		S( 16, q ), S( 17, r ), S( 18, t ), S( 19, u ), S( 20, v ), S( 21, w ), S( 22, x ), S( 23, y ), S( 24, z );
+	}
 	template<T_ T> void S( unsigned i, T t ) { SetArgument( i, t ); }
 	void InitArgs() { acqBuffer = 0; /* nothing to acquire until told otherwise */ }
 #undef T_
@@ -315,7 +355,8 @@ private:
 	inline static cl_command_queue queue, queue2;
 	inline static char* log = 0;
 	inline static bool isNVidia = false, isAMD = false, isIntel = false, isOther = false;
-	inline static bool isAmpere = false, isTuring = false, isPascal = false, isAda = false, isHopper = false;
+	inline static bool isAmpere = false, isTuring = false, isPascal = false;
+	inline static bool isAda = false, isBlackwell = false, isRubin = false, isHopper = false;
 	inline static int vendorLines = 0;
 	inline static std::vector<Kernel*> loadedKernels;
 public:
@@ -965,8 +1006,11 @@ bool Kernel::InitCL()
 		isNVidia = true;
 		if (strstr( d, "rtx" ))
 		{
-			// detect Ampere GPUs
+			// detect Blackwell
+			if (strstr( d, "5050" ) || strstr( d, "5060" ) || strstr( d, "5070" ) || strstr( d, "5080" ) || strstr( d, "5090" )) isBlackwell = isAda = true;
+			// detect Lovelace
 			if (strstr( d, "4050" ) || strstr( d, "4060" ) || strstr( d, "4070" ) || strstr( d, "4080" ) || strstr( d, "4090" )) isAda = true;
+			// detect Ampere GPUs
 			if (strstr( d, "3050" ) || strstr( d, "3060" ) || strstr( d, "3070" ) || strstr( d, "3080" ) || strstr( d, "3090" )) isAmpere = true;
 			if (strstr( d, "a2000" ) || strstr( d, "a3000" ) || strstr( d, "a4000" ) || strstr( d, "a5000" ) || strstr( d, "a6000" )) isAmpere = true;
 			// detect Turing GPUs
@@ -997,7 +1041,8 @@ bool Kernel::InitCL()
 			if (strstr( d, "titan x" )) isPascal = true;
 		}
 	}
-	else if (strstr( d, "amd" ) || strstr( d, "ellesmere" ) || strstr( d, "gfx1100" ) || strstr( d, "gfx1031" ) || strstr( d, "AMD" )) // JdW
+	else if (strstr( d, "amd" ) || strstr( d, "ellesmere" ) || strstr( d, "AMD" ) || strstr( d, "RDNA" ) ||
+		strstr( d, "gfx11" ) || strstr( d, "gfx10" ) || strstr( d, "gfx9" ) || strstr( d, "gfx8" ))
 	{
 		isAMD = true;
 	}
@@ -1014,10 +1059,12 @@ bool Kernel::InitCL()
 	if (isNVidia)
 	{
 		printf( "NVIDIA, " );
-		if (isAmpere) printf( "AMPERE class.\n" );
+		if (isRubin) printf( "RUBIN class.\n" );
+		else if (isBlackwell) printf( "BLACKWELL class.\n" );
+		else if (isAda) printf( "ADA LOVELACE class.\n" );
+		else if (isAmpere) printf( "AMPERE class.\n" );
 		else if (isTuring) printf( "TURING class.\n" );
 		else if (isPascal) printf( "PASCAL class.\n" );
-		else if (isAda) printf( "ADA class.\n" );
 		else printf( "PRE-PASCAL hardware (warning: slow).\n" );
 	}
 	else if (isAMD)

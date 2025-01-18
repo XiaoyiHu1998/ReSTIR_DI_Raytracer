@@ -1,4 +1,5 @@
 // basic gpu-side path tracing (wavefront)
+// Used by tiny_bvh_gpu.cpp
 
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 
@@ -18,7 +19,8 @@ global float4* cwbvhNodes;
 global float4* cwbvhTris;
 global uint* blueNoise;
 global volatile int extendTasks, shadeTasks, connectTasks; // atomic counters
-const float3 lightColor = (float3)(15,15,14);
+const float3 lightColor = (float3)(25,25,22);
+const float3 lightPos = (float3)(-22, 12, 2);
 
 // Blue noise interface for fixed 128x128x8 dataset.
 float2 Noise( const uint x, const uint y, const uint page /* 0..7 */ )
@@ -101,8 +103,13 @@ void kernel Extend( global struct PathState* raysIn )
 		if (pathId < 0) break; // someone else could have decreased it before us.
 		const float4 O4 = raysIn[pathId].O;
 		const float4 D4 = raysIn[pathId].D;
+	#ifdef SIMD_AABBTEST
+		const float4 rD4 = native_recip( D4 );
+		raysIn[pathId].hit = traverse_cwbvh( cwbvhNodes, cwbvhTris, O4, D4, rD4, 1e30f );
+	#else
 		const float3 rD = native_recip( D4.xyz );
 		raysIn[pathId].hit = traverse_cwbvh( cwbvhNodes, cwbvhTris, O4.xyz, D4.xyz, rD, 1e30f );
+	#endif
 	}
 }
 
@@ -197,7 +204,7 @@ void kernel Shade( global float4* accumulator,
 		// direct illumination: next event estimation
 		if (materialType != MATERIAL_SPECULAR)
 		{
-			float3 P = (float3)(r0 * 9.0f - 4.5f, 30, r1 * 5.0f - 3.5f);
+			float3 P = lightPos + (float3)(r0 * 9.0f - 4.5f, 0, r1 * 5.0f - 2.5f);
 			float3 L = P - I;
 			float dist2 = dot( L, L ), dist = sqrt( dist2 );
 			L *= native_recip( dist );
@@ -255,8 +262,13 @@ void kernel Connect( global float4* accumulator, global struct Potential* shadow
 		const int rayId = atomic_dec( &connectTasks ) - 1;
 		if (rayId < 0) break;
 		const float4 T4 = shadowIn[rayId].T, O4 = shadowIn[rayId].O, D4 = shadowIn[rayId].D;
+	#ifdef SIMD_AABBTEST
+		const float4 rD4 = native_recip( D4 );
+		if (isoccluded_cwbvh( cwbvhNodes, cwbvhTris, O4, D4, rD4, D4.w )) continue;
+	#else
 		const float3 rD = native_recip( D4.xyz );
 		if (isoccluded_cwbvh( cwbvhNodes, cwbvhTris, O4.xyz, D4.xyz, rD, D4.w )) continue;
+	#endif
 		accumulator[as_uint( O4.w )] += T4;
 	}
 }

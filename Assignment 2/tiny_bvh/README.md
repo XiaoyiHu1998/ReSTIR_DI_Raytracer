@@ -9,7 +9,7 @@ Single-header OpenCL library, which helps you select and initialize a device. It
 * Vendor and architecture detection and propagation to #defines in OpenCL code
 * ..And many other things.
 
-![Output of the sample wavefront path tracer](images/wavefront.png)
+![Bistro](images/invasion.png)
 
 To use tinyocl, just include ````tiny_ocl.h````; this will automatically cause linking with ````OpenCL.lib```` in the 'external' folder, which in turn passes on work to vendor-specific driver code. But all that is not your problem!
 
@@ -37,10 +37,9 @@ Apart from the default BVH layout (simply named ````BVH````), several other layo
 * ````BVH_Double```` : Double-precision version of ````BVH````.
 * ````BVH_Verbose```` : A format designed for modifying BVHs, e.g. for post-build optimizations using ````BVH_Verbose::Optimize()````.
 * ````BVH_GPU```` : This format uses 64 bytes per node and stores the AABBs of the two child nodes. This is the format presented in the [2009 Aila & Laine paper](https://research.nvidia.com/sites/default/files/pubs/2009-08_Understanding-the-Efficiency/aila2009hpg_paper.pdf). It can be traversed with a simple GPU kernel.
-* ````BVH4```` : In this format, each node stores four child pointers, reducing the depth of the tree. This improves performance for divergent rays. Based on the [2008 paper](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf) by Ingo Wald et al.
+* ````MBVH<M>```` : In this (templated) format, each node stores M child pointers, reducing the depth of the tree. This improves performance for divergent rays. Based on the [2008 paper](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf) by Ingo Wald et al.
 * ````BVH4_GPU```` : A more compact version of the ````BVH4```` format, which will be faster for GPU ray tracing.
 * ````BVH4_CPU```` : A SIMD-friendly version of the ````BVH4```` format, currently the fastest option for single-ray traversal on CPU.
-* ````BVH8```` : This format stores eight child pointers, further reducing the depth of the tree.
 * ````BVH8_CWBVH```` : An advanced 80-byte representation of the 8-wide BVH, for state-of-the-art GPU rendering, based on the [2017 paper](https://research.nvidia.com/publication/2017-07_efficient-incoherent-ray-traversal-gpus-through-compressed-wide-bvhs) by Ylitie et al. and [code by AlanWBFT](https://github.com/AlanIWBFT/CWBVH).
 
 A BVH in the ````BVH```` format may be _refitted_, in case the triangles moved, using ````BVH::Refit````. Refitting is substantially faster than rebuilding and works well if the animation is subtle. Refitting does not work if polygon counts change.
@@ -70,13 +69,13 @@ The **performance measurement tool** can be compiled with:
 
 ````g++ -std=c++20 -mavx -Ofast tiny_bvh_speedtest.cpp -o tiny_bvh_speedtest````
 
-# Version 1.1.3
+# Version 1.2.5
 
 Version 1.1.0 introduced a <ins>change to the API</ins>. The single BVH class with multiple layouts has been replaced with a BVH class per layout. You can simply instantiate the desired layout; conversion (and data ownership) is then handled properly by the library. Examples:
 
 ````
 BVH bvh;
-bvh.Build( (bvhvec4*)myTriData, triangleCount );
+bvh.Build( (bvhvec4*)myTriData, triangleCount ); // or: BuildHQ( .. )
 bvh.Intersect( ray );
 ````
 
@@ -86,11 +85,18 @@ bvh.Build( (bvhvec4*)myTriData, triangleCount );
 bvh.Intersect( ray );
 ````
 
+To build a BVH for indexed vertices, use the new indexed interface:
+
+````
+BVH bvh;
+bvh.Build( (bvhvec4*)vertices, (uint32_t*)indices, triangleCount );
+````
+
 If you wish to use a specific builder (such as the spatial splits builder) or if you need to do custom operations on the BVH, such as post-build optimizing, you can still do the conversions manually. Example:
 
 ````
 BVH bvh;
-bvh.Build( (bvhvec4*)myTriData, triangleCount );
+bvh.BuildHQ( verts, indices, triCount );
 BVH_Verbose tmp;
 tmp.ConvertFrom( bvh );
 tmp.Optimize( 100000 );
@@ -104,11 +110,13 @@ This version of the library includes the following functionality:
 * Binned SAH BVH builder
 * Fast binned SAH BVH builder using AVX intrinsics
 * Fast binned SAH BVH builder using NEON intrinsices, by [wuyakuma](https://github.com/wuyakuma)
+* TLAS builder with instancing and TLAS/BLAS traversal
 * Double-precision binned SAH BVH builder
-* Spatial Splits ([SBVH](https://www.nvidia.in/docs/IO/77714/sbvh.pdf), Stich et al., 2009) builder
+* Example code for GPU TLAS/BLAS traversal (dragon invasion demo, tiny_bvh_gpu2.cpp)
+* Spatial Splits ([SBVH](https://www.nvidia.in/docs/IO/77714/sbvh.pdf), Stich et al., 2009) builder, including "unsplitting"
 * 'Compressed Wide BVH' (CWBVH) data structure
 * BVH optimizer: reduces SAH cost and improves ray tracing performance ([Bittner et al., 2013](https://dspace.cvut.cz/bitstream/handle/10467/15603/2013-Fast-Insertion-Based-Optimization-of-Bounding-Volume-Hierarchies.pdf))
-* Collapse to 4-wide and 8-wide BVH
+* Collapse to N-wide MBVH using templated code
 * Conversion of 4-wide BVH to GPU-friendly 64-byte quantized format
 * Single-ray and packet traversal
 * Fast triangle intersection: Implements the 2016 paper by [Baldwin & Weber](https://jcgt.org/published/0005/03/03/paper.pdf)
@@ -116,6 +124,8 @@ This version of the library includes the following functionality:
 * Support for WASM / EMSCRIPTEN, g++, clang, Visual Studio
 * Optional user-defined memory allocation, by [Thierry Cantenot](https://github.com/tcantenot)
 * Vertex array can now have a custom stride, by [David Peicho](https://github.com/DavidPeicho)
+* Vertex array can now be indexed
+* Custom primitives can be intersected via callbacks (new in 1.2.2)
 * Clear data ownership and intuitive management via the new and simplified API, with lots of help from David Peicho
 * You can now also BYOVT ('bring your own vector types'), thanks [Tijmen Verhoef](https://github.com/nemjit001)
 * 'SpeedTest' tool that times and validates all (well, most) traversal kernels.
@@ -149,6 +159,7 @@ Plans, ordered by priority:
 # tinybvh in the Wild
 A list of projects using tinybvh:
 * [unity-tinybvh](https://github.com/andr3wmac/unity-tinybvh): An example implementation for tinybvh in Unity and a foundation for building compute based raytracing solutions, by Andrew MacIntyre.
+* [TrenchBroomBFG](https://github.com/RobertBeckebans/TrenchBroomBFG), by Robert Beckebans. "TinyBVH allows to load bigger glTF 2 maps almost instantly instead of minutes". 
 
 # tinybvh Rust bindings
 The tinybvh library can now also be used from Rust, with the [Rust bindings](https://docs.rs/tinybvh-rs/latest/tinybvh_rs) provided by David Peicho.
@@ -160,5 +171,8 @@ Questions, remarks? Contact me at bikker.j@gmail.com or on twitter: @j_bikker, o
 
 # License
 This library is made available under the MIT license, which starts as follows: "Permission is hereby granted, free of charge, .. , to deal in the Software **without restriction**". Enjoy.
+
+
+![Output of the sample wavefront path tracer](images/wavefront.png)
 
 ![Rendered with tinybvh](images/test.png)

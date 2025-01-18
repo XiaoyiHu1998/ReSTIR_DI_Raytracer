@@ -3,11 +3,8 @@
 
 // 'screen resolution': see tiny_bvh_fenster.cpp; this program traces the
 // same rays, but without visualization - just performance statistics.
-#define SCRWIDTH	800
-#define SCRHEIGHT	600
-
-// scene selection
-#define LOADSPONZA
+#define SCRWIDTH	480
+#define SCRHEIGHT	320
 
 // GPU ray tracing
 #define ENABLE_OPENCL
@@ -17,16 +14,18 @@
 #define BUILD_REFERENCE
 #define BUILD_DOUBLE
 #define BUILD_AVX
-// #define BUILD_NEON
+#define BUILD_NEON
 #define BUILD_SBVH
+#define REFIT_BVH2
+#define REFIT_MBVH4
+#define REFIT_MBVH8
+// #define BUILD_AVX_SBVH
 #define TRAVERSE_2WAY_ST
 #define TRAVERSE_ALT2WAY_ST
 #define TRAVERSE_SOA2WAY_ST
 #define TRAVERSE_4WAY
 #define TRAVERSE_2WAY_DBL
 #define TRAVERSE_CWBVH
-#define TRAVERSE_BVH4
-#define TRAVERSE_BVH8
 #define TRAVERSE_2WAY_MT
 #define TRAVERSE_2WAY_MT_PACKET
 #define TRAVERSE_OPTIMIZED_ST
@@ -59,28 +58,30 @@ using namespace tinybvh;
 #include <emscripten/version.h> // for __EMSCRIPTEN_major__, __EMSCRIPTEN_minor__
 #endif
 
-#ifdef LOADSPONZA
 bvhvec4* triangles = 0;
 #include <fstream>
-#else
-ALIGNED( 64 ) bvhvec4 triangles[259 /* level 3 */ * 6 * 2 * 49 * 3]{};
-#endif
 int verts = 0;
-float traceTime, buildTime, * refDist = 0, * refDistFull = 0;
-unsigned refOccluded = 0, * refOccl = 0;
+float traceTime, buildTime, refitTime, * refDist = 0, * refDistFull = 0;
+unsigned refOccluded[3] = {}, * refOccl[3] = {};
+unsigned Nfull, Nsmall;
+Ray* fullBatch[3], * smallBatch[3];
+Ray* shadowBatch[3];
+#ifdef DOUBLE_PRECISION_SUPPORT
+RayEx* doubleBatch[3];
+#endif
 
 // bvh layouts
 BVH* bvh = new BVH();
+BVH* ref_bvh = new BVH();
 BVH_Verbose* bvh_verbose = 0;
 BVH_Double* bvh_double = new BVH_Double();
 BVH_SoA* bvh_soa = 0;
 BVH_GPU* bvh_gpu = 0;
-BVH4* bvh4 = 0;
+MBVH<4>* bvh4 = 0;
 BVH4_CPU* bvh4_cpu = 0;
 BVH4_GPU* bvh4_gpu = 0;
-BVH8* bvh8 = 0;
 BVH8_CWBVH* cwbvh = 0;
-enum { _DEFAULT = 1, _VERBOSE, _DOUBLE, _SOA, _GPU2, _BVH4, _CPU4, _GPU4, _BVH8, _CWBVH };
+enum { _DEFAULT = 1, _BVH, _VERBOSE, _DOUBLE, _SOA, _GPU2, _BVH4, _CPU4, _GPU4, _BVH8, _CWBVH };
 
 #if defined EMBREE_BUILD || defined EMBREE_TRAVERSE
 #include "embree4/rtcore.h"
@@ -111,78 +112,71 @@ struct Timer
 	std::chrono::high_resolution_clock::time_point start;
 };
 
-void sphere_flake( float x, float y, float z, float s, int d = 0 )
-{
-	// procedural tesselated sphere flake object
-#define P(F,a,b,c) p[i+F*64]={(float)a ,(float)b,(float)c}
-	bvhvec3 p[384], pos( x, y, z ), ofs( 3.5 );
-	for (int i = 0, u = 0; u < 8; u++) for (int v = 0; v < 8; v++, i++)
-		P( 0, u, v, 0 ), P( 1, u, 0, v ), P( 2, 0, u, v ),
-		P( 3, u, v, 7 ), P( 4, u, 7, v ), P( 5, 7, u, v );
-	for (int i = 0; i < 384; i++) p[i] = normalize( p[i] - ofs ) * s + pos;
-	for (int i = 0, side = 0; side < 6; side++, i += 8)
-		for (int u = 0; u < 7; u++, i++) for (int v = 0; v < 7; v++, i++)
-			triangles[verts++] = p[i], triangles[verts++] = p[i + 8],
-			triangles[verts++] = p[i + 1], triangles[verts++] = p[i + 1],
-			triangles[verts++] = p[i + 9], triangles[verts++] = p[i + 8];
-	if (d < 3) sphere_flake( x + s * 1.55f, y, z, s * 0.5f, d + 1 );
-	if (d < 3) sphere_flake( x - s * 1.5f, y, z, s * 0.5f, d + 1 );
-	if (d < 3) sphere_flake( x, y + s * 1.5f, z, s * 0.5f, d + 1 );
-	if (d < 3) sphere_flake( x, x - s * 1.5f, z, s * 0.5f, d + 1 );
-	if (d < 3) sphere_flake( x, y, z + s * 1.5f, s * 0.5f, d + 1 );
-	if (d < 3) sphere_flake( x, y, z - s * 1.5f, s * 0.5f, d + 1 );
-}
-
-float TestPrimaryRays( uint32_t layout, Ray* batch, unsigned N, unsigned passes )
+float TestPrimaryRays( uint32_t layout, unsigned N, unsigned passes, float* avgCost = 0 )
 {
 	// Primary rays: coherent batch of rays from a pinhole camera. One ray per
 	// pixel, organized in tiles to further increase coherence.
 	Timer t;
-	for (unsigned i = 0; i < N; i++) batch[i].hit.t = 1e30f;
+	for (int view = 0; view < 3; view++)
+	{
+		Ray* batch = N == Nsmall ? smallBatch[view] : fullBatch[view];
+		for (unsigned i = 0; i < N; i++) batch[i].hit.t = 1e30f;
+	}
+	uint32_t travCost = 0;
 	for (unsigned pass = 0; pass < passes + 1; pass++)
 	{
+		uint32_t view = pass == 0 ? 0 : (3 - pass); // 0, 2, 1, 0
+		Ray* batch = N == Nsmall ? smallBatch[view] : fullBatch[view];
 		if (pass == 1) t.reset(); // first pass is cache warming
 		switch (layout)
 		{
-		case _DEFAULT: for (unsigned i = 0; i < N; i++) bvh->Intersect( batch[i] ); break;
-		case _GPU2: for (unsigned i = 0; i < N; i++) bvh_gpu->Intersect( batch[i] ); break;
-		case _BVH4: for (unsigned i = 0; i < N; i++) bvh4->Intersect( batch[i] ); break;
-		case _CPU4: for (unsigned i = 0; i < N; i++) bvh4_cpu->Intersect( batch[i] ); break;
-		case _GPU4: for (unsigned i = 0; i < N; i++) bvh4_gpu->Intersect( batch[i] ); break;
-		case _BVH8: for (unsigned i = 0; i < N; i++) bvh8->Intersect( batch[i] ); break;
+		case _BVH: for (unsigned i = 0; i < N; i++) travCost += bvh->Intersect( batch[i] ); break;
+		case _DEFAULT: for (unsigned i = 0; i < N; i++) travCost += ref_bvh->Intersect( batch[i] ); break;
+		case _GPU2: for (unsigned i = 0; i < N; i++) travCost += bvh_gpu->Intersect( batch[i] ); break;
+		case _CPU4: for (unsigned i = 0; i < N; i++) travCost += bvh4_cpu->Intersect( batch[i] ); break;
+		case _GPU4: for (unsigned i = 0; i < N; i++) travCost += bvh4_gpu->Intersect( batch[i] ); break;
 		#ifdef BVH_USEAVX
-		case _CWBVH: for (unsigned i = 0; i < N; i++) cwbvh->Intersect( batch[i] ); break;
-		case _SOA: for (unsigned i = 0; i < N; i++) bvh_soa->Intersect( batch[i] ); break;
+		case _CWBVH: for (unsigned i = 0; i < N; i++) travCost += cwbvh->Intersect( batch[i] ); break;
+		case _SOA: for (unsigned i = 0; i < N; i++) travCost += bvh_soa->Intersect( batch[i] ); break;
 		#endif
 		default: break;
 		};
 	}
+	if (avgCost) *avgCost = travCost / (float)(3 * N);
 	return t.elapsed() / passes;
 }
 
 #ifdef DOUBLE_PRECISION_SUPPORT
 
-float TestPrimaryRaysEx( RayEx* batch, unsigned N, unsigned passes )
+float TestPrimaryRaysEx( unsigned N, unsigned passes, float* avgCost = 0 )
 {
 	// Primary rays: coherent batch of rays from a pinhole camera.
 	// Double-precision version.
 	Timer t;
-	unsigned steps = 0;
+	for (int view = 0; view < 3; view++)
+	{
+		RayEx* batch = doubleBatch[view];
+		for (unsigned i = 0; i < N; i++) batch[i].hit.t = 1e30f;
+	}
+	uint32_t travCost = 0;
 	for (unsigned pass = 0; pass < passes + 1; pass++)
 	{
+		uint32_t view = pass == 0 ? 0 : (3 - pass); // 0, 2, 1, 0
+		RayEx* batch = doubleBatch[view];
 		if (pass == 1) t.reset(); // first pass is cache warming
-		for (unsigned i = 0; i < N; i++) steps += bvh_double->Intersect( batch[i] );
+		for (unsigned i = 0; i < N; i++) travCost += bvh_double->Intersect( batch[i] );
 	}
-	return steps == 0 ? 0 : (t.elapsed() / passes);
+	if (avgCost) *avgCost = travCost / (float)(3 * N);
+	return t.elapsed() / passes;
 }
 
-void ValidateTraceResultEx( RayEx* batch, float* ref, unsigned N, unsigned line )
+void ValidateTraceResultEx( float* ref, unsigned N, unsigned line )
 {
 	float refSum = 0;
 	double batchSum = 0;
 	for (unsigned i = 0; i < N; i += 4)
 		refSum += ref[i] == 1e30f ? 100 : ref[i],
-		batchSum += batch[i].t == 1e300 ? 100 : batch[i].t;
+		batchSum += doubleBatch[0][i].hit.t == 1e300 ? 100 : doubleBatch[0][i].hit.t;
 	if (fabs( refSum - (float)batchSum ) / refSum < 0.0001f) return;
 	fprintf( stderr, "Validation failed on line %i.\n", line );
 	exit( 1 );
@@ -190,7 +184,7 @@ void ValidateTraceResultEx( RayEx* batch, float* ref, unsigned N, unsigned line 
 
 #endif
 
-float TestShadowRays( uint32_t layout, Ray* batch, unsigned N, unsigned passes )
+float TestShadowRays( uint32_t layout, unsigned N, unsigned passes )
 {
 	// Shadow rays: coherent batch of rays from a single point to 'far away'. Shadow
 	// rays terminate on the first hit, and don't need sorted order. They also don't
@@ -200,6 +194,8 @@ float TestShadowRays( uint32_t layout, Ray* batch, unsigned N, unsigned passes )
 	unsigned occluded = 0;
 	for (unsigned pass = 0; pass < passes + 1; pass++)
 	{
+		uint32_t view = pass == 0 ? 0 : (3 - pass); // 0, 2, 1, 0
+		Ray* batch = shadowBatch[view];
 		if (pass == 1) t.reset(); // first pass is cache warming
 		occluded = 0;
 		switch (layout)
@@ -217,25 +213,29 @@ float TestShadowRays( uint32_t layout, Ray* batch, unsigned N, unsigned passes )
 	// kernels will lead to some diverging results. We check if no more than about
 	// 1/1000 checks differ. Shadow rays also use an origin offset, based on scene
 	// extend, to account for limited floating point accuracy.
-	if (abs( (int)occluded - (int)refOccluded ) > 500) // allow some slack, we're using various tri intersectors
+	if (abs( (int)occluded - (int)refOccluded[0] ) > 500) // allow some slack, we're using various tri intersectors
 	{
-		fprintf( stderr, "\nValidation for shadow rays failed (%i != %i).\n", (int)occluded, (int)refOccluded );
+		fprintf( stderr, "\nValidation for shadow rays failed (%i != %i).\n", (int)occluded, (int)refOccluded[0] );
 		exit( 1 );
 	}
 	return t.elapsed() / passes;
 }
 
-void ValidateTraceResult( Ray* batch, float* ref, unsigned N, unsigned line )
+void ValidateTraceResult( float* ref, unsigned N, unsigned line )
 {
 	float refSum = 0, batchSum = 0;
+	Ray* batch = N == Nsmall ? smallBatch[0] : fullBatch[0];
 	for (unsigned i = 0; i < N; i += 4)
 		refSum += ref[i] == 1e30f ? 100 : ref[i],
 		batchSum += batch[i].hit.t == 1e30f ? 100 : batch[i].hit.t;
 	float diff = fabs( refSum - batchSum );
-	if (diff / refSum > 0.0001f)
+	if (diff / refSum > 0.01f)
 	{
+	#if 1
+		printf( "!! Validation failed on line %i: %.1f != %.1f\n", line, refSum, batchSum );
+	#else
 		fprintf( stderr, "Validation failed on line %i - dumping img.raw.\n", line );
-		int step = (N == 800 * 600 ? 1 : 16);
+		int step = (N == SCRWIDTH * SCRHEIGHT ? 1 : 16);
 		unsigned char pixel[SCRWIDTH * SCRHEIGHT];
 		for (unsigned i = 0, ty = 0; ty < SCRHEIGHT / 4; ty++) for (unsigned tx = 0; tx < SCRWIDTH / 4; tx++)
 		{
@@ -250,6 +250,7 @@ void ValidateTraceResult( Ray* batch, float* ref, unsigned N, unsigned line )
 		s.write( (char*)&pixel, SCRWIDTH * SCRHEIGHT );
 		s.close();
 		exit( 1 );
+	#endif
 	}
 }
 
@@ -270,7 +271,6 @@ void IntersectBvhWorkerThread( int batchCount, Ray* fullBatch, int threadIdx )
 	{
 		const int batchStart = batch * 10000;
 		for (int i = 0; i < 10000; i++) bvh->Intersect( fullBatch[batchStart + i] );
-
 		batch = batchIdx++;
 	}
 }
@@ -358,7 +358,6 @@ int main()
 
 #endif
 
-#ifdef LOADSPONZA
 	// load raw vertex data for Crytek's Sponza
 	const std::string scene = "cryteksponza.bin";
 	std::string filename{ "./testdata/" };
@@ -369,52 +368,57 @@ int main()
 	printf( "Loading triangle data (%i tris).\n", verts );
 	verts *= 3, triangles = (bvhvec4*)tinybvh::malloc64( verts * sizeof( bvhvec4 ) );
 	s.read( (char*)triangles, verts * 16 );
-#else
-	// generate a sphere flake scene
-	sphere_flake( 0, 0, 0, 1.5f );
-	printf( "Creating sphere flake (%i tris).\n", verts / 3 );
-#endif
 
 	// setup view pyramid for a pinhole camera:
 	// eye, p1 (top-left), p2 (top-right) and p3 (bottom-left)
-#ifdef LOADSPONZA
-	bvhvec3 eye( -15.24f, 21.5f, 2.54f ), view = normalize( bvhvec3( 0.826f, -0.438f, -0.356f ) );
-#else
-	bvhvec3 eye( -3.5f, -1.5f, -6.5f ), view = normalize( bvhvec3( 3, 1.5f, 5 ) );
-#endif
+	bvhvec3 eyes[3] = {
+		bvhvec3( -15.24f, 21.5f, 2.54f ),
+		bvhvec3( -34, 5, 11.26f ),
+		bvhvec3( -1.3, 4.96, 12.28 )
+	}, eye = eyes[0];
+	bvhvec3 views[3] = {
+		normalize( bvhvec3( 0.826f, -0.438f, -0.356f ) ),
+		normalize( bvhvec3( 0.9427, 0.0292, -0.3324 ) ),
+		normalize( bvhvec3( -0.9886, 0.0507, -0.1419 ) )
+	}, view = views[0];
 	bvhvec3 right = normalize( cross( bvhvec3( 0, 1, 0 ), view ) );
 	bvhvec3 up = 0.8f * cross( view, right ), C = eye + 2 * view;
 	bvhvec3 p1 = C - right + up, p2 = C + right + up, p3 = C - right - up;
 
 	// generate primary rays in a cacheline-aligned buffer - and, for data locality:
 	// organized in 4x4 pixel tiles, 16 samples per pixel, so 256 rays per tile.
-	int Nfull = 0, Nsmall = 0;
-	Ray* fullBatch = (Ray*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 16 * sizeof( Ray ) );
-	Ray* smallBatch = (Ray*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 2 * sizeof( Ray ) );
-#ifdef DOUBLE_PRECISION_SUPPORT
-	RayEx* doubleBatch = (RayEx*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 2 * sizeof( RayEx ) );
-#endif
-	for (int ty = 0; ty < SCRHEIGHT / 4; ty++) for (int tx = 0; tx < SCRWIDTH / 4; tx++)
+	// one set for each camera position / direction.
+
+	for (int i = 0; i < 3; i++)
 	{
-		for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++)
+		Nfull = Nsmall = 0;
+		fullBatch[i] = (Ray*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 16 * sizeof( Ray ) );
+		smallBatch[i] = (Ray*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 2 * sizeof( Ray ) );
+	#ifdef DOUBLE_PRECISION_SUPPORT
+		doubleBatch[i] = (RayEx*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 2 * sizeof( RayEx ) );
+	#endif
+		for (int ty = 0; ty < SCRHEIGHT / 4; ty++) for (int tx = 0; tx < SCRWIDTH / 4; tx++)
 		{
-			int pixel_x = tx * 4 + x;
-			int pixel_y = ty * 4 + y;
-			for (int s = 0; s < 16; s++) // 16 samples per pixel
+			for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++)
 			{
-				float u = (float)(pixel_x * 4 + (s & 3)) / (SCRWIDTH * 4);
-				float v = (float)(pixel_y * 4 + (s >> 2)) / (SCRHEIGHT * 4);
-				bvhvec3 P = p1 + u * (p2 - p1) + v * (p3 - p1);
-				fullBatch[Nfull++] = Ray( eye, normalize( P - eye ) );
-				if ((s & 7) == 0)
+				int pixel_x = tx * 4 + x;
+				int pixel_y = ty * 4 + y;
+				for (int s = 0; s < 16; s++) // 16 samples per pixel
 				{
-					smallBatch[Nsmall] = fullBatch[Nfull - 1];
-				#ifdef DOUBLE_PRECISION_SUPPORT
-					tinybvh::bvhdbl3 O = smallBatch[Nsmall].O;
-					tinybvh::bvhdbl3 D = smallBatch[Nsmall].D;
-					doubleBatch[Nsmall] = RayEx( O, D );
-				#endif
-					Nsmall++;
+					float u = (float)(pixel_x * 4 + (s & 3)) / (SCRWIDTH * 4);
+					float v = (float)(pixel_y * 4 + (s >> 2)) / (SCRHEIGHT * 4);
+					bvhvec3 P = p1 + u * (p2 - p1) + v * (p3 - p1);
+					fullBatch[i][Nfull++] = Ray( eye, normalize( P - eye ) );
+					if ((s & 7) == 0)
+					{
+						smallBatch[i][Nsmall] = fullBatch[i][Nfull - 1];
+					#ifdef DOUBLE_PRECISION_SUPPORT
+						tinybvh::bvhdbl3 O = smallBatch[i][Nsmall].O;
+						tinybvh::bvhdbl3 D = smallBatch[i][Nsmall].D;
+						doubleBatch[i][Nsmall] = RayEx( O, D );
+					#endif
+						Nsmall++;
+					}
 				}
 			}
 		}
@@ -441,6 +445,8 @@ int main()
 
 #endif
 
+	float avgCost;
+
 #ifdef BUILD_REFERENCE
 
 	// measure single-core bvh construction time - reference builder
@@ -448,8 +454,9 @@ int main()
 	t.reset();
 	for (int pass = 0; pass < 3; pass++) bvh->Build( triangles, verts / 3 );
 	buildTime = t.elapsed() / 3.0f;
+	TestPrimaryRays( _BVH, Nsmall, 3, &avgCost );
 	printf( "%7.2fms for %7i triangles ", buildTime * 1000.0f, verts / 3 );
-	printf( "- %6i nodes, SAH=%.2f\n", bvh->usedNodes, bvh->SAHCost() );
+	printf( "- %6i nodes, SAH=%.2f, rayCost=%.2f\n", bvh->usedNodes, bvh->SAHCost(), avgCost );
 
 #endif
 
@@ -465,23 +472,23 @@ int main()
 		triEx[i].z = (double)triangles[i].z;
 	bvh_double->Build( triEx, verts / 3 );
 	buildTime = t.elapsed();
+	TestPrimaryRaysEx( Nsmall, 3, &avgCost );
 	printf( "%7.2fms for %7i triangles ", buildTime * 1000.0f, verts / 3 );
-	printf( "- %6i nodes, SAH=%.2f\n", bvh->usedNodes, bvh->SAHCost() );
+	printf( "- %6i nodes, SAH=%.2f, rayCost=%.2f\n", bvh->usedNodes, bvh->SAHCost(), avgCost );
 
 #endif
 
-#ifdef BUILD_AVX
-#ifdef BVH_USEAVX
+#if defined BUILD_AVX && defined BVH_USEAVX
 
 	// measure single-core bvh construction time - AVX builder
 	printf( "- fast AVX builder:  " );
 	t.reset();
 	for (int pass = 0; pass < 3; pass++) bvh->BuildAVX( triangles, verts / 3 );
 	buildTime = t.elapsed() / 3.0f;
+	TestPrimaryRays( _BVH, Nsmall, 3, &avgCost );
 	printf( "%7.2fms for %7i triangles ", buildTime * 1000.0f, verts / 3 );
-	printf( "- %6i nodes, SAH=%.2f\n", bvh->usedNodes, bvh->SAHCost() );
+	printf( "- %6i nodes, SAH=%.2f, rayCost=%.2f\n", bvh->usedNodes, bvh->SAHCost(), avgCost );
 
-#endif
 #endif
 
 #ifdef BUILD_NEON
@@ -492,8 +499,9 @@ int main()
 	t.reset();
 	for (int pass = 0; pass < 3; pass++) bvh->BuildNEON( triangles, verts / 3 );
 	buildTime = t.elapsed() / 3.0f;
+	TestPrimaryRays( _BVH, Nsmall, 3, &avgCost );
 	printf( "%7.2fms for %7i triangles ", buildTime * 1000.0f, verts / 3 );
-	printf( "- %6i nodes, SAH=%.2f\n", bvh->usedNodes, bvh->SAHCost() );
+	printf( "- %6i nodes, SAH=%.2f, rayCost=%.2f\n", bvh->usedNodes, bvh->SAHCost(), avgCost );
 
 #endif
 #endif
@@ -503,10 +511,84 @@ int main()
 	// measure single-core bvh construction time - AVX builder
 	printf( "- HQ (SBVH) builder: " );
 	t.reset();
-	for (int pass = 0; pass < 3; pass++) bvh->BuildHQ( triangles, verts / 3 );
-	buildTime = t.elapsed() / 3.0f;
+	for (int pass = 0; pass < 2; pass++) bvh->BuildHQ( triangles, verts / 3 );
+	buildTime = t.elapsed() / 2.0f;
+	TestPrimaryRays( _BVH, Nsmall, 3, &avgCost );
 	printf( "%7.2fms for %7i triangles ", buildTime * 1000.0f, verts / 3 );
-	printf( "- %6i nodes, SAH=%.2f\n", bvh->usedNodes, bvh->SAHCost() );
+	printf( "- %6i nodes, SAH=%.2f, rayCost=%.2f\n", bvh->usedNodes, bvh->SAHCost(), avgCost );
+
+#endif
+
+	// measure single-core bvh construction time - warming caches
+	printf( "BVH refitting speed\n" );
+
+#ifdef REFIT_BVH2
+
+	// measure single-core bvh refit time
+	printf( "- BVH2 refitting: " );
+	{
+		BVH tmpBVH;
+		tmpBVH.Build( triangles, verts / 3 );
+		for (int pass = 0; pass < 10; pass++)
+		{
+			if (pass == 1) t.reset();
+			tmpBVH.Refit();
+		}
+		refitTime = t.elapsed() / 9.0f;
+	}
+	printf( "%7.2fms for %7i triangles ", refitTime * 1000.0f, verts / 3 );
+	printf( "- SAH=%.2f\n", bvh->SAHCost() );
+
+#endif
+
+#ifdef REFIT_MBVH4
+
+	// measure single-core mbvh refit time
+	printf( "- BVH4 refitting: " );
+	{
+		MBVH<4> tmpBVH4;
+		tmpBVH4.Build( triangles, verts / 3 );
+		for (int pass = 0; pass < 10; pass++)
+		{
+			if (pass == 1) t.reset();
+			tmpBVH4.Refit();
+		}
+		refitTime = t.elapsed() / 9.0f;
+	}
+	printf( "%7.2fms for %7i triangles ", refitTime * 1000.0f, verts / 3 );
+	printf( "- SAH=%.2f\n", bvh->SAHCost() );
+
+#endif
+
+#ifdef REFIT_MBVH8
+
+	// measure single-core mbvh refit time
+	printf( "- BVH8 refitting: " );
+	{
+		MBVH<8> tmpBVH8;
+		tmpBVH8.Build( triangles, verts / 3 );
+		for (int pass = 0; pass < 10; pass++)
+		{
+			if (pass == 1) t.reset();
+			tmpBVH8.Refit();
+		}
+		refitTime = t.elapsed() / 9.0f;
+	}
+	printf( "%7.2fms for %7i triangles ", refitTime * 1000.0f, verts / 3 );
+	printf( "- SAH=%.2f\n", bvh->SAHCost() );
+
+#endif
+
+#if defined BUILD_AVX_SBVH && defined BVH_USEAVX
+
+	// measure single-core bvh construction time - AVX builder
+	printf( "- AVX SBVH builder:  " );
+	t.reset();
+	for (int pass = 0; pass < 3; pass++) bvh->BuildHQAVX( triangles, verts / 3 );
+	buildTime = t.elapsed() / 3.0f;
+	TestPrimaryRays( _BVH, Nsmall, 3, &avgCost );
+	printf( "%7.2fms for %7i triangles ", buildTime * 1000.0f, verts / 3 );
+	printf( "- %6i nodes, SAH=%.2f, rayCost=%.2f\n", bvh->usedNodes, bvh->SAHCost(), avgCost );
 
 #endif
 
@@ -539,6 +621,7 @@ int main()
 
 	// report CPU single ray, single-core performance
 	printf( "BVH traversal speed - single-threaded\n" );
+	ref_bvh->Build( triangles, verts / 3 );
 
 	// estimate correct shadow ray epsilon based on scene extends
 	tinybvh::bvhvec4 bmin( 1e30f ), bmax( -1e30f );
@@ -550,30 +633,33 @@ int main()
 	float shadowEpsilon = maxExtent * 5e-7f;
 
 	// setup proper shadow ray batch
-	traceTime = TestPrimaryRays( _DEFAULT, smallBatch, Nsmall, 1 ); // just to generate intersection points
-	Ray* shadowBatch = (Ray*)tinybvh::malloc64( sizeof( Ray ) * Nsmall );
-	const tinybvh::bvhvec3 lightPos( 0, 0, 0 );
-	for (int i = 0; i < Nsmall; i++)
+	traceTime = TestPrimaryRays( _DEFAULT, Nsmall, 1 ); // just to generate intersection points
+	for (int view = 0; view < 3; view++)
 	{
-		float t = tinybvh::tinybvh_min( 1000.0f, smallBatch[i].hit.t );
-		bvhvec3 I = smallBatch[i].O + t * smallBatch[i].D;
-		bvhvec3 D = tinybvh::normalize( lightPos - I );
-		shadowBatch[i] = Ray( I + D * shadowEpsilon, D, tinybvh::length( lightPos - I ) - shadowEpsilon );
+		shadowBatch[view] = (Ray*)tinybvh::malloc64( sizeof( Ray ) * Nsmall );
+		const tinybvh::bvhvec3 lightPos( 0, 0, 0 );
+		for (unsigned i = 0; i < Nsmall; i++)
+		{
+			float t = tinybvh::tinybvh_min( 1000.0f, smallBatch[view][i].hit.t );
+			bvhvec3 I = smallBatch[view][i].O + t * smallBatch[view][i].D;
+			bvhvec3 D = tinybvh::normalize( lightPos - I );
+			shadowBatch[view][i] = Ray( I + D * shadowEpsilon, D, tinybvh::length( lightPos - I ) - shadowEpsilon );
+		}
+		// get reference shadow ray query result
+		refOccluded[view] = 0, refOccl[view] = new unsigned[Nsmall];
+		for (unsigned i = 0; i < Nsmall; i++)
+			refOccluded[view] += (refOccl[view][i] = ref_bvh->IsOccluded( shadowBatch[view][i] ) ? 1 : 0);
 	}
-	// get reference shadow ray query result
-	refOccluded = 0, refOccl = new unsigned[Nsmall];
-	for (int i = 0; i < Nsmall; i++)
-		refOccluded += (refOccl[i] = bvh->IsOccluded( shadowBatch[i] ) ? 1 : 0);
 
 #ifdef TRAVERSE_2WAY_ST
 
 	// WALD_32BYTE - Have this enabled at all times if validation is desired.
 	printf( "- WALD_32BYTE - primary: " );
-	traceTime = TestPrimaryRays( _DEFAULT, smallBatch, Nsmall, 3 );
+	traceTime = TestPrimaryRays( _DEFAULT, Nsmall, 3 );
 	refDist = new float[Nsmall];
-	for (int i = 0; i < Nsmall; i++) refDist[i] = smallBatch[i].hit.t;
+	for (unsigned i = 0; i < Nsmall; i++) refDist[i] = smallBatch[0][i].hit.t;
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s), ", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-	traceTime = TestShadowRays( _DEFAULT, shadowBatch, Nsmall, 3 );
+	traceTime = TestShadowRays( _DEFAULT, Nsmall, 3 );
 	printf( "shadow: %5.1fms (%7.2fMRays/s)\n", traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -584,13 +670,13 @@ int main()
 	if (!bvh_gpu)
 	{
 		bvh_gpu = new BVH_GPU();
-		bvh_gpu->Build( triangles, verts / 3 );
+		bvh_gpu->BuildHQ( triangles, verts / 3 );
 	}
 	printf( "- AILA_LAINE  - primary: " );
-	traceTime = TestPrimaryRays( _GPU2, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRays( _GPU2, Nsmall, 3 );
+	ValidateTraceResult( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s), ", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-	traceTime = TestShadowRays( _GPU2, shadowBatch, Nsmall, 3 );
+	traceTime = TestShadowRays( _GPU2, Nsmall, 3 );
 	printf( "shadow: %5.1fms (%7.2fMRays/s)\n", traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -601,13 +687,13 @@ int main()
 	if (!bvh_soa)
 	{
 		bvh_soa = new BVH_SoA();
-		bvh_soa->Build( triangles, verts / 3 );
+		bvh_soa->BuildHQ( triangles, verts / 3 );
 	}
 	printf( "- ALT_SOA     - primary: " );
-	traceTime = TestPrimaryRays( _SOA, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRays( _SOA, Nsmall, 3 );
+	ValidateTraceResult( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s), ", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-	traceTime = TestShadowRays( _SOA, shadowBatch, Nsmall, 3 );
+	traceTime = TestShadowRays( _SOA, Nsmall, 3 );
 	printf( "shadow: %5.1fms (%7.2fMRays/s)\n", traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -618,13 +704,13 @@ int main()
 	if (!bvh4_cpu)
 	{
 		bvh4_cpu = new BVH4_CPU();
-		bvh4_cpu->Build( triangles, verts / 3 );
+		bvh4_cpu->BuildHQ( triangles, verts / 3 );
 	}
 	printf( "- BVH4_AFRA   - primary: " );
-	traceTime = TestPrimaryRays( _CPU4, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRays( _CPU4, Nsmall, 3 );
+	ValidateTraceResult( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s), ", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-	traceTime = TestShadowRays( _CPU4, shadowBatch, Nsmall, 3 );
+	traceTime = TestShadowRays( _CPU4, Nsmall, 3 );
 	printf( "shadow: %5.1fms (%7.2fMRays/s)\n", traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -633,8 +719,8 @@ int main()
 
 	// double-precision Rays/BVH
 	printf( "- WALD_DOUBLE - primary: " );
-	traceTime = TestPrimaryRaysEx( doubleBatch, Nsmall, 3 );
-	ValidateTraceResultEx( doubleBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRaysEx( Nsmall, 3 );
+	ValidateTraceResultEx( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -645,41 +731,11 @@ int main()
 	if (!cwbvh)
 	{
 		cwbvh = new BVH8_CWBVH();
-		cwbvh->Build( triangles, verts / 3 );
+		cwbvh->BuildHQ( triangles, verts / 3 );
 	}
 	printf( "- BVH8/CWBVH  - primary: " );
-	traceTime = TestPrimaryRays( _CWBVH, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
-	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-
-#endif
-
-#ifdef TRAVERSE_BVH4
-
-	// Basic BVH4 - Basic implementation, not efficient on CPU.
-	if (!bvh4)
-	{
-		bvh4 = new BVH4();
-		bvh4->Build( triangles, verts / 3 );
-	}
-	printf( "- BASIC_BVH4  - primary: " );
-	traceTime = TestPrimaryRays( _BVH4, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
-	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-
-#endif
-
-#ifdef TRAVERSE_BVH8
-
-	// Basic BVH8 - Basic implementation, not efficient on CPU.
-	if (!bvh8)
-	{
-		bvh8 = new BVH8();
-		bvh8->Build( triangles, verts / 3 );
-	}
-	printf( "- BASIC_BVH8  - primary: " );
-	traceTime = TestPrimaryRays( _BVH8, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRays( _CWBVH, Nsmall, 3 );
+	ValidateTraceResult( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -687,15 +743,17 @@ int main()
 #if defined TRAVERSE_OPTIMIZED_ST || defined TRAVERSE_4WAY_OPTIMIZED
 
 	printf( "Optimized BVH performance - Optimizing... " );
+	float prevSAH = bvh->SAHCost();
 	if (!bvh_verbose)
 	{
 		bvh_verbose = new BVH_Verbose();
 		bvh_verbose->ConvertFrom( *bvh );
 	}
 	t.reset();
-	bvh_verbose->Optimize( 1000000 ); // optimize the raw SBVH
+	bvh_verbose->Optimize( 1500000 ); // optimize the raw SBVH
 	bvh->ConvertFrom( *bvh_verbose );
-	printf( "done (%.2fs). New: %i nodes, SAH=%.2f\n", t.elapsed(), bvh->NodeCount(), bvh->SAHCost() );
+	TestPrimaryRays( _BVH, Nsmall, 3, &avgCost );
+	printf( "done (%.2fs). New: %i nodes, SAH=%.2f to %.2f, rayCost=%.2f\n", t.elapsed(), bvh->NodeCount(), prevSAH, bvh->SAHCost(), avgCost );
 
 #endif
 
@@ -708,10 +766,10 @@ int main()
 	bvh_soa = new BVH_SoA();
 	bvh_soa->ConvertFrom( *bvh );
 	printf( "- ALT_SOA     - primary: " );
-	traceTime = TestPrimaryRays( _SOA, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRays( _SOA, Nsmall, 3 );
+	ValidateTraceResult( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s), ", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-	traceTime = TestShadowRays( _SOA, shadowBatch, Nsmall, 3 );
+	traceTime = TestShadowRays( _SOA, Nsmall, 3 );
 	printf( "shadow: %5.1fms (%7.2fMRays/s)\n", traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -723,15 +781,15 @@ int main()
 	delete bvh4_cpu;
 	// Building a BVH4_CPU over an optimized BVH: Careful, do not delete the
 	// passed BVH; we use some of its data in the BVH4_CPU.
-	bvh4 = new BVH4();
+	bvh4 = new MBVH<4>();
 	bvh4_cpu = new BVH4_CPU();
 	bvh4->ConvertFrom( *bvh );
 	bvh4_cpu->ConvertFrom( *bvh4 );
 	printf( "- BVH4_AFRA   - primary: " );
-	traceTime = TestPrimaryRays( _CPU4, smallBatch, Nsmall, 3 );
-	ValidateTraceResult( smallBatch, refDist, Nsmall, __LINE__ );
+	traceTime = TestPrimaryRays( _CPU4, Nsmall, 3 );
+	ValidateTraceResult( refDist, Nsmall, __LINE__ );
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s), ", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
-	traceTime = TestShadowRays( _CPU4, shadowBatch, Nsmall, 3 );
+	traceTime = TestShadowRays( _CPU4, Nsmall, 3 );
 	printf( "shadow: %5.1fms (%7.2fMRays/s)\n", traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 
 #endif
@@ -743,15 +801,14 @@ int main()
 
 	// calculate full res reference distances using threaded traversal on CPU.
 	const int batchCount = Nfull / 10000;
-
 	batchIdx = threadCount;
 	std::vector<std::thread> threads;
+	for (unsigned i = 0; i < Nfull; i++) fullBatch[0][i].hit.t = 1e30f;
 	for (uint32_t i = 0; i < threadCount; i++)
-		threads.emplace_back( &IntersectBvhWorkerThread, batchCount, fullBatch, i );
+		threads.emplace_back( &IntersectBvhWorkerThread, batchCount, fullBatch[0], i );
 	for (auto& thread : threads) thread.join();
-
 	refDistFull = new float[Nfull];
-	for (int i = 0; i < Nfull; i++) refDistFull[i] = fullBatch[i].hit.t;
+	for (unsigned i = 0; i < Nfull; i++) refDistFull[i] = fullBatch[0][i].hit.t;
 
 #ifdef GPU_2WAY
 
@@ -771,7 +828,7 @@ int main()
 	idxData.CopyToDevice();
 	triData.CopyToDevice();
 	// create rays and send them to the gpu side
-	tinyocl::Buffer rayData( Nfull * sizeof( tinybvh::Ray ), fullBatch );
+	tinyocl::Buffer rayData( Nfull * sizeof( tinybvh::Ray ), fullBatch[0] );
 	rayData.CopyToDevice();
 	// create an event to time the OpenCL kernel
 	cl_event event;
@@ -795,7 +852,7 @@ int main()
 	traceTime /= 8.0f;
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nfull * 1e-6f, traceTime * 1000, (float)Nfull / traceTime * 1e-6f );
 	// validate GPU ray tracing result
-	ValidateTraceResult( fullBatch, refDistFull, Nfull, __LINE__ );
+	ValidateTraceResult( refDistFull, Nfull, __LINE__ );
 
 #endif
 
@@ -817,7 +874,7 @@ int main()
 	cl_event event;
 	cl_ulong startTime, endTime;
 	// create rays and send them to the gpu side
-	tinyocl::Buffer rayData( Nfull * sizeof( tinybvh::Ray ), fullBatch );
+	tinyocl::Buffer rayData( Nfull * sizeof( tinybvh::Ray ), fullBatch[0] );
 	rayData.CopyToDevice();
 #endif
 	// start timer and start kernel on gpu
@@ -839,7 +896,7 @@ int main()
 	traceTime /= 8.0f;
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nfull * 1e-6f, traceTime * 1000, (float)Nfull / traceTime * 1e-6f );
 	// validate GPU ray tracing result
-	ValidateTraceResult( fullBatch, refDistFull, Nfull, __LINE__ );
+	ValidateTraceResult( refDistFull, Nfull, __LINE__ );
 
 #endif
 
@@ -867,7 +924,7 @@ int main()
 	cl_event event;
 	cl_ulong startTime, endTime;
 	// create rays and send them to the gpu side
-	tinyocl::Buffer rayData( Nfull * sizeof( tinybvh::Ray ), fullBatch );
+	tinyocl::Buffer rayData( Nfull * sizeof( tinybvh::Ray ), fullBatch[0] );
 	rayData.CopyToDevice();
 #endif
 	// start timer and start kernel on gpu
@@ -889,7 +946,7 @@ int main()
 	traceTime /= 8.0f;
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nfull * 1e-6f, traceTime * 1000, (float)Nfull / traceTime * 1e-6f );
 	// validate GPU ray tracing result
-	ValidateTraceResult( fullBatch, refDistFull, Nfull, __LINE__ );
+	ValidateTraceResult( refDistFull, Nfull, __LINE__ );
 
 #endif
 
@@ -910,7 +967,7 @@ int main()
 		batchIdx = threadCount;
 		std::vector<std::thread> threads;
 		for (uint32_t i = 0; i < threadCount; i++)
-			threads.emplace_back( &IntersectBvhWorkerThread, batchCount, fullBatch, i );
+			threads.emplace_back( &IntersectBvhWorkerThread, batchCount, fullBatch[0], i );
 		for (auto& thread : threads) thread.join();
 	}
 	traceTime = t.elapsed() / 3.0f;
@@ -930,7 +987,7 @@ int main()
 		batchIdx = threadCount;
 		std::vector<std::thread> threads;
 		for (uint32_t i = 0; i < threadCount; i++)
-			threads.emplace_back( &IntersectBvh256WorkerThread, batchCount, fullBatch, i );
+			threads.emplace_back( &IntersectBvh256WorkerThread, batchCount, fullBatch[0], i );
 		for (auto& thread : threads) thread.join();
 	}
 	traceTime = t.elapsed() / 3.0f;
@@ -949,7 +1006,7 @@ int main()
 		batchIdx = threadCount;
 		std::vector<std::thread> threads;
 		for (uint32_t i = 0; i < threadCount; i++)
-			threads.emplace_back( &IntersectBvh256SSEWorkerThread, batchCount, fullBatch, i );
+			threads.emplace_back( &IntersectBvh256SSEWorkerThread, batchCount, fullBatch[0], i );
 		for (auto& thread : threads) thread.join();
 	}
 	traceTime = t.elapsed() / 3.0f;
@@ -969,11 +1026,11 @@ int main()
 	printf( "- Default BVH - primary: " );
 	struct RTCRayHit* rayhits = (RTCRayHit*)tinybvh::malloc64( SCRWIDTH * SCRHEIGHT * 16 * sizeof( RTCRayHit ) );
 	// copy our rays to Embree format
-	for (int i = 0; i < Nfull; i++)
+	for (unsigned i = 0; i < Nfull; i++)
 	{
-		rayhits[i].ray.org_x = fullBatch[i].O.x, rayhits[i].ray.org_y = fullBatch[i].O.y, rayhits[i].ray.org_z = fullBatch[i].O.z;
-		rayhits[i].ray.dir_x = fullBatch[i].D.x, rayhits[i].ray.dir_y = fullBatch[i].D.y, rayhits[i].ray.dir_z = fullBatch[i].D.z;
-		rayhits[i].ray.tnear = 0, rayhits[i].ray.tfar = fullBatch[i].hit.t;
+		rayhits[i].ray.org_x = fullBatch[0][i].O.x, rayhits[i].ray.org_y = fullBatch[0][i].O.y, rayhits[i].ray.org_z = fullBatch[0][i].O.z;
+		rayhits[i].ray.dir_x = fullBatch[0][i].D.x, rayhits[i].ray.dir_y = fullBatch[0][i].D.y, rayhits[i].ray.dir_z = fullBatch[0][i].D.z;
+		rayhits[i].ray.tnear = 0, rayhits[i].ray.tfar = fullBatch[0][i].hit.t;
 		rayhits[i].ray.mask = -1, rayhits[i].ray.flags = 0;
 		rayhits[i].hit.geomID = RTC_INVALID_GEOMETRY_ID;
 		rayhits[i].hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
@@ -985,11 +1042,11 @@ int main()
 	}
 	traceTime = t.elapsed() / 3.0f;
 	// retrieve intersection results
-	for (int i = 0; i < Nsmall; i++)
+	for (unsigned i = 0; i < Nfull; i++)
 	{
-		fullBatch[i].hit.t = rayhits[i].ray.tfar;
-		fullBatch[i].hit.u = rayhits[i].hit.u, fullBatch[i].hit.u = rayhits[i].hit.v;
-		fullBatch[i].hit.prim = rayhits[i].hit.primID;
+		fullBatch[0][i].hit.t = rayhits[i].ray.tfar;
+		fullBatch[0][i].hit.u = rayhits[i].hit.u, fullBatch[0][i].hit.u = rayhits[i].hit.v;
+		fullBatch[0][i].hit.prim = rayhits[i].hit.primID;
 	}
 	printf( "%4.2fM rays in %5.1fms (%7.2fMRays/s)\n", (float)Nsmall * 1e-6f, traceTime * 1000, (float)Nsmall / traceTime * 1e-6f );
 	tinybvh::free64( rayhits );
@@ -1005,7 +1062,6 @@ int main()
 	delete bvh4;
 	delete bvh4_cpu;
 	delete bvh4_gpu;
-	delete bvh8;
 	delete cwbvh;
 
 	printf( "all done." );

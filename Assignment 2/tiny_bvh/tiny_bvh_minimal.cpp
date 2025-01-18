@@ -2,13 +2,9 @@
 
 #define TINYBVH_IMPLEMENTATION
 #include "tiny_bvh.h"
-#ifdef _MSC_VER
-#include "stdlib.h"		// for rand
-#include "stdio.h"		// for printf
-#else
+
 #include <cstdlib>
 #include <cstdio>
-#endif
 
 #define TRIANGLE_COUNT	8192
 
@@ -48,25 +44,12 @@ int main()
 	tinybvh::Ray ray( O, D );
 
 	// build a BVH over the scene
-	{
-		tinybvh::BVH bvh;
-		bvh.Build( triangles, TRIANGLE_COUNT );
+	tinybvh::BVH bvh;
+	bvh.Build( triangles, TRIANGLE_COUNT );
 
-		// from here: play with the BVH!
-		int steps = bvh.Intersect( ray );
-		printf( "std: nearest intersection: %f (found in %i traversal steps).\n", ray.hit.t, steps );
-	}
-
-#if defined(BVH_USEAVX)
-	// same thing, using the AVX builder.
-	{
-		tinybvh::BVH bvh;
-		bvh.BuildAVX( triangles, TRIANGLE_COUNT );
-
-		int steps = bvh.Intersect( ray );
-		printf( "avx: nearest intersection: %f (found in %i traversal steps).\n", ray.hit.t, steps );
-	}
-#endif
+	// from here: play with the BVH!
+	int steps = bvh.Intersect( ray );
+	printf( "std: nearest intersection: %f (found in %i traversal steps).\n", ray.hit.t, steps );
 
 	// all done.
 	return 0;
