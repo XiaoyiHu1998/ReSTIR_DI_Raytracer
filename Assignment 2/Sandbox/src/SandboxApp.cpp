@@ -175,11 +175,23 @@ public:
 			else if (settings.Mode == Renderer::Settings::RenderMode::ReSTIR)
 			{
 				ImGui::Text("ReSTIR Rendering");
+				// Base RIS
 				ImGui::Checkbox("Shading Light Occlusion", &settings.LightOcclusionCheckShadingReSTIR);
 				ImGui::Checkbox("Candidate Light Occlusion", &settings.LightOcclusionCheckCandidatesReSTIR);
 				if (ImGui::InputInt("Light Candidates", &settings.CandidateCountReSTIR))
 				{
 					settings.CandidateCountReSTIR = settings.CandidateCountReSTIR < 1 ? 1 : settings.CandidateCountReSTIR;
+				}
+
+				// Spatial Reuse
+				ImGui::Checkbox("Spatial Reuse", &settings.SpatialReuse);
+				if (ImGui::InputInt("Spatial Reuse Neighbours", &settings.SpatialReuseNeighbours))
+				{
+					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
+				}
+				if (ImGui::InputInt("Spatial Reuse Radius", &settings.SpatialReuseRadius))
+				{
+					settings.SpatialReuseRadius = settings.SpatialReuseRadius < 1 ? 1 : settings.SpatialReuseRadius;
 				}
 				ImGui::Separator();
 

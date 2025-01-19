@@ -50,4 +50,8 @@ namespace Utils
 
         return randomInt;
     }
+
+    static float colorToContribution(const glm::vec3& color) {
+        return glm::length(color);
+    };
 }

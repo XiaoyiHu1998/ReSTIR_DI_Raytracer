@@ -125,8 +125,11 @@ public:
 		// ReSTIR Rendering
 		bool LightOcclusionCheckCandidatesReSTIR = false;
 		bool LightOcclusionCheckShadingReSTIR = true;
+		bool SpatialReuse = true;
 
 		int CandidateCountReSTIR = 1;
+		int SpatialReuseNeighbours = 3;
+		int SpatialReuseRadius = 30;
 	};
 private:
 	Settings m_Settings;
@@ -147,6 +150,8 @@ private:
 	Sample SampleLightsPoint(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
+	void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t& seed);
+	void VisibilityPass(Sample& sample);
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed);
 public:
 	Renderer() :

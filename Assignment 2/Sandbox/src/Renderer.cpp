@@ -226,7 +226,11 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 						colorAccumulator += RenderDI(ray, tlas, sphereLights, seed);
 						break;
 					case Settings::RenderMode::ReSTIR:
-						GenerateSample(camera, glm::i32vec2(x, y), index, tlas, sphereLights, seed);
+						glm::i32vec2 pixel = glm::i32vec2(x, y);
+						GenerateSample(camera, pixel, index, tlas, sphereLights, seed);
+						if(m_Settings.SpatialReuse)
+							SpatialReuse(pixel, glm::i32vec2(width, height), seed);
+						VisibilityPass(m_SampleBuffer[index]);
 						colorAccumulator += RenderSample(m_SampleBuffer[index], tlas, seed);
 						break;
 				}
@@ -276,19 +280,25 @@ Sample Renderer::SampleLightsPoint(const Camera& camera, const glm::i32vec2& pix
 	return sample;
 }
 
+glm::vec3 Renderer::TargetDistribution(const PathDI& path)
+{
+	glm::vec3 lightDirection = path.LightLocation - path.HitLocation;
+	float lightDistance = glm::length(lightDirection);
+	lightDirection = glm::normalize(lightDirection);
+
+	float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
+	return BRDF * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
+}
+
 void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Resevoir<Sample> resevoir;
 	Sample sample;
 
-	auto colorToContribution = [](const glm::vec3& color) {
-		return glm::length(color);
-	};
-
 	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
 	{
-		sample = SampleAreaLights(camera, pixel, tlas, sphereLights, seed);
-		float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
+		sample = SampleLightsPoint(camera, pixel, tlas, sphereLights, seed);
+		float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
 		resevoir.Update(sample, weight, seed);
 	}
 
@@ -298,14 +308,52 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
 
-glm::vec3 Renderer::TargetDistribution(const PathDI& path)
+void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t& seed)
 {
-	glm::vec3 lightDirection = path.LightLocation - path.HitLocation;
-	float lightDistance = glm::length(lightDirection);
-	lightDirection = glm::normalize(lightDirection);
+	std::vector<Sample> spatialSamples = std::vector<Sample>();
+	for (int i = 0; i < m_Settings.SpatialReuseNeighbours; i++)
+	{
+		bool validNeighbour = false;
+		while (!validNeighbour)
+		{
+			int xOffset = Utils::RandomInt(0, m_Settings.SpatialReuseRadius, seed);
+			int yOffset = Utils::RandomInt(0, m_Settings.SpatialReuseRadius, seed);
 
-	float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
-	return BRDF * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
+			int newX = pixel.x + xOffset;
+			int newY = pixel.y + yOffset;
+
+			if (0 <= newX && newX < resolution.x && 0 <= newY && newY < resolution.y)
+			{
+				validNeighbour = true;
+				spatialSamples.push_back(m_SampleBuffer[newX + newY * resolution.x]);
+			}
+		}
+	}
+
+	float spatialMISWeight = 1 / m_Settings.SpatialReuseNeighbours + 1; //TODO: use the right weight
+
+	uint32_t bufferIndex = pixel.x + pixel.y * resolution.x;
+	Resevoir<Sample> resevoir; 
+	Sample currentPixelSample = m_SampleBuffer[bufferIndex];
+	float currentPixelWeight = spatialMISWeight * Utils::colorToContribution(TargetDistribution(currentPixelSample.Path)) * currentPixelSample.Weight;
+	resevoir.Update(currentPixelSample, currentPixelWeight, seed);
+	
+	for (int i = 0; i < spatialSamples.size(); i++)
+	{
+		Sample sample = spatialSamples[i];
+		float weight = spatialMISWeight * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
+		resevoir.Update(sample, weight, seed);
+	}
+
+	Sample sample = resevoir.GetSample();
+	float weight = 1 / Utils::colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
+	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
+}
+
+void Renderer::VisibilityPass(Sample& sample)
+{
+	if (!sample.valid)
+		sample.Weight = 0;
 }
 
 glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed)
