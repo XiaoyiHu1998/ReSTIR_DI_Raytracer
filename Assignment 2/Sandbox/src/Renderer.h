@@ -129,7 +129,9 @@ public:
 
 		int CandidateCountReSTIR = 1;
 		int SpatialReuseNeighbours = 3;
-		int SpatialReuseRadius = 30;
+		int SpatialReuseRadius = 15;
+		float SpatialReuseMaxDistance = 0.1f;
+		float SpatialReuseMinNormalSimilarity = 0.85f;
 	};
 private:
 	Settings m_Settings;
@@ -150,7 +152,8 @@ private:
 	Sample SampleLightsPoint(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
-	void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t& seed);
+	Sample ShiftSampleSpatially(const Sample& sample, const Sample& neighbourSample, const TLAS& tlas);
+	void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, const TLAS& tlas, uint32_t& seed);
 	void VisibilityPass(Sample& sample);
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed);
 public:

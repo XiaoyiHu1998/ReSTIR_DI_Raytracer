@@ -229,7 +229,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 						glm::i32vec2 pixel = glm::i32vec2(x, y);
 						GenerateSample(camera, pixel, index, tlas, sphereLights, seed);
 						if(m_Settings.SpatialReuse)
-							SpatialReuse(pixel, glm::i32vec2(width, height), seed);
+							SpatialReuse(pixel, glm::i32vec2(width, height), tlas, seed);
 						VisibilityPass(m_SampleBuffer[index]);
 						colorAccumulator += RenderSample(m_SampleBuffer[index], tlas, seed);
 						break;
@@ -308,9 +308,56 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
 
-void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t& seed)
+Sample Renderer::ShiftSampleSpatially(const Sample& pixelSample, const Sample& neighbourSample, const TLAS& tlas)
+{
+	Sample shiftedSample;
+
+	// Original pixelSample data
+	shiftedSample.Path.CameraOrigin = pixelSample.Path.CameraOrigin;
+	shiftedSample.Path.FirstRayHitInfo = pixelSample.Path.FirstRayHitInfo;
+	shiftedSample.Path.HitLocation = pixelSample.Path.HitLocation;
+
+	// NeighbourSample data
+	shiftedSample.Path.Light = neighbourSample.Path.Light;
+	shiftedSample.Path.LightLocation = neighbourSample.Path.LightLocation;
+
+	// New values
+	bool validDirectLighting = true;
+	Ray shadowRay;
+	if (m_Settings.LightOcclusionCheckCandidatesReSTIR)
+	{
+		Sphere randomSphere = neighbourSample.Path.Light;
+		glm::vec3 lightDirection = randomSphere.position - pixelSample.Path.FirstRayHitInfo.location;
+		float lightDistance = glm::length(lightDirection);
+		lightDirection = glm::normalize(randomSphere.position - pixelSample.Path.FirstRayHitInfo.location);
+
+		Ray shadowRay;
+		if (m_Settings.LightOcclusionCheckCandidatesReSTIR)
+		{
+			if (glm::dot(pixelSample.Path.FirstRayHitInfo.normal, lightDirection) > 0)
+			{
+				shadowRay = Ray(pixelSample.Path.FirstRayHitInfo.location + m_Settings.Eta * lightDirection, lightDirection, lightDistance - 2 * m_Settings.Eta);
+				tlas.Traverse(shadowRay);
+			}
+
+			validDirectLighting = !shadowRay.hitInfo.hit;
+		}
+	}
+
+	validDirectLighting &= glm::length(shiftedSample.Path.HitLocation - neighbourSample.Path.HitLocation) <= m_Settings.SpatialReuseMaxDistance;
+	validDirectLighting &= glm::dot(pixelSample.Path.FirstRayHitInfo.normal, neighbourSample.Path.FirstRayHitInfo.normal) >= m_Settings.SpatialReuseMinNormalSimilarity;
+
+	shiftedSample.valid = validDirectLighting;
+	shiftedSample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
+	shiftedSample.Weight = validDirectLighting ? neighbourSample.Weight : 0.0f; // 1 / PDF
+
+	return shiftedSample;
+}
+
+void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, const TLAS& tlas, uint32_t& seed)
 {
 	std::vector<Sample> spatialSamples = std::vector<Sample>();
+	glm::vec2 neighbourOffset = glm::vec2(0);
 	for (int i = 0; i < m_Settings.SpatialReuseNeighbours; i++)
 	{
 		bool validNeighbour = false;
@@ -321,8 +368,15 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 
 			int newX = pixel.x + xOffset;
 			int newY = pixel.y + yOffset;
+			neighbourOffset.x = xOffset;
+			neighbourOffset.y = yOffset;
 
-			if (0 <= newX && newX < resolution.x && 0 <= newY && newY < resolution.y)
+			auto isBetweenValues = [](uint32_t value, uint32_t min, uint32_t max) {
+				return min <= value && value < max;
+			};
+
+			bool validOffsetRadius = glm::length(neighbourOffset) <= static_cast<float>(m_Settings.SpatialReuseRadius);
+			if (isBetweenValues(newX, 0, resolution.x) && isBetweenValues(newY, 0, resolution.y) && validOffsetRadius)
 			{
 				validNeighbour = true;
 				spatialSamples.push_back(m_SampleBuffer[newX + newY * resolution.x]);
@@ -340,7 +394,7 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 	
 	for (int i = 0; i < spatialSamples.size(); i++)
 	{
-		Sample sample = spatialSamples[i];
+		Sample sample = ShiftSampleSpatially(currentPixelSample, spatialSamples[i], tlas);
 		float weight = spatialMISWeight * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
 		resevoir.Update(sample, weight, seed);
 	}

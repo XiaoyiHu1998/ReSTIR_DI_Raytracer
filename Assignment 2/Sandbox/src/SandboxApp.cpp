@@ -176,6 +176,7 @@ public:
 			{
 				ImGui::Text("ReSTIR Rendering");
 				// Base RIS
+				ImGui::Text("Base RIS");
 				ImGui::Checkbox("Shading Light Occlusion", &settings.LightOcclusionCheckShadingReSTIR);
 				ImGui::Checkbox("Candidate Light Occlusion", &settings.LightOcclusionCheckCandidatesReSTIR);
 				if (ImGui::InputInt("Light Candidates", &settings.CandidateCountReSTIR))
@@ -184,15 +185,18 @@ public:
 				}
 
 				// Spatial Reuse
-				ImGui::Checkbox("Spatial Reuse", &settings.SpatialReuse);
+				ImGui::Text("Spatial Reuse");
+				ImGui::Checkbox("Enable", &settings.SpatialReuse);
 				if (ImGui::InputInt("Spatial Reuse Neighbours", &settings.SpatialReuseNeighbours))
 				{
-					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
+					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 0 ? 0 : settings.SpatialReuseNeighbours;
 				}
 				if (ImGui::InputInt("Spatial Reuse Radius", &settings.SpatialReuseRadius))
 				{
 					settings.SpatialReuseRadius = settings.SpatialReuseRadius < 1 ? 1 : settings.SpatialReuseRadius;
 				}
+				ImGui::DragFloat("Max distance", &settings.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Min Normal Similarity", &settings.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 
 			}
