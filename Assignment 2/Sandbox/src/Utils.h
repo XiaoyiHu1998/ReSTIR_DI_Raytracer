@@ -51,7 +51,38 @@ namespace Utils
         return randomInt;
     }
 
-    static float colorToContribution(const glm::vec3& color) {
+    static float colorToContribution(const glm::vec3& color) 
+    {
         return glm::length(color);
     };
+
+    static std::vector<glm::i32vec2> GetNeighbourPixels(glm::i32vec2 pixel, glm::i32vec2 resolution, int neighbourCandidateCount, float radius, uint32_t& seed)
+    {
+        std::vector<glm::i32vec2> neighbourPixels;
+        neighbourPixels.reserve(neighbourCandidateCount);
+
+        while (neighbourPixels.size() < neighbourCandidateCount)
+        {
+            int xOffset = Utils::RandomInt(0, radius, seed);
+            int yOffset = Utils::RandomInt(0, radius, seed);
+
+            int newX = pixel.x + xOffset;
+            int newY = pixel.y + yOffset;
+
+            glm::vec2 offset;
+            offset.x = xOffset;
+            offset.y = yOffset;
+
+            auto validPixel = [](uint32_t value, uint32_t min, uint32_t max) {
+                return min <= value && value < max;
+            };
+
+            bool validNeighbour = glm::length(offset) <= radius && validPixel(newX, 0, resolution.x) && validPixel(newY, 0, resolution.y);
+            if (validNeighbour)
+                neighbourPixels.push_back(glm::i32vec2(newX, newY));
+        }
+
+        return neighbourPixels;
+    }
+
 }

@@ -213,7 +213,6 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 
 			for (int i = 0; i < m_Settings.SamplesPerPixel; i++)
 			{
-				uint32_t index = x + y * width;
 				switch (m_Settings.Mode)
 				{
 					case Settings::RenderMode::Normals:
@@ -227,11 +226,19 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 						break;
 					case Settings::RenderMode::ReSTIR:
 						glm::i32vec2 pixel = glm::i32vec2(x, y);
-						GenerateSample(camera, pixel, index, tlas, sphereLights, seed);
-						if(m_Settings.SpatialReuse)
-							SpatialReuse(pixel, glm::i32vec2(width, height), tlas, seed);
-						VisibilityPass(m_SampleBuffer[index]);
-						colorAccumulator += RenderSample(m_SampleBuffer[index], tlas, seed);
+						uint32_t bufferIndex = x + y * width;
+
+						// A gentle introduction to ReSTIR
+						//GenerateSample(camera, pixel, bufferIndex, tlas, sphereLights, seed);
+						//if(m_Settings.SpatialReuse)
+						//	SpatialReuse(pixel, glm::i32vec2(width, height), tlas, seed);
+						//VisibilityPass(m_SampleBuffer[bufferIndex]);
+						//colorAccumulator += RenderSample(m_SampleBuffer[bufferIndex], tlas, seed);
+
+						// Original Paper
+						Resevoir<Sample> resevoir = GenerateSamplePaper(camera, pixel, bufferIndex, tlas, sphereLights, seed);
+						//VisibilityPassPaper(resevoir, tlas); // enable after spacialtemporal sampling
+						colorAccumulator += RenderSamplePaper(resevoir, tlas, seed);
 						break;
 				}
 			}
@@ -242,7 +249,7 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 	}
 }
 
-Sample Renderer::SampleLightsPoint(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+Sample Renderer::SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Ray ray = camera.GetRay(pixel.x, pixel.y);
 	tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
@@ -275,7 +282,8 @@ Sample Renderer::SampleLightsPoint(const Camera& camera, const glm::i32vec2& pix
 	sample.Path.FirstRayHitInfo = ray.hitInfo;
 	sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
 	sample.Path.Light = randomSphere;
-	sample.Weight = 1.0f / (1.0f / sphereLights.size()); // 1 / PDF
+	sample.PDF = 1.0f / sphereLights.size();
+	sample.Weight = 1.0f / sample.PDF; // 1 / PDF
 
 	return sample;
 }
@@ -297,14 +305,14 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 
 	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
 	{
-		sample = SampleLightsPoint(camera, pixel, tlas, sphereLights, seed);
-		float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight; // Should mutiply with p-hat Sample.x
+		sample = SamplePointLight(camera, pixel, tlas, sphereLights, seed);
+		//float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight;
+		float weight = Utils::colorToContribution(TargetDistribution(sample.Path)) / sample.Weight;
 		resevoir.Update(sample, weight, seed);
 	}
 
-	sample = resevoir.GetSample();
-	//float weight = 1 / colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
-	float weight = 1.0f / (1.0f / sphereLights.size());
+	sample = resevoir.GetSampleOut();
+	float weight = 1 / Utils::colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
 	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
 
@@ -384,13 +392,11 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		}
 	}
 
-	float spatialMISWeight = 1 / m_Settings.SpatialReuseNeighbours + 1; //TODO: use the right weight
+	float spatialMISWeight = 1.0f / m_Settings.SpatialReuseNeighbours; //TODO: use the right weight
 
 	uint32_t bufferIndex = pixel.x + pixel.y * resolution.x;
 	Resevoir<Sample> resevoir; 
 	Sample currentPixelSample = m_SampleBuffer[bufferIndex];
-	float currentPixelWeight = spatialMISWeight * Utils::colorToContribution(TargetDistribution(currentPixelSample.Path)) * currentPixelSample.Weight;
-	resevoir.Update(currentPixelSample, currentPixelWeight, seed);
 	
 	for (int i = 0; i < spatialSamples.size(); i++)
 	{
@@ -399,7 +405,7 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		resevoir.Update(sample, weight, seed);
 	}
 
-	Sample sample = resevoir.GetSample();
+	Sample sample = resevoir.GetSampleOut();
 	float weight = 1 / Utils::colorToContribution(TargetDistribution(sample.Path)) * resevoir.GetWeightTotal();
 	m_SampleBuffer[bufferIndex] = Sample(sample, weight);
 }
@@ -428,7 +434,7 @@ glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed
 	glm::vec3 lightDirection = sample.Path.LightLocation - sample.Path.HitLocation;
 	float lightDistance = glm::length(lightDirection);
 	lightDirection = glm::normalize(lightDirection);
-	
+
 	bool validDirectLighting = true;
 	if (m_Settings.LightOcclusionCheckShadingReSTIR)
 	{
@@ -445,5 +451,78 @@ glm::vec4 Renderer::RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed
 	if (validDirectLighting)
 		outputColor = TargetDistribution(sample.Path);
 
-	return glm::vec4(outputColor, 1.0f) ;
+	return glm::vec4(outputColor, 1.0f);
+}
+
+Resevoir<Sample> Renderer::GenerateSamplePaper(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+{
+	Resevoir<Sample> resevoir;
+	Sample sample;
+
+	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
+	{
+		sample = SamplePointLight(camera, pixel, tlas, sphereLights, seed);
+		//float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight;
+		float weight = Utils::colorToContribution(TargetDistribution(sample.Path)) / sample.PDF;
+		resevoir.Update(sample, weight, seed);
+	}
+
+	resevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(resevoir.GetSampleOut().Path))) * (resevoir.GetWeightTotal() / resevoir.GetSampleCount());
+	return resevoir;
+}
+
+void Renderer::VisibilityPassPaper(Resevoir<Sample>& resevoir, const TLAS& tlas)
+{
+	PathDI path = resevoir.GetSampleOut().Path;
+	glm::vec3 rayDirection = path.Light.position - path.FirstRayHitInfo.location;
+	float rayDistance = glm::length(rayDirection);
+	rayDirection = glm::normalize(rayDirection);
+	glm::vec3 rayOrigin = path.FirstRayHitInfo.location + m_Settings.Eta * rayDirection;
+
+	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2 * m_Settings.Eta);
+	if (tlas.IsOccluded(shadowRay))
+		resevoir.WeightSampleOut = 0.0f;
+}
+
+Resevoir<Sample> Renderer::SpatialReusePaper(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
+{
+	for (int i = 0; i < m_Settings.SpatialReuseIterationCount; i++)
+	{
+		std::vector<glm::i32vec2> neighbours = Utils::GetNeighbourPixels(pixel, resolution, m_Settings.SpatialReuseNeighbours, m_Settings.SpatialReuseRadius, seed);
+		std::vector<Resevoir<Sample>> resevoirs;
+
+		for (glm::i32vec2 neighbour : neighbours)
+		{
+			resevoirs.push_back(m_ResevoirBuffer[neighbour.x + neighbour.y * resolution.x]);
+		}
+
+		//m_ResevoirBuffer[bufferIndex] = combineResevoirs(m_ResevoirBuffer[bufferIndex], resevoirs);
+	}
+}
+
+glm::vec4 Renderer::RenderSamplePaper(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed)
+{
+	// Direct lighting calculation
+	glm::vec3 outputColor(0.0f);
+	Sample sample = resevoir.GetSampleOut();
+	HitInfo hitInfo = sample.Path.FirstRayHitInfo;
+	Sphere light = sample.Path.Light;
+
+	glm::vec3 lightDirection = sample.Path.LightLocation - sample.Path.HitLocation;
+	float lightDistance = glm::length(lightDirection);
+	lightDirection = glm::normalize(lightDirection);
+
+	if (glm::dot(hitInfo.normal, lightDirection) > 0)
+	{
+		Ray shadowRay = Ray(hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2 * m_Settings.Eta);
+		bool lightOccluded = tlas.IsOccluded(shadowRay);
+		if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
+		{
+			//glm::vec3 BRDF =(hitInfo.material.Albedo / M_PI;
+			float BRDF = glm::dot(hitInfo.normal, lightDirection);
+			outputColor = BRDF * light.material.EmissiveIntensity * light.material.EmissiveColor / (lightDistance * lightDistance);
+		}
+	}
+
+	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
 }

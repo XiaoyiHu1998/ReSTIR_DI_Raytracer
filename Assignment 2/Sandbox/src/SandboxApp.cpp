@@ -189,7 +189,7 @@ public:
 				ImGui::Checkbox("Enable", &settings.SpatialReuse);
 				if (ImGui::InputInt("Spatial Reuse Neighbours", &settings.SpatialReuseNeighbours))
 				{
-					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 0 ? 0 : settings.SpatialReuseNeighbours;
+					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
 				}
 				if (ImGui::InputInt("Spatial Reuse Radius", &settings.SpatialReuseRadius))
 				{

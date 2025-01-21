@@ -40,6 +40,7 @@ struct Sample
 
 	PathDI Path;
 	float Weight;
+	float PDF;
 
 	Sample() :
 		valid{ false }
@@ -57,6 +58,8 @@ struct Sample
 template <class T>
 class Resevoir
 {
+public:
+	float WeightSampleOut;
 private:
 	T m_SampleOut;
 	float m_WeightTotal;
@@ -86,8 +89,9 @@ public:
 		return false;
 	}
 
-	T GetSample() { return m_SampleOut; }
-	float GetWeightTotal() { return m_WeightTotal; }
+	T GetSampleOut() const { return m_SampleOut; }
+	float GetWeightTotal() const { return m_WeightTotal; }
+	int GetSampleCount() const { return m_SampleCount; }
 };
 
 class Renderer
@@ -132,12 +136,14 @@ public:
 		int SpatialReuseRadius = 15;
 		float SpatialReuseMaxDistance = 0.1f;
 		float SpatialReuseMinNormalSimilarity = 0.85f;
+		int SpatialReuseIterationCount = 1;
 	};
 private:
 	Settings m_Settings;
 	float m_LastFrameTime;
 
 	std::vector<Sample> m_SampleBuffer;
+	std::vector<Resevoir<Sample>> m_ResevoirBuffer;
 
 	glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal);
 	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
@@ -149,13 +155,20 @@ private:
 	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	
-	Sample SampleLightsPoint(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	// A GentleIntroduction To ReSTIR
+	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
 	Sample ShiftSampleSpatially(const Sample& sample, const Sample& neighbourSample, const TLAS& tlas);
 	void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, const TLAS& tlas, uint32_t& seed);
 	void VisibilityPass(Sample& sample);
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed);
+
+	// ReSTIR original paper
+	Resevoir<Sample> GenerateSamplePaper(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	void VisibilityPassPaper(Resevoir<Sample>& resevoir, const TLAS& tlas);
+	Resevoir<Sample> SpatialReusePaper(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
+	glm::vec4 RenderSamplePaper(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed);
 public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
