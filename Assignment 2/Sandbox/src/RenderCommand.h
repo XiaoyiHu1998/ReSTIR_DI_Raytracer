@@ -19,4 +19,5 @@ public:
 
 	//TODO: Get this out of RenderCommand
 	static void UpdateSampleBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight);
+	static void UpdateResevoirBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight);
 };

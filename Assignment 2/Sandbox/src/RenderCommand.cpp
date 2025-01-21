@@ -81,3 +81,8 @@ void RenderCommand::UpdateSampleBufferSize(Renderer& renderer, uint32_t currentW
 {
 	renderer.UpdateSampleBufferSize(currentWidth * currentHeight);
 }
+
+void RenderCommand::UpdateResevoirBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight)
+{
+	renderer.UpdateResevoirBufferSize(currentWidth * currentHeight);
+}

@@ -67,7 +67,7 @@ private:
 	int m_SampleCount;
 public:
 	Resevoir() :
-		m_SampleOut{ T()}, m_SampleCount{ 0 }, m_WeightTotal{ 0 }
+		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0 }
 	{}
 
 	Resevoir(T initialSample, float weight) :
@@ -88,6 +88,8 @@ public:
 
 		return false;
 	}
+
+	void SetSampleCount(uint32_t sampleCount) { m_SampleCount = sampleCount; }
 
 	T GetSampleOut() const { return m_SampleOut; }
 	float GetWeightTotal() const { return m_WeightTotal; }
@@ -129,13 +131,14 @@ public:
 		// ReSTIR Rendering
 		bool LightOcclusionCheckCandidatesReSTIR = false;
 		bool LightOcclusionCheckShadingReSTIR = true;
-		bool SpatialReuse = true;
+		bool VisibilityPass = false;
+		bool SpatialReuse = false;
 
 		int CandidateCountReSTIR = 1;
 		int SpatialReuseNeighbours = 3;
 		int SpatialReuseRadius = 15;
-		float SpatialReuseMaxDistance = 0.1f;
-		float SpatialReuseMinNormalSimilarity = 0.85f;
+		float SpatialReuseMaxDistance = 0.06f;
+		float SpatialReuseMinNormalSimilarity = 0.90f;
 		int SpatialReuseIterationCount = 1;
 	};
 private:
@@ -165,6 +168,7 @@ private:
 	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed);
 
 	// ReSTIR original paper
+	Resevoir<Sample> CombineResevoirsBiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed);
 	Resevoir<Sample> GenerateSamplePaper(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	void VisibilityPassPaper(Resevoir<Sample>& resevoir, const TLAS& tlas);
 	Resevoir<Sample> SpatialReusePaper(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
@@ -173,7 +177,8 @@ public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
-		m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
+		m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		m_ResevoirBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
 	}
 
 	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights);
@@ -184,5 +189,10 @@ public:
 	void UpdateSampleBufferSize(uint32_t bufferSize)
 	{
 		m_SampleBuffer.resize(bufferSize);
+	}
+
+	void UpdateResevoirBufferSize(uint32_t bufferSize)
+	{
+		m_ResevoirBuffer.resize(bufferSize);
 	}
 };

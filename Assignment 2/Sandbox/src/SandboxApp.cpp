@@ -116,6 +116,7 @@ public:
 
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UpdateSampleBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::UpdateResevoirBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
 		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly, m_SphereLights);
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
@@ -177,21 +178,26 @@ public:
 				ImGui::Text("ReSTIR Rendering");
 				// Base RIS
 				ImGui::Text("Base RIS");
-				ImGui::Checkbox("Shading Light Occlusion", &settings.LightOcclusionCheckShadingReSTIR);
-				ImGui::Checkbox("Candidate Light Occlusion", &settings.LightOcclusionCheckCandidatesReSTIR);
-				if (ImGui::InputInt("Light Candidates", &settings.CandidateCountReSTIR))
+				ImGui::Checkbox("Shading Light Occlusion (Deprecated)", &settings.LightOcclusionCheckShadingReSTIR);
+				ImGui::Checkbox("Candidate Light Occlusion (Deprecated)", &settings.LightOcclusionCheckCandidatesReSTIR);
+				if (ImGui::InputInt("Candidate Count RIS", &settings.CandidateCountReSTIR))
 				{
 					settings.CandidateCountReSTIR = settings.CandidateCountReSTIR < 1 ? 1 : settings.CandidateCountReSTIR;
 				}
+				ImGui::Checkbox("Visibility Pass", &settings.VisibilityPass);
 
 				// Spatial Reuse
 				ImGui::Text("Spatial Reuse");
 				ImGui::Checkbox("Enable", &settings.SpatialReuse);
-				if (ImGui::InputInt("Spatial Reuse Neighbours", &settings.SpatialReuseNeighbours))
+				if (ImGui::InputInt("Iterations", &settings.SpatialReuseIterationCount))
 				{
 					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
 				}
-				if (ImGui::InputInt("Spatial Reuse Radius", &settings.SpatialReuseRadius))
+				if (ImGui::InputInt("Neighbours", &settings.SpatialReuseNeighbours))
+				{
+					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
+				}
+				if (ImGui::InputInt("Radius", &settings.SpatialReuseRadius))
 				{
 					settings.SpatialReuseRadius = settings.SpatialReuseRadius < 1 ? 1 : settings.SpatialReuseRadius;
 				}

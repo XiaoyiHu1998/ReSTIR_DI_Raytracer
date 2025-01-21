@@ -236,9 +236,15 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 						//colorAccumulator += RenderSample(m_SampleBuffer[bufferIndex], tlas, seed);
 
 						// Original Paper
-						Resevoir<Sample> resevoir = GenerateSamplePaper(camera, pixel, bufferIndex, tlas, sphereLights, seed);
-						//VisibilityPassPaper(resevoir, tlas); // enable after spacialtemporal sampling
-						colorAccumulator += RenderSamplePaper(resevoir, tlas, seed);
+						m_ResevoirBuffer[bufferIndex] = GenerateSamplePaper(camera, pixel, bufferIndex, tlas, sphereLights, seed);
+
+						if (m_Settings.VisibilityPass)
+							VisibilityPassPaper(m_ResevoirBuffer[bufferIndex], tlas);
+
+						if (m_Settings.SpatialReuse)
+							SpatialReusePaper(pixel, glm::i32vec2(width, height), bufferIndex, seed);
+
+						colorAccumulator += RenderSamplePaper(m_ResevoirBuffer[bufferIndex], tlas, seed);
 						break;
 				}
 			}
@@ -491,12 +497,23 @@ Resevoir<Sample> Renderer::SpatialReusePaper(const glm::i32vec2& pixel, const gl
 		std::vector<glm::i32vec2> neighbours = Utils::GetNeighbourPixels(pixel, resolution, m_Settings.SpatialReuseNeighbours, m_Settings.SpatialReuseRadius, seed);
 		std::vector<Resevoir<Sample>> resevoirs;
 
+		Resevoir<Sample> pixelResevoir = m_ResevoirBuffer[pixel.x + pixel.y * resolution.x];
+		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
+		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
 		for (glm::i32vec2 neighbour : neighbours)
 		{
-			resevoirs.push_back(m_ResevoirBuffer[neighbour.x + neighbour.y * resolution.x]);
+			Resevoir<Sample> neighbourResevoir = m_ResevoirBuffer[neighbour.x + neighbour.y * resolution.x];
+			glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
+			glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
+
+			bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
+			bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
+
+			if (withinMaxDistance && similarNormals)
+				resevoirs.push_back(neighbourResevoir);
 		}
 
-		//m_ResevoirBuffer[bufferIndex] = combineResevoirs(m_ResevoirBuffer[bufferIndex], resevoirs);
+		m_ResevoirBuffer[bufferIndex] = CombineResevoirsBiased(m_ResevoirBuffer[bufferIndex], resevoirs, seed);
 	}
 }
 
@@ -525,4 +542,26 @@ glm::vec4 Renderer::RenderSamplePaper(const Resevoir<Sample>& resevoir, const TL
 	}
 
 	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
+}
+
+Resevoir<Sample> Renderer::CombineResevoirsBiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed)
+{
+	Resevoir<Sample> combinedResevoir;
+
+	int totalCandidates = 0;
+	newResevoirs.push_back(originalResevoir);
+	for (int i = 0; i < newResevoirs.size(); i++)
+	{
+		Resevoir<Sample> currentResevoir = newResevoirs[i];
+		Sample sample = currentResevoir.GetSampleOut();
+		float weight = Utils::colorToContribution(TargetDistribution(sample.Path)) * currentResevoir.WeightSampleOut * currentResevoir.GetSampleCount();
+		combinedResevoir.Update(sample, weight, seed);
+
+		totalCandidates += currentResevoir.GetSampleCount();
+	}
+
+	combinedResevoir.SetSampleCount(totalCandidates);
+	combinedResevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(combinedResevoir.GetSampleOut().Path))) * (combinedResevoir.GetWeightTotal() / combinedResevoir.GetSampleCount());
+
+	return combinedResevoir;
 }
