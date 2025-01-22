@@ -178,6 +178,9 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 	auto timeStart = std::chrono::system_clock::now();
 	TaskBatch taskBatch(m_Settings.ThreadCount);
 
+	m_CurrentBuffer = (m_CurrentBuffer + 1) % 1;
+	m_PrevBuffer = (m_PrevBuffer + 1) % 1;
+
 	for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
 	{
 		for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
@@ -227,8 +230,6 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 					case Settings::RenderMode::ReSTIR:
 						glm::i32vec2 pixel = glm::i32vec2(x, y);
 						uint32_t bufferIndex = x + y * width;
-						m_CurrentBuffer = (m_CurrentBuffer + 1) % 1;
-						m_PrevBuffer = (m_PrevBuffer + 1) % 1;
 
 						// ReSTIR passes
 						m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = GenerateSample(camera, pixel, bufferIndex, tlas, sphereLights, seed);
@@ -373,18 +374,50 @@ Resevoir<Sample> Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i3
 
 void Renderer::TemporalReuse(const Camera& camera, const Resevoir<Sample>& resevoir, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed)
 {
+	// Follows original paper pseudocode, does not seem to do much
 	Resevoir<Sample> currentFrameResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
-
+	
 	glm::vec3 hitLocation = resevoir.GetSampleOut().Path.HitLocation;
 	glm::i32vec2 prevFramePixel = camera.GetPrevFramePixelCoordinates(hitLocation);
+	Resevoir<Sample> prevFrameResevoir = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x];
 	bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
-
-	if (withinBounds)
+	bool sameNormal = glm::dot(resevoir.GetSampleOut().Path.FirstRayHitInfo.normal, prevFrameResevoir.GetSampleOut().Path.FirstRayHitInfo.normal) >= 0.99;
+	
+	if (withinBounds && sameNormal)
 	{
 		std::vector<Resevoir<Sample>> prevFrameResevoir;
 		prevFrameResevoir.push_back(m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x]);
 		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirsBiased(currentFrameResevoir, prevFrameResevoir, seed);
 	}
+
+	// A gentle introduction to Restir method
+
+	//glm::vec3 hitLocation = resevoir.GetSampleOut().Path.HitLocation;
+	//glm::i32vec2 prevFramePixel = camera.GetPrevFramePixelCoordinates(hitLocation);
+	//bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
+	//
+	//if (withinBounds)
+	//{
+	//	Resevoir<Sample> temporalResevoir;
+	//
+	//	Sample currentSample = resevoir.GetSampleOut();
+	//	Sample prevSample = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x].GetSampleOut();
+	//
+	//	float contributionCurrent = Utils::colorToContribution(TargetDistribution(currentSample.Path));
+	//	float contributionPrev = Utils::colorToContribution(TargetDistribution(prevSample.Path));
+	//	float MISWeightCurrent = contributionCurrent / (20 * contributionPrev + contributionCurrent);
+	//	float MISWeightPrev = (20 * contributionPrev) / (20 * contributionPrev + contributionCurrent);
+	//
+	//	float weightCurrent = MISWeightCurrent * contributionCurrent * currentSample.Weight;
+	//	temporalResevoir.Update(currentSample, weightCurrent, seed);
+	//
+	//	float weightPrev = MISWeightPrev * contributionPrev * prevSample.Weight;
+	//	temporalResevoir.Update(prevSample, weightPrev, seed);
+	//
+	//	Sample sampleOut = temporalResevoir.GetSampleOut();
+	//	temporalResevoir.WeightSampleOut = 1.0f / Utils::colorToContribution(TargetDistribution(sampleOut.Path)) * temporalResevoir.GetWeightTotal();
+	//	m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = temporalResevoir;
+	//}
 }
 
 glm::vec4 Renderer::RenderSample(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed)

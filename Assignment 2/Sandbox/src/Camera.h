@@ -20,6 +20,7 @@ public:
 private:
 	//Viewport
 	float m_Width, m_Height;
+	float m_PrevWidth, m_PrevHeight;
 	float m_VerticalFov;
 
 	//Frustrum
@@ -75,11 +76,11 @@ public:
 
 	void SetTransform(Transform transform) { transform = transform; UpdateCameraMatrix(); }
 	void SetUpDirection(glm::vec3 upDirection) { m_UpDirection = glm::normalize(upDirection); UpdateCameraMatrix(); }
-	void SetResolution(uint32_t width, uint32_t height) { m_Width = static_cast<float>(width); m_Height = static_cast<float>(height); UpdateCameraMatrix(); }
+	void SetResolution(uint32_t width, uint32_t height);
 
 	void UpdateCameraMatrix();
 	void UpdateFrustrum();
 
 private:
-	glm::vec3 GetDirection(uint32_t x, uint32_t y) const;
+	glm::vec3 GetDirection(uint32_t x, uint32_t y, bool translateDirection = false) const;
 };
