@@ -3,6 +3,15 @@
 #include "Include.h"
 #include "Ray.h"
 #include "Transform.h"
+#include "Primitives.h"
+
+struct FrustrumNormals
+{
+	glm::vec3 top;
+	glm::vec3 bottom;
+	glm::vec3 left;
+	glm::vec3 right;
+};
 
 class Camera
 {
@@ -12,6 +21,10 @@ private:
 	//Viewport
 	float m_Width, m_Height;
 	float m_VerticalFov;
+
+	//Frustrum
+	FrustrumNormals m_CurrentFrustrum;
+	FrustrumNormals m_PrevFrustrum;
 
 	//Transform - set by user
 	glm::vec3 m_TargetPosition;
@@ -31,6 +44,7 @@ public:
 		transform{ Transform(glm::vec3(0, 0, 10), glm::vec3(0), glm::vec3(1)) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
 		UpdateCameraMatrix();
+		UpdateFrustrum();
 	}
 
 	Camera(uint32_t width, uint32_t height, float verticalFov = 60):
@@ -38,11 +52,12 @@ public:
 		transform{ Transform(glm::vec3(0, 0, 10), glm::vec3(0), glm::vec3(1)) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
 		UpdateCameraMatrix();
+		UpdateFrustrum();
 	}
 
 	~Camera() = default;
 
-	Ray GetRay(uint32_t x, uint32_t y, bool random = false) const;
+	Ray GetRay(uint32_t x, uint32_t y) const;
 
 	float GetFOV() const				{ return m_VerticalFov; }
 	float& GetFOVRef()					{ return m_VerticalFov; }
@@ -56,10 +71,15 @@ public:
 	glm::mat4 GetCameraMatrix()			{ return m_TransformMatrix; }
 	glm::mat4 GetInverseCameraMatrix()	{ return m_InverseTransformMatrix; }
 	glm::i32vec2 GetResolution()		{ return glm::i32vec2(m_Width, m_Height); }
+	glm::i32vec2 GetPrevFramePixelCoordinates(const glm::vec3& worldPosition) const;
 
 	void SetTransform(Transform transform) { transform = transform; UpdateCameraMatrix(); }
 	void SetUpDirection(glm::vec3 upDirection) { m_UpDirection = glm::normalize(upDirection); UpdateCameraMatrix(); }
 	void SetResolution(uint32_t width, uint32_t height) { m_Width = static_cast<float>(width); m_Height = static_cast<float>(height); UpdateCameraMatrix(); }
 
 	void UpdateCameraMatrix();
+	void UpdateFrustrum();
+
+private:
+	glm::vec3 GetDirection(uint32_t x, uint32_t y) const;
 };

@@ -67,7 +67,7 @@ private:
 	int m_SampleCount;
 public:
 	Resevoir() :
-		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0 }
+		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
 	{}
 
 	Resevoir(T initialSample, float weight) :
@@ -109,15 +109,14 @@ public:
 			ReSTIR = 3
 		};
 
-		RenderMode Mode = RenderMode::DI;
+		RenderMode Mode = RenderMode::ReSTIR;
 
-		uint32_t ThreadCount = std::thread::hardware_concurrency() - 2;
+		uint32_t ThreadCount = std::thread::hardware_concurrency() - 1;
 
 		uint32_t RenderResolutionWidth = 640;
 		uint32_t RenderResolutionHeight = 480;
 		uint32_t RenderingKernelSize = 16;
 		uint32_t SamplesPerPixel = 1;
-		uint32_t MaxRayDepth = 1;
 
 		bool RandomSeed = true;
 		float Eta = 0.001f;
@@ -129,24 +128,28 @@ public:
 		int CandidateCountDI = 1;
 
 		// ReSTIR Rendering
-		bool LightOcclusionCheckCandidatesReSTIR = false;
-		bool LightOcclusionCheckShadingReSTIR = true;
-		bool VisibilityPass = false;
-		bool SpatialReuse = false;
-
 		int CandidateCountReSTIR = 1;
+
+		bool EnableVisibilityPass = true;
+		bool EnableSpatialReuse = false;
+
+		int SpatialReuseIterationCount = 2;
 		int SpatialReuseNeighbours = 3;
 		int SpatialReuseRadius = 15;
 		float SpatialReuseMaxDistance = 0.06f;
 		float SpatialReuseMinNormalSimilarity = 0.90f;
-		int SpatialReuseIterationCount = 1;
+
+		bool EnableTemporalReuse = false;
+
 	};
 private:
 	Settings m_Settings;
 	float m_LastFrameTime;
 
 	std::vector<Sample> m_SampleBuffer;
-	std::vector<Resevoir<Sample>> m_ResevoirBuffer;
+	std::vector<Resevoir<Sample>> m_ResevoirBuffers[2];
+	int m_CurrentBuffer;
+	int m_PrevBuffer;
 
 	glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal);
 	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
@@ -157,28 +160,30 @@ private:
 private:
 	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	
-	// A GentleIntroduction To ReSTIR
-	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	glm::vec3 TargetDistribution(const PathDI& path);
 	Sample ShiftSampleSpatially(const Sample& sample, const Sample& neighbourSample, const TLAS& tlas);
-	void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, const TLAS& tlas, uint32_t& seed);
-	void VisibilityPass(Sample& sample);
-	glm::vec4 RenderSample(Sample sample, const TLAS& tlas, uint32_t& seed);
 
 	// ReSTIR original paper
+	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	glm::vec3 TargetDistribution(const PathDI& path);
 	Resevoir<Sample> CombineResevoirsBiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed);
-	Resevoir<Sample> GenerateSamplePaper(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	void VisibilityPassPaper(Resevoir<Sample>& resevoir, const TLAS& tlas);
-	Resevoir<Sample> SpatialReusePaper(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
-	glm::vec4 RenderSamplePaper(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed);
+	Resevoir<Sample> GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
+	Resevoir<Sample> SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
+	glm::i32vec2 GetTemporalNeighbourPixel(const Camera& camera, const glm::i32vec2& resolution, const glm::vec3& hitLocation);
+	void TemporalReuse(const Camera& camera, const Resevoir<Sample>& resevoir, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
+	glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed);
 public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
 		m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		m_ResevoirBuffers[0] = std::vector<Resevoir<Sample>>();
+		m_ResevoirBuffers[1] = std::vector<Resevoir<Sample>>();
+		m_ResevoirBuffers[0].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		m_ResevoirBuffers[1].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+
+		m_CurrentBuffer = 0;
+		m_PrevBuffer = 1;
 	}
 
 	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights);
@@ -191,8 +196,10 @@ public:
 		m_SampleBuffer.resize(bufferSize);
 	}
 
+	//TODO: Need to make resize happen after flipping m_CurrentBuffer to support resizing during temporal reuse
 	void UpdateResevoirBufferSize(uint32_t bufferSize)
 	{
-		m_ResevoirBuffer.resize(bufferSize);
+		m_ResevoirBuffers[0].resize(bufferSize);
+		m_ResevoirBuffers[1].resize(bufferSize);
 	}
 };

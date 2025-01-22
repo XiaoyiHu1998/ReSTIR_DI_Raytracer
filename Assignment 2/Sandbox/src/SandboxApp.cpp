@@ -113,6 +113,7 @@ public:
 		m_CurrentWidth = m_NextWidth;
 		m_CurrentHeight = m_NextHeight;
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
+		m_Camera.UpdateFrustrum();
 
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UpdateSampleBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
@@ -175,20 +176,18 @@ public:
 			}
 			else if (settings.Mode == Renderer::Settings::RenderMode::ReSTIR)
 			{
-				ImGui::Text("ReSTIR Rendering");
-				// Base RIS
-				ImGui::Text("Base RIS");
-				ImGui::Checkbox("Shading Light Occlusion (Deprecated)", &settings.LightOcclusionCheckShadingReSTIR);
-				ImGui::Checkbox("Candidate Light Occlusion (Deprecated)", &settings.LightOcclusionCheckCandidatesReSTIR);
+				// Streaming RIS
+				ImGui::Text("Streaming RIS");
 				if (ImGui::InputInt("Candidate Count RIS", &settings.CandidateCountReSTIR))
 				{
 					settings.CandidateCountReSTIR = settings.CandidateCountReSTIR < 1 ? 1 : settings.CandidateCountReSTIR;
 				}
-				ImGui::Checkbox("Visibility Pass", &settings.VisibilityPass);
+				ImGui::Checkbox("Visibility Pass", &settings.EnableVisibilityPass);
+				ImGui::Separator();
 
 				// Spatial Reuse
 				ImGui::Text("Spatial Reuse");
-				ImGui::Checkbox("Enable", &settings.SpatialReuse);
+				ImGui::Checkbox("Enable", &settings.EnableSpatialReuse);
 				if (ImGui::InputInt("Iterations", &settings.SpatialReuseIterationCount))
 				{
 					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
@@ -204,6 +203,9 @@ public:
 				ImGui::DragFloat("Max distance", &settings.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
 				ImGui::DragFloat("Min Normal Similarity", &settings.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
+
+				// Temporal Reuse
+				ImGui::Checkbox("Temporal Reuse", &settings.EnableTemporalReuse);
 
 			}
 

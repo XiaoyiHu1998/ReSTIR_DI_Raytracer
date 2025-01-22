@@ -19,11 +19,41 @@ void Camera::UpdateCameraMatrix()
 	m_CameraPlaneDistance = -m_Height / (2.0f * tan(glm::radians(m_VerticalFov) / 2.0f));
 }
 
-Ray Camera::GetRay(uint32_t x, uint32_t y, bool random) const
+void Camera::UpdateFrustrum()
+{
+	m_PrevFrustrum = m_CurrentFrustrum;
+
+	glm::vec3 origin = transform.translation;
+	glm::vec3 topLeft = transform.translation + GetDirection(0, 0);
+	glm::vec3 topRight = transform.translation + GetDirection(m_Width, 0);
+	glm::vec3 bottomLeft = transform.translation + GetDirection(0, m_Height);
+	glm::vec3 bottomRight = transform.translation + GetDirection(m_Width, m_Height);
+
+	// Triangle normals are already normalized
+	m_CurrentFrustrum.top = Triangle(Vertex(origin), Vertex(topLeft), Vertex(topRight)).GetNormal();
+	m_CurrentFrustrum.bottom = Triangle(Vertex(origin), Vertex(bottomRight), Vertex(bottomLeft)).GetNormal();
+	m_CurrentFrustrum.left = Triangle(Vertex(origin), Vertex(bottomLeft), Vertex(topLeft)).GetNormal();
+	m_CurrentFrustrum.right = Triangle(Vertex(origin), Vertex(topRight), Vertex(bottomRight)).GetNormal();
+}
+
+glm::vec3 Camera::GetDirection(uint32_t x, uint32_t y) const
 {
 	float directionX = (x + 0.5f) - static_cast<float>(m_Width) / 2.0f;
 	float directionY = -(y + 0.5f) + static_cast<float>(m_Height) / 2.0f; // this flips the image at the same time
 
-	glm::vec3 rayDirection = glm::normalize(m_TransformMatrix * glm::vec4(directionX, directionY, m_CameraPlaneDistance, 0.0f));
-	return Ray(transform.translation, rayDirection);
+	return glm::normalize(m_TransformMatrix * glm::vec4(directionX, directionY, m_CameraPlaneDistance, 0.0f));
+}
+
+Ray Camera::GetRay(uint32_t x, uint32_t y) const
+{
+	return Ray(transform.translation, GetDirection(x, y));
+}
+
+glm::i32vec2 Camera::GetPrevFramePixelCoordinates(const glm::vec3& worldPosition) const
+{
+	glm::vec3 cameraOffset = worldPosition - transform.translation;
+	float u = glm::abs(glm::dot(m_PrevFrustrum.left, cameraOffset));
+	float v = glm::abs(glm::dot(m_PrevFrustrum.top, cameraOffset));
+
+	return glm::i32vec2(1.0f - u * m_Width, 1.0f - v * m_Height);
 }
