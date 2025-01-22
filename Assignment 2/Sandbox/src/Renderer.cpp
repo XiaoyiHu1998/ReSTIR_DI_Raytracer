@@ -6,92 +6,6 @@
 #include "Utils.h"
 #include "TaskBatch.h"
 
-glm::vec3 Renderer::Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal) {
-	return incomingDirection - normal * 2.f * (glm::dot(incomingDirection, normal));
-}
-
-glm::vec3 Renderer::Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i) { // Snell's law
-	float cosi = -std::max(-1.f, std::min(1.f, glm::dot(incomingDirection, normal)));
-	if (cosi < 0) return Refract(incomingDirection, -normal, eta_i, eta_t); // if the ray comes from the inside the object, swap the air and the media
-	float eta = eta_i / eta_t;
-	float k = 1 - eta * eta * (1 - cosi * cosi);
-	return k < 0 ? glm::vec3(1, 0, 0) : incomingDirection * eta + normal * (eta * cosi - sqrtf(k)); // k<0 = total reflection, no ray to refract. I refract it anyways, this has no physical meaning
-}
-
-
-LightSampleInfo Renderer::SampleRandomLight(const glm::vec3& hitLocation, const TLAS& tlasEmmisive, uint32_t& seed)
-{
-	LightSampleInfo lightInfo;
-
-	uint32_t randomLightIndex = Utils::RandomInt(0, tlasEmmisive.GetObjectCount(), seed);
-	std::shared_ptr<BLAS> lightBLAS = tlasEmmisive.GetBLAS(randomLightIndex);
-	Triangle randomTriangle = lightBLAS->GetRandomTriangle(lightInfo.Probability, seed);
-	glm::vec3 randomPoint = randomTriangle.GetRandomPoint(seed);
-
-	lightInfo.location = randomPoint;
-	lightInfo.direction = randomPoint - hitLocation;
-	lightInfo.distance = glm::length(lightInfo.direction);
-	lightInfo.direction = glm::normalize(lightInfo.direction);
-	lightInfo.Area = lightBLAS->GetArea();
-	lightInfo.normal = randomTriangle.GetNormal();
-	lightInfo.emissiveIntensity = lightBLAS->GetMaterial().EmissiveIntensity;
-	lightInfo.emissiveColor = lightBLAS->GetMaterial().EmissiveColor;
-	lightInfo.Probability = (1.0f / static_cast<float>(tlasEmmisive.GetObjectCount())) * (1.0f / lightBLAS->GetArea());
-
-	return lightInfo;
-}
-
-
-LightSampleInfo Renderer::SampleRandomLight(const glm::vec3& hitLocation, const std::vector<Sphere>& sphereLights, uint32_t& seed)
-{
-	LightSampleInfo lightInfo;
-
-	uint32_t randomLightIndex = Utils::RandomInt(0, sphereLights.size(), seed);
-	Sphere sphere = sphereLights[randomLightIndex];
-
-	lightInfo.location = sphere.position;
-	lightInfo.direction = sphere.position - hitLocation;
-	lightInfo.distance = glm::length(lightInfo.direction);
-	lightInfo.direction = glm::normalize(lightInfo.direction);
-	lightInfo.Area = sphere.Area();
-	lightInfo.normal = -1.0f * lightInfo.direction;
-	lightInfo.emissiveIntensity = sphere.material.EmissiveIntensity;
-	lightInfo.emissiveColor = sphere.material.EmissiveColor;
-	lightInfo.Probability = 1.0f / static_cast<float>(sphereLights.size());
-
-	return lightInfo;
-}
-
-glm::vec3 Renderer::RandomPointOnHemisphere(const glm::vec3& normal, uint32_t& seed)
-{
-	glm::vec3 randomVector = glm::normalize(glm::vec3(Utils::RandomFloat(seed), Utils::RandomFloat(seed), Utils::RandomFloat(seed)));
-
-	while (glm::dot(randomVector, normal) <= 0)
-	{
-		randomVector = glm::normalize(glm::vec3(Utils::RandomFloat(seed), Utils::RandomFloat(seed), Utils::RandomFloat(seed)));
-	}
-
-	return randomVector;
-}
-
-
-glm::vec3 Renderer::CosineSampleHemisphere(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& tangent, uint32_t& seed)
-{
-	float r0 = Utils::RandomFloat(seed);
-	float r1 = Utils::RandomFloat(seed);
-	float radius = std::sqrt(r0);
-	float theta = 2 * M_PI * r1;
-	float x = radius * std::cos(theta);
-	float y = radius * std::sin(theta);
-	glm::vec3 randomPoint(x, y, std::sqrt(1 - r0)); // point on hemisphere around +z axis
-
-	// Rotate 180 degrees such that the point is on the hemisphere with -z axis before using glm::lookAt transform
-	glm::mat4 transform = glm::lookAt(position, position + normal, tangent);
-	randomPoint = glm::vec3(randomPoint.x, randomPoint.y, randomPoint.z * -1.0f);
-
-	return glm::normalize(transform * glm::vec4(randomPoint, 1.0f));
-}
-
 namespace RenderModeNormal
 {
 	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, uint32_t& seed)
@@ -169,33 +83,96 @@ glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Spher
 		}
 	}
 
-	//glm::vec3 distanceColor = glm::vec3(ray.hitInfo.distance / 1000);
 	return glm::vec4(E, 1.0f);
 }
 
-void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights)
+void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const std::vector<Sphere>& sphereLights)
 {
 	auto timeStart = std::chrono::system_clock::now();
-	TaskBatch taskBatch(m_Settings.ThreadCount);
 
-	m_CurrentBuffer = (m_CurrentBuffer + 1) % 1;
-	m_PrevBuffer = (m_PrevBuffer + 1) % 1;
-
-	for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+	if (m_Settings.Mode != Settings::RenderMode::ReSTIR) 
 	{
-		for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+		TaskBatch taskBatch(m_Settings.ThreadCount);
+		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
 		{
-			uint32_t seed = x + y * width;
-			taskBatch.EnqueueTask([=]() { RenderKernelFrameBuffer(camera, frameBuffer, width, height, x, y, tlas, tlasEmmisive, sphereLights, seed); });
+			for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			{
+				uint32_t seed = x + y * width;
+				taskBatch.EnqueueTask([=]() { RenderKernelNonReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, seed); });
+			}
 		}
+		taskBatch.ExecuteTasks();
+	}
+	else 
+	{
+		m_CurrentBuffer = (m_CurrentBuffer + 1) % 1;
+		m_PrevBuffer = (m_PrevBuffer + 1) % 1;
+
+		TaskBatch risBatch(m_Settings.ThreadCount);
+		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+		{
+			for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			{
+				risBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::RIS, x + y * width); });
+			}
+		}
+		risBatch.ExecuteTasks();
+
+		if (m_Settings.EnableVisibilityPass)
+		{
+			TaskBatch visibilityBatch(m_Settings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			{
+				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				{
+					visibilityBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Visibility, x + y * width); });
+				}
+			}
+			visibilityBatch.ExecuteTasks();
+		}
+
+		if (m_Settings.EnableTemporalReuse)
+		{
+			TaskBatch TemporalBatch(m_Settings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			{
+				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				{
+					TemporalBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Temporal, x + y * width); });
+				}
+			}
+			TemporalBatch.ExecuteTasks();
+		}
+
+		if (m_Settings.EnableSpatialReuse)
+		{
+			TaskBatch SpatialBatch(m_Settings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			{
+				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				{
+					SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Spatial, x + y * width); });
+				}
+			}
+			SpatialBatch.ExecuteTasks();
+		}
+		
+		TaskBatch shadingBatch(m_Settings.ThreadCount);
+		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+		{
+			for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			{
+				shadingBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Shading, x + y * width); });
+			}
+		}
+		shadingBatch.ExecuteTasks();
 	}
 
-	taskBatch.ExecuteTasks();
 	auto timeEnd = std::chrono::system_clock::now();
 	m_LastFrameTime = std::chrono::duration<float, std::ratio<1,1000>>(timeEnd - timeStart).count();
 }
 
-void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t seed)
+void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t seed)
 {
 	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
 	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
@@ -214,42 +191,65 @@ void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer
 			Ray ray = camera.GetRay(x, y);
 			glm::vec4 colorAccumulator = glm::vec4(0);
 
-			for (int i = 0; i < m_Settings.SamplesPerPixel; i++)
+			switch (m_Settings.Mode)
 			{
-				switch (m_Settings.Mode)
-				{
-					case Settings::RenderMode::Normals:
-						colorAccumulator += RenderModeNormal::RenderRay(ray, tlas, seed);
-						break;
-					case Settings::RenderMode::TraversalSteps:
-						colorAccumulator += RenderModeTraversalSteps::RenderRay(ray, tlas, seed);
-						break;
-					case Settings::RenderMode::DI:
-						colorAccumulator += RenderDI(ray, tlas, sphereLights, seed);
-						break;
-					case Settings::RenderMode::ReSTIR:
-						glm::i32vec2 pixel = glm::i32vec2(x, y);
-						uint32_t bufferIndex = x + y * width;
-
-						// ReSTIR passes
-						m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = GenerateSample(camera, pixel, bufferIndex, tlas, sphereLights, seed);
-
-						if (m_Settings.EnableVisibilityPass)
-							VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas);
-
-						if (m_Settings.EnableTemporalReuse)
-							TemporalReuse(camera, m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], pixel, glm::i32vec2(width, height), bufferIndex, seed);
-
-						if (m_Settings.EnableSpatialReuse)
-							SpatialReuse(pixel, glm::i32vec2(width, height), bufferIndex, seed);
-
-						colorAccumulator += RenderSample(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas, seed);
-						break;
-				}
+			case Settings::RenderMode::Normals:
+				colorAccumulator += RenderModeNormal::RenderRay(ray, tlas, seed);
+				break;
+			case Settings::RenderMode::TraversalSteps:
+				colorAccumulator += RenderModeTraversalSteps::RenderRay(ray, tlas, seed);
+				break;
+			case Settings::RenderMode::DI:
+				colorAccumulator += RenderDI(ray, tlas, sphereLights, seed);
+				break;
 			}
 
-			//colorAccumulator /= static_cast<float>(m_Settings.SamplesPerPixel);
 			Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+		}
+	}
+}
+
+void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, ReSTIRPass restirPass, uint32_t seed)
+{
+	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
+
+	if (m_Settings.RandomSeed)
+	{
+		auto duration = std::chrono::system_clock::now().time_since_epoch();
+		auto milliseconds = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+		seed += milliseconds;
+	}
+
+	for (uint32_t y = yMin; y < yMax; y++)
+	{
+		for (uint32_t x = xMin; x < xMax; x++)
+		{
+			Ray ray = camera.GetRay(x, y);
+			glm::vec4 colorAccumulator = glm::vec4(0);
+
+			glm::i32vec2 pixel = glm::i32vec2(x, y);
+			uint32_t bufferIndex = x + y * width;
+
+			switch (restirPass)
+			{
+			case ReSTIRPass::RIS:
+				m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = GenerateSample(camera, pixel, bufferIndex, tlas, sphereLights, seed);
+				break;
+			case ReSTIRPass::Visibility:
+				VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas);
+				break;
+			case ReSTIRPass::Temporal:
+				TemporalReuse(camera, m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], pixel, glm::i32vec2(width, height), bufferIndex, seed);
+				break;
+			case ReSTIRPass::Spatial:
+				SpatialReuse(pixel, glm::i32vec2(width, height), bufferIndex, seed);
+				break;
+			case ReSTIRPass::Shading:
+				colorAccumulator += RenderSample(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas, seed);
+				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+				break;
+			}
 		}
 	}
 }
@@ -293,26 +293,27 @@ glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 	return BRDF * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
 }
 
-Sample Renderer::ShiftSampleSpatially(const Sample& pixelSample, const Sample& neighbourSample, const TLAS& tlas)
+Sample Renderer::ShiftSampleSpatially(const Resevoir<Sample>& pixelResevoir, const Resevoir<Sample>& neighbourResevoir)
 {
 	Sample shiftedSample;
 
-	// Original pixelSample data
-	shiftedSample.valid = pixelSample.valid;
-	shiftedSample.Path.CameraOrigin = pixelSample.Path.CameraOrigin;
-	shiftedSample.Path.FirstRayHitInfo = pixelSample.Path.FirstRayHitInfo;
-	shiftedSample.Path.HitLocation = pixelSample.Path.HitLocation;
-
-	// NeighbourSample data
-	shiftedSample.Path.Light = neighbourSample.Path.Light;
-	shiftedSample.Path.LightLocation = neighbourSample.Path.LightLocation;
-
-	// New values
-	shiftedSample.PDF = pixelSample.PDF; // 1 / PDF
-	shiftedSample.Weight = pixelSample.valid ? pixelSample.Weight : 0.0f; // 1 / PDF
+	//// Original pixelSample data
+	//shiftedSample.valid = pixelSample.valid;
+	//shiftedSample.Path.CameraOrigin = pixelSample.Path.CameraOrigin;
+	//shiftedSample.Path.FirstRayHitInfo = pixelSample.Path.FirstRayHitInfo;
+	//shiftedSample.Path.HitLocation = pixelSample.Path.HitLocation;
+	//
+	//// NeighbourSample data
+	//shiftedSample.Path.Light = neighbourSample.Path.Light;
+	//shiftedSample.Path.LightLocation = neighbourSample.Path.LightLocation;
+	//
+	//// New values
+	//shiftedSample.PDF = pixelSample.PDF; // 1 / PDF
+	//shiftedSample.Weight = pixelSample.valid ? pixelSample.Weight : 0.0f; // 1 / PDF
 
 	return shiftedSample;
 }
+
 Resevoir<Sample> Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Resevoir<Sample> resevoir;

@@ -118,7 +118,7 @@ public:
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UpdateSampleBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UpdateResevoirBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
-		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_TLAS_EmmisiveOnly, m_SphereLights);
+		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_SphereLights);
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 

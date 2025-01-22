@@ -70,8 +70,8 @@ public:
 		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
 	{}
 
-	Resevoir(T initialSample, float weight) :
-		m_SampleOut{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ weight }
+	Resevoir(T initialSample, float totalWeight, uint32_t totalSampleCount) :
+		m_SampleOut{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ totalWeight }, m_SampleCount{ totalSampleCount }
 	{}
 
 	bool Update(const T& sample, float weight, uint32_t& seed)
@@ -99,6 +99,15 @@ public:
 class Renderer
 {
 public:
+	enum class ReSTIRPass
+	{
+		RIS,
+		Visibility,
+		Temporal,
+		Spatial,
+		Shading
+	};
+
 	struct Settings
 	{
 		enum class RenderMode
@@ -150,17 +159,11 @@ private:
 	std::vector<Resevoir<Sample>> m_ResevoirBuffers[2];
 	int m_CurrentBuffer;
 	int m_PrevBuffer;
-
-	glm::vec3 Reflect(const glm::vec3& incomingDirection, const glm::vec3& normal);
-	glm::vec3 Refract(const glm::vec3& incomingDirection, const glm::vec3& normal, const float eta_t, const float eta_i = 1.f);
-	glm::vec3 RandomPointOnHemisphere(const glm::vec3& normal, uint32_t& seed);
-	glm::vec3 CosineSampleHemisphere(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& tangent, uint32_t& seed);
-	LightSampleInfo SampleRandomLight(const glm::vec3& hitLocation, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	LightSampleInfo SampleRandomLight(const glm::vec3& hitLocation, const TLAS& tlasEmmisive, uint32_t& seed);
 private:
-	void Renderer::RenderKernelFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights, uint32_t seed);
+	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t seed);
+	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, ReSTIRPass restirPass, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	Sample ShiftSampleSpatially(const Sample& sample, const Sample& neighbourSample, const TLAS& tlas);
+	Sample ShiftSampleSpatially(const Resevoir<Sample>& pixelResevoir, const Resevoir<Sample>& neighbourResevoir);
 
 	// ReSTIR original paper
 	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
@@ -186,7 +189,7 @@ public:
 		m_PrevBuffer = 1;
 	}
 
-	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const TLAS& tlasEmmisive, const std::vector<Sphere>& sphereLights);
+	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const std::vector<Sphere>& sphereLights);
 
 	Settings& GetSettings()  { return m_Settings; }
 	float GetLastFrameTime() { return m_LastFrameTime; }
