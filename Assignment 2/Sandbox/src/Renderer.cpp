@@ -5,6 +5,7 @@
 
 #include "Utils.h"
 #include "TaskBatch.h"
+#include "RenderCommand.h"
 
 namespace RenderModeNormal
 {
@@ -293,27 +294,6 @@ glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 	return BRDF * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
 }
 
-Sample Renderer::ShiftSampleSpatially(const Resevoir<Sample>& pixelResevoir, const Resevoir<Sample>& neighbourResevoir)
-{
-	Sample shiftedSample;
-
-	//// Original pixelSample data
-	//shiftedSample.valid = pixelSample.valid;
-	//shiftedSample.Path.CameraOrigin = pixelSample.Path.CameraOrigin;
-	//shiftedSample.Path.FirstRayHitInfo = pixelSample.Path.FirstRayHitInfo;
-	//shiftedSample.Path.HitLocation = pixelSample.Path.HitLocation;
-	//
-	//// NeighbourSample data
-	//shiftedSample.Path.Light = neighbourSample.Path.Light;
-	//shiftedSample.Path.LightLocation = neighbourSample.Path.LightLocation;
-	//
-	//// New values
-	//shiftedSample.PDF = pixelSample.PDF; // 1 / PDF
-	//shiftedSample.Weight = pixelSample.valid ? pixelSample.Weight : 0.0f; // 1 / PDF
-
-	return shiftedSample;
-}
-
 Resevoir<Sample> Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Resevoir<Sample> resevoir;
@@ -369,7 +349,10 @@ Resevoir<Sample> Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i3
 				resevoirs.push_back(neighbourResevoir);
 		}
 
-		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirsBiased(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], resevoirs, seed);
+		Resevoir<Sample> newSample = CombineResevoirsBiased(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], resevoirs, seed);
+		newSample.GetSampleOutRef().Path.HitLocation = pixelHitLocation;
+		newSample.GetSampleOutRef().Path.FirstRayHitInfo = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo;
+		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = newSample;
 	}
 }
 

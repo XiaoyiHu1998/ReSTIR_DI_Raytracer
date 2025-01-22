@@ -92,6 +92,7 @@ public:
 	void SetSampleCount(uint32_t sampleCount) { m_SampleCount = sampleCount; }
 
 	T GetSampleOut() const { return m_SampleOut; }
+	T& GetSampleOutRef() { return m_SampleOut; }
 	float GetWeightTotal() const { return m_WeightTotal; }
 	int GetSampleCount() const { return m_SampleCount; }
 };
@@ -137,14 +138,14 @@ public:
 		int CandidateCountDI = 1;
 
 		// ReSTIR Rendering
-		int CandidateCountReSTIR = 1;
+		int CandidateCountReSTIR = 4;
 
 		bool EnableVisibilityPass = true;
 		bool EnableSpatialReuse = false;
 
-		int SpatialReuseIterationCount = 2;
-		int SpatialReuseNeighbours = 3;
-		int SpatialReuseRadius = 15;
+		int SpatialReuseIterationCount = 1;
+		int SpatialReuseNeighbours = 4;
+		int SpatialReuseRadius = 10;
 		float SpatialReuseMaxDistance = 0.06f;
 		float SpatialReuseMinNormalSimilarity = 0.90f;
 
@@ -169,6 +170,7 @@ private:
 	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
 	Resevoir<Sample> CombineResevoirsBiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed);
+	//Resevoir<Sample> CombineResevoirsUnbiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed);
 	Resevoir<Sample> GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
 	Resevoir<Sample> SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
