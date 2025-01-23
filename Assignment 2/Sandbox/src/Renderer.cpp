@@ -106,8 +106,8 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 	}
 	else 
 	{
-		m_CurrentBuffer = (m_CurrentBuffer + 1) % 1;
-		m_PrevBuffer = (m_PrevBuffer + 1) % 1;
+		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
+		m_PrevBuffer = (m_PrevBuffer + 1) % 2;
 
 		TaskBatch risBatch(m_Settings.ThreadCount);
 		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
