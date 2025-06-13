@@ -325,7 +325,7 @@ void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
 }
 
 // TODO: transfer light point to currentpixel path
-Resevoir<Sample> Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
+void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
 {
 	for (int i = 0; i < m_Settings.SpatialReuseIterationCount; i++)
 	{
