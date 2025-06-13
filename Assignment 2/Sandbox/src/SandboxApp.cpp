@@ -26,7 +26,7 @@ public:
 		m_CurrentWidth = m_NextWidth = 640;
 		m_CurrentHeight = m_NextHeight = 480;
 
-		m_Renderer = Renderer();
+		m_Renderer;
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
 		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
 		m_Camera.GetTransformRef().rotation = glm::vec3(0.0f, -111.0f, 0.0f);
@@ -118,6 +118,7 @@ public:
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UpdateSampleBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UpdateResevoirBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
+		m_Renderer.UpdateSettingsRenderThread();
 		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_SphereLights);
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}

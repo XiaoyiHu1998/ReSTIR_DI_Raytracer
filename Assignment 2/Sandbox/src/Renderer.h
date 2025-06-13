@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thread>
+#include <mutex>
 
 #include "Glad/include/glad/glad.h"
 
@@ -154,6 +155,10 @@ public:
 	};
 private:
 	Settings m_Settings;
+	Settings m_SettingsRenderThread;
+
+	std::mutex m_SettingsLock;
+
 	float m_LastFrameTime;
 
 	std::vector<Sample> m_SampleBuffer;
@@ -194,6 +199,15 @@ public:
 
 	Settings& GetSettings()  { return m_Settings; }
 	float GetLastFrameTime() { return m_LastFrameTime; }
+
+	void UpdateSettingsRenderThread() 
+	{
+		if (m_SettingsLock.try_lock())
+		{
+			m_SettingsRenderThread = m_Settings;
+			m_SettingsLock.unlock();
+		}
+	}
 
 	void UpdateSampleBufferSize(uint32_t bufferSize)
 	{

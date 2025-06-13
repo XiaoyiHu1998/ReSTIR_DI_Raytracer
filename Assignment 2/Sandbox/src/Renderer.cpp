@@ -91,12 +91,16 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 {
 	auto timeStart = std::chrono::system_clock::now();
 
-	if (m_Settings.Mode != Settings::RenderMode::ReSTIR) 
+	m_SettingsLock.lock();
+	Settings currentFrameSettings = m_SettingsRenderThread;
+	m_SettingsLock.unlock();
+
+	if (currentFrameSettings.Mode != Settings::RenderMode::ReSTIR) 
 	{
-		TaskBatch taskBatch(m_Settings.ThreadCount);
-		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+		TaskBatch taskBatch(currentFrameSettings.ThreadCount);
+		for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 		{
-			for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
 			{
 				uint32_t seed = x + y * width;
 				taskBatch.EnqueueTask([=]() { RenderKernelNonReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, seed); });
@@ -109,22 +113,22 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
 		m_PrevBuffer = (m_PrevBuffer + 1) % 2;
 
-		TaskBatch risBatch(m_Settings.ThreadCount);
-		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+		TaskBatch risBatch(currentFrameSettings.ThreadCount);
+		for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 		{
-			for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
 			{
 				risBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::RIS, x + y * width); });
 			}
 		}
 		risBatch.ExecuteTasks();
 
-		if (m_Settings.EnableVisibilityPass)
+		if (currentFrameSettings.EnableVisibilityPass)
 		{
-			TaskBatch visibilityBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			TaskBatch visibilityBatch(currentFrameSettings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
 				{
 					visibilityBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Visibility, x + y * width); });
 				}
@@ -132,12 +136,12 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 			visibilityBatch.ExecuteTasks();
 		}
 
-		if (m_Settings.EnableTemporalReuse)
+		if (currentFrameSettings.EnableTemporalReuse)
 		{
-			TaskBatch TemporalBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			TaskBatch TemporalBatch(currentFrameSettings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
 				{
 					TemporalBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Temporal, x + y * width); });
 				}
@@ -145,12 +149,12 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 			TemporalBatch.ExecuteTasks();
 		}
 
-		if (m_Settings.EnableSpatialReuse)
+		if (currentFrameSettings.EnableSpatialReuse)
 		{
-			TaskBatch SpatialBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			TaskBatch SpatialBatch(currentFrameSettings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
 				{
 					SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Spatial, x + y * width); });
 				}
@@ -158,10 +162,10 @@ void Renderer::RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint
 			SpatialBatch.ExecuteTasks();
 		}
 		
-		TaskBatch shadingBatch(m_Settings.ThreadCount);
-		for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+		TaskBatch shadingBatch(currentFrameSettings.ThreadCount);
+		for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 		{
-			for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
 			{
 				shadingBatch.EnqueueTask([=]() { RenderKernelReSTIR(camera, frameBuffer, width, height, x, y, tlas, sphereLights, ReSTIRPass::Shading, x + y * width); });
 			}
