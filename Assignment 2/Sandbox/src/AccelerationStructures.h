@@ -55,7 +55,7 @@ class BVH_BLAS : public BLAS
 private:
 	std::string m_Name;
 
-	tinybvh::BVH4_CPU m_BVH;
+	tinybvh::BVH_SoA m_BVH;
 	std::vector<tinybvh::bvhvec4> m_Positions;
 	std::vector<glm::vec3> m_Normals;
 	std::vector<glm::vec2> m_TexCoords;
@@ -72,7 +72,7 @@ private:
 	// Pointlights
 public:
 	BVH_BLAS():
-		m_Name{ "" }, m_BVH{tinybvh::BVH4_CPU()}, m_Positions{std::vector<tinybvh::bvhvec4>()}, m_Normals{std::vector<glm::vec3>()}, m_TexCoords{std::vector<glm::vec2>()},
+		m_Name{ "" }, m_BVH{tinybvh::BVH_SoA()}, m_Positions{std::vector<tinybvh::bvhvec4>()}, m_Normals{std::vector<glm::vec3>()}, m_TexCoords{std::vector<glm::vec2>()},
 		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) }, m_Area{ 0.0f },
 		m_Material{ Material(Material::Type::Emissive, 0, glm::vec3(0.8, 0.2, 0.2), glm::vec3(0.8, 0.2, 0.2), 1.0f) }
 	{}

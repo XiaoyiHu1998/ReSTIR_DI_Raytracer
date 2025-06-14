@@ -34,7 +34,7 @@ bool TLAS::IsOccluded(const Ray& ray) const
 
 void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
 {
-	m_BVH = tinybvh::BVH4_CPU();
+	m_BVH = tinybvh::BVH_SoA();
 	m_Area = 0.0f;
 	m_CumulativeArea.resize(triangles.size());
 
@@ -79,7 +79,7 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 		m_CumulativeArea[i] = m_Area;
 	}
 
-	m_BVH.Build(m_Positions.data(), m_Positions.size() / 3);
+	m_BVH.BuildHQ(m_Positions.data(), m_Positions.size() / 3);
 }
 
 void BVH_BLAS::Traverse(Ray& ray)
