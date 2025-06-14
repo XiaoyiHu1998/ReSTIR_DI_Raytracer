@@ -251,7 +251,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 
 	if (m_Settings.RandomSeed)
 	{
-		seed += static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());;
+		seed += static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
 	}
 
 	switch (restirPass)
@@ -352,10 +352,10 @@ glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 {
 	glm::vec3 lightDirection = path.LightLocation - path.HitLocation;
 	float lightDistance = glm::length(lightDirection);
-	lightDirection = glm::normalize(lightDirection);
+	lightDirection = lightDirection / lightDistance;
 
-	float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
-	return BRDF * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
+	//float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
+	return glm::dot(path.FirstRayHitInfo.normal, lightDirection) * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
 }
 
 Resevoir<Sample> Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
@@ -380,7 +380,7 @@ void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
 	PathDI path = resevoir.GetSampleOut().Path;
 	glm::vec3 rayDirection = path.Light.position - path.FirstRayHitInfo.location;
 	float rayDistance = glm::length(rayDirection);
-	rayDirection = glm::normalize(rayDirection);
+	rayDirection = rayDirection / rayDistance;
 	glm::vec3 rayOrigin = path.FirstRayHitInfo.location + m_Settings.Eta * rayDirection;
 
 	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2 * m_Settings.Eta);
