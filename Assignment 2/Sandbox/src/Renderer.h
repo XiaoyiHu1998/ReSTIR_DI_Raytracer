@@ -219,11 +219,11 @@ private:
 	Resevoir<Sample> CombineResevoirsBiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed);
 	//Resevoir<Sample> CombineResevoirsUnbiased(const Resevoir<Sample>& originalResevoir, std::vector<Resevoir<Sample>>& newResevoirs, uint32_t& seed);
 	Resevoir<Sample> GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
-	void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
-	void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
-	glm::i32vec2 GetTemporalNeighbourPixel(const Camera& camera, const glm::i32vec2& resolution, const glm::vec3& hitLocation);
-	void TemporalReuse(const Camera& camera, const Resevoir<Sample>& resevoir, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
-	glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed);
+	inline void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
+	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline glm::i32vec2 GetTemporalNeighbourPixel(const Camera& camera, const glm::i32vec2& resolution, const glm::vec3& hitLocation);
+	inline void TemporalReuse(const Camera& camera, const Resevoir<Sample>& resevoir, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed);
 public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
