@@ -251,9 +251,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 
 	if (m_Settings.RandomSeed)
 	{
-		auto duration = std::chrono::system_clock::now().time_since_epoch();
-		auto milliseconds = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
-		seed += milliseconds;
+		seed += static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());;
 	}
 
 	for (uint32_t y = yMin; y < yMax; y++)
@@ -294,11 +292,11 @@ Sample Renderer::SamplePointLight(const Camera& camera, const glm::i32vec2& pixe
 	Ray ray = camera.GetRay(pixel.x, pixel.y);
 	tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
 
-	int lightIndex = Utils::RandomInt(0, sphereLights.size(), seed);
-	Sphere randomSphere = sphereLights[lightIndex];
+	//int lightIndex = Utils::RandomInt(0, sphereLights.size(), seed);
+	Sphere randomSphere = sphereLights[Utils::RandomInt(0, sphereLights.size(), seed)];
 	glm::vec3 lightDirection = randomSphere.position - ray.hitInfo.location;
 	float lightDistance = glm::length(lightDirection);
-	lightDirection = glm::normalize(randomSphere.position - ray.hitInfo.location);
+	lightDirection = lightDirection / lightDistance;
 
 	bool validDirectLighting = true;
 	Ray shadowRay;
@@ -313,7 +311,7 @@ Sample Renderer::SamplePointLight(const Camera& camera, const glm::i32vec2& pixe
 	sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
 	sample.Path.Light = randomSphere;
 	sample.PDF = 1.0f / sphereLights.size();
-	sample.Weight = 1.0f / sample.PDF; // 1 / PDF
+	sample.Weight = sphereLights.size(); //1.0f / sample.PDF; // 1 / PDF
 
 	return sample;
 }
