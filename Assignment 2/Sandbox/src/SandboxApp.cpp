@@ -102,8 +102,12 @@ public:
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
 
+		m_PrevFrameResolution = glm::i32vec2(std::numeric_limits<int>().max(), std::numeric_limits<int>().max());
 		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_SphereLights));
-		m_PrevFrameResolution = glm::i32vec2(-1, -1);
+
+		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
+		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
+		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
 	}
 
 	~PathTracingLayer()
@@ -117,17 +121,11 @@ public:
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
 
-		if (m_CurrentFrameResolution != m_PrevFrameResolution)
+		if (m_CurrentFrameResolution.x != m_PrevFrameResolution.x || m_CurrentFrameResolution.y != m_PrevFrameResolution.y)
 		{
 			RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
 			m_PrevFrameResolution = m_CurrentFrameResolution;
 		}
-
-		//bool allZero = true;
-		//for (int i = 0; i < frameBuffer->size(); i++)
-		//{
-		//	std::cout << static_cast<int>(frameBuffer->data()[i]) << std::endl;
-		//}
 
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
 

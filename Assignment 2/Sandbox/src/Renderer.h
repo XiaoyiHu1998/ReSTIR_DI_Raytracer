@@ -151,7 +151,7 @@ public:
 
 		uint32_t RenderResolutionWidth = 640;
 		uint32_t RenderResolutionHeight = 480;
-		uint32_t RenderingKernelSize = 16;
+		uint32_t RenderingKernelSize = 64;
 		uint32_t SamplesPerPixel = 1;
 
 		bool RandomSeed = true;
@@ -191,7 +191,6 @@ public:
 		{}
 	};
 private:
-	std::vector<uint8_t> m_RenderBuffer;
 	FrameDoubleBuffer m_FrameBuffers;
 	Settings m_Settings;
 	Scene m_Scene;
@@ -229,17 +228,16 @@ public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
-		m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		//m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
 		m_ResevoirBuffers[0] = std::vector<Resevoir<Sample>>();
 		m_ResevoirBuffers[1] = std::vector<Resevoir<Sample>>();
-		m_ResevoirBuffers[0].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffers[1].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		//m_ResevoirBuffers[0].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		//m_ResevoirBuffers[1].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
 
 		m_CurrentBuffer = 0;
 		m_PrevBuffer = 1;
 
 		m_FrameBuffers = FrameDoubleBuffer();
-		m_RenderBuffer = std::vector<uint8_t>();
 	}
 
 	void Init(const Scene& scene)

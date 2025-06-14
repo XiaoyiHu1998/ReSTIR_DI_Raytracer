@@ -44,24 +44,19 @@ void RenderCommand::RegenerateFrameBufferTexture(uint32_t& frameBufferID, FrameB
 
 void RenderCommand::InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
-	if (width * height * 4 != frameBuffer->size())
-	{
-		frameBuffer->resize(width * height * 4, 0);
+	// Bind PBO
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID); //TODO replace with a raw TGexImage2D upload in case of issues
 
-		// Bind PBO
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID); //TODO replace with a raw TGexImage2D upload in case of issues
-
-		// Update Texture
-		glBindTexture(GL_TEXTURE_2D, frameBufferID);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-	}
+	// Update Texture
+	glBindTexture(GL_TEXTURE_2D, frameBufferID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 }
 
 void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
 	// Update PBO
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER, frameBuffer->size() * sizeof(unsigned char), frameBuffer->data(), GL_STATIC_DRAW);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, frameBuffer->size() * sizeof(uint8_t), frameBuffer->data(), GL_STATIC_DRAW);
 
 	// Update Texture
 	glBindTexture(GL_TEXTURE_2D, frameBufferID);
