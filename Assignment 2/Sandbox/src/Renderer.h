@@ -98,6 +98,31 @@ public:
 	int GetSampleCount() const { return m_SampleCount; }
 };
 
+class FrameDoubleBuffer
+{
+public:
+	FrameDoubleBuffer()
+	{
+		m_NextBuffer = 1;
+		m_CurrentBuffer = 0;
+		m_FrameBuffers[0] = std::make_shared<std::vector<uint8_t>>();
+		m_FrameBuffers[1] = std::make_shared<std::vector<uint8_t>>();
+	}
+
+	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
+	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
+
+	void SwapFrameBuffers()
+	{
+		m_NextBuffer = (m_NextBuffer + 1) % 2;
+		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
+	}
+private:
+	FrameBufferRef m_FrameBuffers[2];
+	uint32_t m_CurrentBuffer;
+	uint32_t m_NextBuffer;
+};
+
 class Renderer
 {
 public:
@@ -151,13 +176,30 @@ public:
 		float SpatialReuseMinNormalSimilarity = 0.90f;
 
 		bool EnableTemporalReuse = false;
+	};
 
+	struct Scene
+	{
+		Camera camera;
+		TLAS tlas;
+		std::vector<Sphere> sphereLights;
+
+		Scene() = default;
+
+		Scene(Camera& camera, TLAS& tlas, std::vector<Sphere>& sphereLights) :
+			camera{ camera }, tlas{ tlas }, sphereLights{ sphereLights }
+		{}
 	};
 private:
+	std::vector<uint8_t> m_RenderBuffer;
+	FrameDoubleBuffer m_FrameBuffers;
 	Settings m_Settings;
-	Settings m_SettingsRenderThread;
+	Scene m_Scene;
 
+	std::thread m_RenderThread;
+	std::mutex m_FrameBufferMutex;
 	std::mutex m_SettingsLock;
+	std::mutex m_SceneLock;
 
 	float m_LastFrameTime;
 
@@ -166,6 +208,8 @@ private:
 	int m_CurrentBuffer;
 	int m_PrevBuffer;
 private:
+	void RenderFrameBuffer();
+
 	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t seed);
 	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, ReSTIRPass restirPass, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
@@ -193,31 +237,67 @@ public:
 
 		m_CurrentBuffer = 0;
 		m_PrevBuffer = 1;
+
+		m_FrameBuffers = FrameDoubleBuffer();
+		m_RenderBuffer = std::vector<uint8_t>();
 	}
 
-	void RenderFrameBuffer(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, const TLAS& tlas, const std::vector<Sphere>& sphereLights);
-
-	Settings& GetSettings()  { return m_Settings; }
-	float GetLastFrameTime() { return m_LastFrameTime; }
-
-	void UpdateSettingsRenderThread() 
+	void Init(const Scene& scene)
 	{
-		if (m_SettingsLock.try_lock())
-		{
-			m_SettingsRenderThread = m_Settings;
-			m_SettingsLock.unlock();
-		}
+		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
+		m_RenderThread = std::thread(&Renderer::RenderFrameBuffer, this);
+	}
+
+	void SubmitRenderSettings(const Settings& newRenderSettings) 
+	{ 
+		m_SettingsLock.lock();
+		m_Settings = newRenderSettings;
+		m_SettingsLock.unlock();
+	}
+
+	void SubmitScene(const Scene& newScene) 
+	{
+		m_SceneLock.lock();
+		m_Scene = newScene;
+		m_SceneLock.unlock();
 	}
 
 	void UpdateSampleBufferSize(uint32_t bufferSize)
 	{
-		m_SampleBuffer.resize(bufferSize);
+		if (m_SampleBuffer.size() != bufferSize)
+		{
+			m_SampleBuffer.resize(bufferSize);
+		}
 	}
 
 	//TODO: Need to make resize happen after flipping m_CurrentBuffer to support resizing during temporal reuse
 	void UpdateResevoirBufferSize(uint32_t bufferSize)
 	{
-		m_ResevoirBuffers[0].resize(bufferSize);
-		m_ResevoirBuffers[1].resize(bufferSize);
+		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize)
+		{
+			m_ResevoirBuffers[0].resize(bufferSize);
+			m_ResevoirBuffers[1].resize(bufferSize);
+		}
+	}
+
+	//Settings& GetSettings() { return m_Settings; }
+	float GetLastFrameTime() { return m_LastFrameTime; }
+
+	glm::i32vec2 GetRenderResolution()
+	{
+		m_SceneLock.lock();
+		glm::i32vec2 resolution = m_Scene.camera.GetResolution();
+		m_SceneLock.unlock();
+
+		return resolution;
+	}
+
+	FrameBufferRef GetFrameBuffer()
+	{
+		m_FrameBufferMutex.lock();
+		FrameBufferRef frameBuffer = m_FrameBuffers.GetFrameBuffer();
+		m_FrameBufferMutex.unlock();
+
+		return frameBuffer;
 	}
 };

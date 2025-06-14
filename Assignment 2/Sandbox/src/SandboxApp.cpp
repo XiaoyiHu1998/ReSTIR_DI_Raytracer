@@ -101,6 +101,9 @@ public:
 		Mesh sphere = Mesh(triangles, sphereTransform, sphereMaterial);
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
+
+		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_SphereLights));
+		m_PrevFrameResolution = glm::i32vec2(-1, -1);
 	}
 
 	~PathTracingLayer()
@@ -110,17 +113,32 @@ public:
 
 	void OnUpdate(Hazel::Timestep timestep) override
 	{
+		// Display rendererd frame
+		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
+		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
+
+		if (m_CurrentFrameResolution != m_PrevFrameResolution)
+		{
+			RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
+			m_PrevFrameResolution = m_CurrentFrameResolution;
+		}
+
+		//bool allZero = true;
+		//for (int i = 0; i < frameBuffer->size(); i++)
+		//{
+		//	std::cout << static_cast<int>(frameBuffer->data()[i]) << std::endl;
+		//}
+
+		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
+
+		// Setup next frame to be rendered
 		m_CurrentWidth = m_NextWidth;
 		m_CurrentHeight = m_NextHeight;
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
 		m_Camera.UpdateFrustrum();
 
-		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
-		RenderCommand::UpdateSampleBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
-		RenderCommand::UpdateResevoirBufferSize(m_Renderer, m_CurrentWidth, m_CurrentHeight);
-		m_Renderer.UpdateSettingsRenderThread();
-		m_Renderer.RenderFrameBuffer(m_Camera, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight, m_TLAS, m_SphereLights);
-		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
+		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
+		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_SphereLights));
 	}
 
 	virtual void OnImGuiRender()
@@ -154,59 +172,58 @@ public:
 		// Settings Window
 		{
 			ImGui::Begin("Settings");
-			Renderer::Settings& settings = m_Renderer.GetSettings();
 			ImGui::Text("Render Settings");
 			const char* RenderModes[] = { "Normals", "TraversalSteps", "Direct Illumination", "ReSTIR" };
-			int selectedMode = static_cast<int>(settings.Mode);
+			int selectedMode = static_cast<int>(m_RendererSettingsUI.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
-			settings.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
-			ImGui::Checkbox("Random Seed", &settings.RandomSeed);
-			ImGui::DragFloat("Eta size", &settings.Eta, 0.001f, 0.001f, 0.1f);
+			m_RendererSettingsUI.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
+			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
+			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Separator();
 
-			if (settings.Mode == Renderer::Settings::RenderMode::DI)
+			if (m_RendererSettingsUI.Mode == Renderer::Settings::RenderMode::DI)
 			{
 				ImGui::Text("DI Rendering");
-				ImGui::Checkbox("Sample all lights", &settings.SampleAllLightsDI);
-				ImGui::Checkbox("Light Occlusion", &settings.LightOcclusionCheckDI);
-				if (ImGui::InputInt("Light Candidates", &settings.CandidateCountDI))
+				ImGui::Checkbox("Sample all lights", &m_RendererSettingsUI.SampleAllLightsDI);
+				ImGui::Checkbox("Light Occlusion", &m_RendererSettingsUI.LightOcclusionCheckDI);
+				if (ImGui::InputInt("Light Candidates", &m_RendererSettingsUI.CandidateCountDI))
 				{
-					settings.CandidateCountDI = settings.CandidateCountDI < 1 ? 1 : settings.CandidateCountDI;
+					m_RendererSettingsUI.CandidateCountDI = m_RendererSettingsUI.CandidateCountDI < 1 ? 1 : m_RendererSettingsUI.CandidateCountDI;
 				}
 				ImGui::Separator();
 			}
-			else if (settings.Mode == Renderer::Settings::RenderMode::ReSTIR)
+			else if (m_RendererSettingsUI.Mode == Renderer::Settings::RenderMode::ReSTIR)
 			{
 				// Streaming RIS
 				ImGui::Text("Streaming RIS");
-				if (ImGui::InputInt("Candidate Count RIS", &settings.CandidateCountReSTIR))
+				if (ImGui::InputInt("Candidate Count RIS", &m_RendererSettingsUI.CandidateCountReSTIR))
 				{
-					settings.CandidateCountReSTIR = settings.CandidateCountReSTIR < 1 ? 1 : settings.CandidateCountReSTIR;
+					m_RendererSettingsUI.CandidateCountReSTIR = m_RendererSettingsUI.CandidateCountReSTIR < 1 ? 1 : m_RendererSettingsUI.CandidateCountReSTIR;
 				}
-				ImGui::Checkbox("Visibility Pass", &settings.EnableVisibilityPass);
+				ImGui::Checkbox("Visibility Pass", &m_RendererSettingsUI.EnableVisibilityPass);
 				ImGui::Separator();
 
 				// Spatial Reuse
 				ImGui::Text("Spatial Reuse");
-				ImGui::Checkbox("Enable", &settings.EnableSpatialReuse);
-				if (ImGui::InputInt("Iterations", &settings.SpatialReuseIterationCount))
+				ImGui::Checkbox("Enable", &m_RendererSettingsUI.EnableSpatialReuse);
+				if (ImGui::InputInt("Iterations", &m_RendererSettingsUI.SpatialReuseIterationCount))
 				{
-					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
+					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
 				}
-				if (ImGui::InputInt("Neighbours", &settings.SpatialReuseNeighbours))
+				if (ImGui::InputInt("Neighbours", &m_RendererSettingsUI.SpatialReuseNeighbours))
 				{
-					settings.SpatialReuseNeighbours = settings.SpatialReuseNeighbours < 1 ? 1 : settings.SpatialReuseNeighbours;
+					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
 				}
-				if (ImGui::InputInt("Radius", &settings.SpatialReuseRadius))
+				if (ImGui::InputInt("Radius", &m_RendererSettingsUI.SpatialReuseRadius))
 				{
-					settings.SpatialReuseRadius = settings.SpatialReuseRadius < 1 ? 1 : settings.SpatialReuseRadius;
+					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 1 ? 1 : m_RendererSettingsUI.SpatialReuseRadius;
 				}
-				ImGui::DragFloat("Max distance", &settings.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Min Normal Similarity", &settings.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 
 				// Temporal Reuse
-				ImGui::Checkbox("Temporal Reuse", &settings.EnableTemporalReuse);
+				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
 
 			}
 
@@ -351,9 +368,11 @@ private:
 	uint32_t m_PixelBufferObjectID;
 	uint32_t m_CurrentWidth, m_CurrentHeight;
 	uint32_t m_NextWidth, m_NextHeight;
+	glm::i32vec2 m_PrevFrameResolution;
 
 	//Renderer
 	Renderer m_Renderer;
+	Renderer::Settings m_RendererSettingsUI;
 
 	// World state
 	Camera m_Camera;
