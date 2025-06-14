@@ -259,28 +259,22 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 	case ReSTIRPass::RIS:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
+			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Ray ray = camera.GetRay(x, y);
-				glm::vec4 colorAccumulator = glm::vec4(0);
+				uint32_t bufferIndex = x + yOffset;
 
-				glm::i32vec2 pixel = glm::i32vec2(x, y);
-				uint32_t bufferIndex = x + y * width;
-
-				m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = GenerateSample(camera, pixel, bufferIndex, tlas, sphereLights, seed);
+				m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = GenerateSample(camera, glm::i32vec2(x, y), bufferIndex, tlas, sphereLights, seed);
 			}
 		}
 		break;
 	case ReSTIRPass::Visibility:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
+			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Ray ray = camera.GetRay(x, y);
-				glm::vec4 colorAccumulator = glm::vec4(0);
-
-				glm::i32vec2 pixel = glm::i32vec2(x, y);
-				uint32_t bufferIndex = x + y * width;
+				uint32_t bufferIndex = x + yOffset;
 
 				VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas);
 			}
@@ -289,46 +283,36 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 	case ReSTIRPass::Temporal:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
+			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Ray ray = camera.GetRay(x, y);
-				glm::vec4 colorAccumulator = glm::vec4(0);
+				uint32_t bufferIndex = x + yOffset;
 
-				glm::i32vec2 pixel = glm::i32vec2(x, y);
-				uint32_t bufferIndex = x + y * width;
-
-				TemporalReuse(camera, m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], pixel, glm::i32vec2(width, height), bufferIndex, seed);
+				TemporalReuse(camera, m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], glm::i32vec2(x, y), glm::i32vec2(width, height), bufferIndex, seed);
 			}
 		}
 		break;
 	case ReSTIRPass::Spatial:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
+			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Ray ray = camera.GetRay(x, y);
-				glm::vec4 colorAccumulator = glm::vec4(0);
+				uint32_t bufferIndex = x + yOffset;
 
-				glm::i32vec2 pixel = glm::i32vec2(x, y);
-				uint32_t bufferIndex = x + y * width;
-
-				SpatialReuse(pixel, glm::i32vec2(width, height), bufferIndex, seed);
+				SpatialReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), bufferIndex, seed);
 			}
 		}
 		break;
 	case ReSTIRPass::Shading:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
+			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Ray ray = camera.GetRay(x, y);
-				glm::vec4 colorAccumulator = glm::vec4(0);
+				uint32_t bufferIndex = x + yOffset;
 
-				glm::i32vec2 pixel = glm::i32vec2(x, y);
-				uint32_t bufferIndex = x + y * width;
-
-				colorAccumulator += RenderSample(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas, seed);
-				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas, seed), width, frameBuffer);
 			}
 		}
 		break;
