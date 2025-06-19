@@ -208,6 +208,9 @@ private:
 	int m_PrevBuffer;
 private:
 	void RenderFrameBuffer();
+	void RenderFrameBufferTest();
+
+	void Renderer::RenderThreadNonReSTIR(uint32_t startY, uint32_t endY, uint32_t endX, const Camera& camera, FrameBufferRef frameBuffer, const TLAS& tlas, const std::vector<Sphere>& sphereLights, const Settings& settings, uint32_t seed);
 
 	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t seed);
 	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, ReSTIRPass restirPass, uint32_t seed);

@@ -15,7 +15,7 @@ namespace RenderModeNormal
 
 		tlas.Traverse(ray);
 		if (ray.hitInfo.hit)
-			E = 0.5 * ray.hitInfo.normal + glm::vec3(0.5f);
+			E = 0.5f * ray.hitInfo.normal + glm::vec3(0.5f);
 
 		return glm::vec4(E, 1.0f);
 	}
@@ -29,7 +29,7 @@ namespace RenderModeTraversalSteps
 
 		tlas.Traverse(ray);
 		if (ray.hitInfo.hit)
-			E = 0.5 * glm::vec3(ray.hitInfo.traversalStepsHitBVH / 100.0f) + glm::vec3(0.5f);
+			E = 0.5f * glm::vec3(ray.hitInfo.traversalStepsHitBVH / 100.0f) + glm::vec3(0.5f);
 
 		return glm::vec4(E, 1.0f);
 	}
@@ -38,7 +38,7 @@ namespace RenderModeTraversalSteps
 
 glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
-	glm::vec3 E(0);
+	glm::vec3 E(0.0f);
 	
 	// Intersection Test
 	tlas.Traverse(ray);
@@ -47,8 +47,8 @@ glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Spher
 
 	auto CalcLightContribution = [=](const Ray& ray, const Sphere& sphere) {
 		//Sphere sphere = sphereLights[Utils::RandomInt(0, sphereLights.size(), seed)]; 
-		glm::vec3 lightColor = sphere.material.EmissiveColor;
-		float lightIntensity = sphere.material.EmissiveIntensity;
+		//glm::vec3 lightColor = sphere.material.EmissiveColor;
+		//float lightIntensity = sphere.material.EmissiveIntensity;
 		glm::vec3 lightDirection = sphere.position - ray.hitInfo.location;
 		float lightDistance = glm::length(lightDirection);
 		lightDirection = glm::normalize(lightDirection);
@@ -61,7 +61,7 @@ glm::vec4 Renderer::RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Spher
 			{
 				//glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
 				float BRDF = glm::dot(ray.hitInfo.normal, lightDirection);
-				return BRDF * lightIntensity * lightColor / (lightDistance * lightDistance);
+				return BRDF * sphere.material.EmissiveIntensity * sphere.material.EmissiveColor / (lightDistance * lightDistance);
 			}
 		}
 
@@ -110,6 +110,8 @@ void Renderer::RenderFrameBuffer()
 		std::vector<Sphere>& sphereLights = currentScene.sphereLights;
 		uint32_t width = camera.GetResolution().x;
 		uint32_t height = camera.GetResolution().y;
+		currentFrameSettings.RenderResolutionWidth = width;
+		currentFrameSettings.RenderResolutionHeight = height;
 
 		uint32_t bufferSize = width * height;
 		UpdateSampleBufferSize(bufferSize);
@@ -122,16 +124,26 @@ void Renderer::RenderFrameBuffer()
 
 		if (currentFrameSettings.Mode != Settings::RenderMode::ReSTIR)
 		{
-			TaskBatch taskBatch(currentFrameSettings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
+			TaskBatch renderThreadBatch(currentFrameSettings.ThreadCount);
+
+			std::vector<uint32_t> threadStartHeights;
+			threadStartHeights.reserve(m_Settings.ThreadCount);
+
+			int threadRenderHeight = height / m_Settings.ThreadCount;
+			int startHeight = 0;
+			for (int i = 0; i < m_Settings.ThreadCount; i++)
 			{
-				for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
-				{
-					uint32_t seed = x + y * width;
-					taskBatch.EnqueueTask([=]() { RenderKernelNonReSTIR(camera, framebuffer, width, height, x, y, tlas, sphereLights, seed); });
-				}
+				threadStartHeights.push_back(i * threadRenderHeight);
 			}
-			taskBatch.ExecuteTasks();
+
+			for (int i = 0; i < threadStartHeights.size() - 1; i++)
+			{
+				uint32_t startHeight = threadStartHeights[i];
+				renderThreadBatch.EnqueueTask([&]() {RenderThreadNonReSTIR(startHeight, startHeight + threadRenderHeight, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
+			}
+			int lastIndex = threadStartHeights.size() - 1;
+			renderThreadBatch.EnqueueTask([&]() {RenderThreadNonReSTIR(threadStartHeights[lastIndex], height, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
+			renderThreadBatch.ExecuteTasks();
 		}
 		else
 		{
@@ -204,6 +216,18 @@ void Renderer::RenderFrameBuffer()
 		m_FrameBufferMutex.lock();
 		m_FrameBuffers.SwapFrameBuffers();
 		m_FrameBufferMutex.unlock();
+	}
+}
+
+void Renderer::RenderThreadNonReSTIR(uint32_t startY, uint32_t endY, uint32_t endX, const Camera& camera, FrameBufferRef frameBuffer, const TLAS& tlas, const std::vector<Sphere>& sphereLights, const Settings& settings, uint32_t seed)
+{
+	for (uint32_t kernelY = startY; kernelY < endY; kernelY += settings.RenderingKernelSize)
+	{
+		for (uint32_t kernelX = 0; kernelX < endX; kernelX += settings.RenderingKernelSize)
+		{
+			//Call Kernel
+			Renderer::RenderKernelNonReSTIR(camera, frameBuffer, settings.RenderResolutionWidth, settings.RenderResolutionHeight, kernelX, kernelY, tlas, sphereLights, seed);
+		}
 	}
 }
 
@@ -383,7 +407,7 @@ void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
 	rayDirection = rayDirection / rayDistance;
 	glm::vec3 rayOrigin = path.FirstRayHitInfo.location + m_Settings.Eta * rayDirection;
 
-	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2 * m_Settings.Eta);
+	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2.0f * m_Settings.Eta);
 	if (tlas.IsOccluded(shadowRay))
 		resevoir.WeightSampleOut = 0.0f;
 }
@@ -408,6 +432,8 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 
 			bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
 			bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
+
+			// TODO: shadowray test against neighbour lightsource with pixelHitLocation
 
 			if (withinMaxDistance && similarNormals)
 				resevoirs.push_back(neighbourResevoir);
@@ -482,7 +508,7 @@ glm::vec4 Renderer::RenderSample(const Resevoir<Sample>& resevoir, const TLAS& t
 
 	if (glm::dot(hitInfo.normal, lightDirection) > 0)
 	{
-		Ray shadowRay = Ray(hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2 * m_Settings.Eta);
+		Ray shadowRay = Ray(hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2.0f * m_Settings.Eta);
 		bool lightOccluded = tlas.IsOccluded(shadowRay);
 		if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
 		{
