@@ -139,10 +139,10 @@ void Renderer::RenderFrameBuffer()
 			for (int i = 0; i < threadStartHeights.size() - 1; i++)
 			{
 				uint32_t startHeight = threadStartHeights[i];
-				renderThreadBatch.EnqueueTask([&]() {RenderThreadNonReSTIR(startHeight, startHeight + threadRenderHeight, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
+				renderThreadBatch.EnqueueTask([=]() {RenderThreadNonReSTIR(startHeight, startHeight + threadRenderHeight, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
 			}
 			int lastIndex = threadStartHeights.size() - 1;
-			renderThreadBatch.EnqueueTask([&]() {RenderThreadNonReSTIR(threadStartHeights[lastIndex], height, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
+			renderThreadBatch.EnqueueTask([=]() {RenderThreadNonReSTIR(threadStartHeights[lastIndex], height, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
 			renderThreadBatch.ExecuteTasks();
 		}
 		else
