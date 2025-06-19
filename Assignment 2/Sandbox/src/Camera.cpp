@@ -31,10 +31,10 @@ void Camera::UpdateFrustrum()
 	m_PrevFrustrum = m_CurrentFrustrum;
 
 	glm::vec3 origin = transform.translation;
-	glm::vec3 topLeft = origin + GetDirection(0, 0, true);
-	glm::vec3 topRight = origin + GetDirection(m_Width, 0, true);
-	glm::vec3 bottomLeft = origin + GetDirection(0, m_Height, true);
-	glm::vec3 bottomRight = origin + GetDirection(m_Width, m_Height, true);
+	glm::vec3 topLeft = origin + GetDirection(0, 0);
+	glm::vec3 topRight = origin + GetDirection(m_Width, 0);
+	glm::vec3 bottomLeft = origin + GetDirection(0, m_Height);
+	glm::vec3 bottomRight = origin + GetDirection(m_Width, m_Height);
 
 	m_CurrentFrustrum.top = Triangle(Vertex(origin), Vertex(topLeft), Vertex(topRight)).GetNormal();
 	m_CurrentFrustrum.bottom = Triangle(Vertex(origin), Vertex(bottomRight), Vertex(bottomLeft)).GetNormal();
@@ -42,7 +42,7 @@ void Camera::UpdateFrustrum()
 	m_CurrentFrustrum.right = Triangle(Vertex(origin), Vertex(topRight), Vertex(bottomRight)).GetNormal();
 }
 
-glm::vec3 Camera::GetDirection(uint32_t x, uint32_t y, bool translateDirection) const
+glm::vec3 Camera::GetDirection(uint32_t x, uint32_t y) const
 {
 	float directionX = (x + 0.5f) - static_cast<float>(m_Width) / 2.0f;
 	float directionY = -(y + 0.5f) + static_cast<float>(m_Height) / 2.0f; // this flips the image at the same time

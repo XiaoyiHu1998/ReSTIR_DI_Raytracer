@@ -82,5 +82,5 @@ public:
 	void UpdateFrustrum();
 
 private:
-	glm::vec3 GetDirection(uint32_t x, uint32_t y, bool translateDirection = false) const;
+	glm::vec3 GetDirection(uint32_t x, uint32_t y) const;
 };
