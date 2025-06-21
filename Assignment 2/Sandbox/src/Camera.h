@@ -20,6 +20,7 @@ public:
 private:
 	//Viewport
 	float m_Width, m_Height;
+	float m_HalfWidth, m_HalfHeight;
 	float m_PrevWidth, m_PrevHeight;
 	float m_VerticalFov;
 

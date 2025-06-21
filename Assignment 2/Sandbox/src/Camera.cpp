@@ -6,6 +6,10 @@ void Camera::SetResolution(uint32_t width, uint32_t height)
 {
 	m_Width = static_cast<float>(width);
 	m_Height = static_cast<float>(height);
+
+	m_HalfWidth = m_Width * 0.5f;
+	m_HalfHeight = m_Height * 0.5f;
+	
 	UpdateCameraMatrix();
 }
 
@@ -44,8 +48,8 @@ void Camera::UpdateFrustrum()
 
 glm::vec3 Camera::GetDirection(uint32_t x, uint32_t y) const
 {
-	float directionX = (x + 0.5f) - static_cast<float>(m_Width) / 2.0f;
-	float directionY = -(y + 0.5f) + static_cast<float>(m_Height) / 2.0f; // this flips the image at the same time
+	float directionX =  (static_cast<float>(x) + 0.5f) - m_HalfWidth;
+	float directionY = -(static_cast<float>(y) + 0.5f) + m_HalfHeight; // this flips the image at the same time
 
 	return glm::normalize(m_TransformMatrix * glm::vec4(directionX, directionY, m_CameraPlaneDistance, 0.0f));
 }
