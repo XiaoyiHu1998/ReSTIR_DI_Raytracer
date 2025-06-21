@@ -36,17 +36,19 @@ public:
 class TLAS
 {
 private:
-	std::vector<std::shared_ptr<BLAS>> m_Scene;
+	std::vector<std::shared_ptr<BLAS>> m_BLASList;
 public:
 	TLAS() = default;
 	~TLAS() = default;
 
 	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS);
+	void Build();
+
 	void Traverse(Ray& ray) const;
 	bool IsOccluded(const Ray& ray) const;
 
-	uint32_t GetObjectCount() const { return m_Scene.size(); }
-	std::shared_ptr<BLAS> GetBLAS(uint32_t index) const { return m_Scene[index]; }
+	uint32_t GetObjectCount() const { return m_BLASList.size(); }
+	std::shared_ptr<BLAS> GetBLAS(uint32_t index) const { return m_BLASList[index]; }
 };
 
 

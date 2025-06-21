@@ -7,24 +7,25 @@
 
 uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& BLAS)
 {
-	m_Scene.push_back(BLAS);
-	return m_Scene.size() - 1;
+	m_BLASList.push_back(BLAS);
+	return m_BLASList.size() - 1;
+}
 }
 
 void TLAS::Traverse(Ray& ray) const
 {
-	for (int i = 0; i < m_Scene.size(); i++)
+	for (int i = 0; i < m_BLASList.size(); i++)
 	{
-		m_Scene[i]->Traverse(ray);
+		m_BLASList[i]->Traverse(ray);
 	}
 }
 
 bool TLAS::IsOccluded(const Ray& ray) const
 {
 	bool occluded = false;
-	for (int i = 0; i < m_Scene.size(); i++)
+	for (int i = 0; i < m_BLASList.size(); i++)
 	{
-		occluded |= m_Scene[i]->IsOccluded(ray);
+		occluded |= m_BLASList[i]->IsOccluded(ray);
 	}
 
 	return occluded;
@@ -92,10 +93,6 @@ void BVH_BLAS::Traverse(Ray& ray)
 	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
 	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
 	float prevClosestHitDistance = ray.hitInfo.distance;
-	
-	//tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
-	//tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
-	//float prevClosestHitDistance = ray.hitInfo.distance;
 
 	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, prevClosestHitDistance);
 	int32_t traversalSteps = m_BVH.Intersect(tinybvhRay);
@@ -111,22 +108,10 @@ void BVH_BLAS::Traverse(Ray& ray)
 		glm::vec3 position1 = glm::vec3(m_Positions[tinybvhRay.hit.prim * 3 + 1].x, m_Positions[tinybvhRay.hit.prim * 3 + 1].y, m_Positions[tinybvhRay.hit.prim * 3 + 1].z);
 		glm::vec3 position2 = glm::vec3(m_Positions[tinybvhRay.hit.prim * 3 + 2].x, m_Positions[tinybvhRay.hit.prim * 3 + 2].y, m_Positions[tinybvhRay.hit.prim * 3 + 2].z);
 
-		glm::vec3 normal0 = m_Normals[tinybvhRay.hit.prim * 3 + 0];
-		glm::vec3 normal1 = m_Normals[tinybvhRay.hit.prim * 3 + 1];
-		glm::vec3 normal2 = m_Normals[tinybvhRay.hit.prim * 3 + 2];
-		
-		glm::vec2 texCoord0 = m_TexCoords[tinybvhRay.hit.prim * 3 + 0];
-		glm::vec2 texCoord1 = m_TexCoords[tinybvhRay.hit.prim * 3 + 1];
-		glm::vec2 texCoord2 = m_TexCoords[tinybvhRay.hit.prim * 3 + 2];
-
-		Triangle hitTriangle = Triangle(Vertex(position0, normal0, texCoord0), Vertex(position1, normal1, texCoord1), Vertex(position2, normal2, texCoord2));
-
 		// HitInfo Data
 		hitInfo.distance = tinybvhRay.hit.t;
 		hitInfo.location = ray.origin + ray.direction * tinybvhRay.hit.t;
-		hitInfo.normal = glm::normalize(m_TransformMatrix * glm::vec4(hitTriangle.GetNormal(), 0.0f));
-		hitInfo.tangent = glm::normalize(m_TransformMatrix * glm::vec4(hitTriangle.GetTangent(), 0.0f));
-		hitInfo.objectArea = m_Area;
+		hitInfo.normal = glm::normalize(glm::cross(position1 - position0, position2 - position0));
 		hitInfo.prevMaterial = hitInfo.material;
 		hitInfo.material = m_Material;
 		hitInfo.traversalStepsHitBVH = traversalSteps;
@@ -139,21 +124,11 @@ void BVH_BLAS::Traverse(Ray& ray)
 
 bool BVH_BLAS::IsOccluded(const Ray& ray)
 {
-	// Transform Ray
-	//glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
-	//glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
-
-	// Intersection Test
-	//tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
-	//tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
-	//float prevClosestHitDistance = ray.hitInfo.distance;
-
 	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
 	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
 	float maxDistance = ray.hitInfo.distance;
 
-	tinybvh::Ray tinybvhRay = tinybvh::Ray(origin, direction, maxDistance);
-	return m_BVH.IsOccluded(tinybvhRay);
+	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
 }
 
 Triangle BVH_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
@@ -243,8 +218,6 @@ void Debug_BLAS::Traverse(Ray& ray)
 			ray.hitInfo.distance = currentRay.hitInfo.distance;
 			ray.hitInfo.location = ray.origin + ray.direction * currentRay.hitInfo.distance;
 			ray.hitInfo.normal = m_TransformMatrix * glm::vec4(currentTriangle.GetNormal(), 0.0f);
-			ray.hitInfo.tangent = m_TransformMatrix * glm::vec4(currentTriangle.GetTangent(), 0.0f);
-			ray.hitInfo.objectArea = m_Area;
 			ray.hitInfo.prevMaterial = ray.hitInfo.material;
 			ray.hitInfo.material = m_Material;
 			ray.hitInfo.traversalStepsHitBVH = 1;

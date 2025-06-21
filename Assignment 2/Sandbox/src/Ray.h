@@ -8,11 +8,9 @@ struct HitInfo
 public:
 	bool hit;
 	float distance;
-	float objectArea;
 
 	glm::vec3 location;
 	glm::vec3 normal;
-	glm::vec3 tangent;
 
 	Material material;
 	Material prevMaterial;
@@ -22,11 +20,11 @@ public:
 	int32_t traversalStepsTotal;
 public:
 	HitInfo():
-		hit{ false }, distance{ std::numeric_limits<float>().max() }, objectArea{ 0 }, location{ glm::vec3(0) },
+		hit{ false }, distance{ std::numeric_limits<float>().max() }, location{ glm::vec3(0) },
 		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
 		material { Material(Material::Type::Emissive, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) },
 		prevMaterial { Material(Material::Type::Emissive, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) },
-		normal { glm::vec3(0)}, tangent{ glm::vec3(0) }
+		normal { glm::vec3(0)}
 	{}
 
 	HitInfo(bool hit) : // Members should be set manually after initialization
