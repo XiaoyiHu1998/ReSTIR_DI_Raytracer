@@ -13,13 +13,10 @@ public:
 public:
 	Type MaterialType;
 
-	glm::vec3 Albedo;
 	glm::vec3 EmissiveColor;
-
 	float EmissiveIntensity;
-	float Roughness;
 public:
-	Material(Material::Type materialType, float roughness, glm::vec3 albedo, glm::vec3 emmisiveColor, float emissiveStrength) :
-		MaterialType{ materialType }, Roughness{ roughness }, Albedo{ albedo }, EmissiveColor{ emmisiveColor }, EmissiveIntensity{ emissiveStrength }
+	Material(Material::Type materialType, glm::vec3 emmisiveColor, float emissiveIntensity) :
+		MaterialType{ materialType }, EmissiveColor{ emmisiveColor }, EmissiveIntensity{ emissiveIntensity }
 	{}
 };

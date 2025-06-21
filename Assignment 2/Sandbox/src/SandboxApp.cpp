@@ -39,8 +39,8 @@ public:
 		m_TLAS_NonEmmisiveOnly = TLAS();
 
 		uint32_t lightCount = 10;
-		m_SphereLights = std::vector<Sphere>();
-		m_SphereLights.reserve(lightCount);
+		m_pointLights = std::vector<PointLight>();
+		m_pointLights.reserve(lightCount);
 		uint32_t sphereLocationSeed = 0;
 		uint32_t sphereColorSeed = 0;
 		for (int i = 0; i < lightCount; i++)
@@ -58,10 +58,10 @@ public:
 			float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
 			glm::vec3 emissiveColor = glm::vec3(r, g, b);
 			float emissiveStrength = 3.0f;
-			Material material = Material(Material::Type::Emissive, 0, emissiveColor, emissiveColor, emissiveStrength);
+			Material material = Material(Material::Type::Emissive, emissiveColor, emissiveStrength);
 
-			m_SphereLights.emplace_back(position, radius, material);
-			std::cout << "Sphere " << i << " Pos:" << glm::to_string(position) << ", Radius: " << radius << ",Color: " << glm::to_string(emissiveColor) << ", intensity: " << emissiveStrength << std::endl;
+			m_pointLights.emplace_back(position, material);
+			std::cout << "PointLight " << i << " Pos:" << glm::to_string(position) << ", Radius: " << radius << ",Color: " << glm::to_string(emissiveColor) << ", intensity: " << emissiveStrength << std::endl;
 		}
 
 
@@ -84,7 +84,7 @@ public:
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
 		floorBLAS->SetName("Sponza");
 		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
-		Material floorMaterial = Material(Material::Type::Non_Emissive, 1, glm::vec3(0.5f), glm::vec3(0) , 0.0f);
+		Material floorMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0) , 0.0f);
 		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
 		floorBLAS->SetObject(floor.GetTriangles(), floor.GetTransform(), floor.GetMaterial());
 		m_TLAS.AddBLAS(floorBLAS);
@@ -94,16 +94,16 @@ public:
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
 		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
-		sphereBLAS->SetName("Sphere");
+		sphereBLAS->SetName("PointLight");
 		Transform sphereTransform = Transform(glm::vec3(3.6f, -0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
 		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
-		Material sphereMaterial = Material(Material::Type::Non_Emissive, 1, glm::vec3(0.25f), glm::vec3(0.5, 0.5, 1.0), 0.0f);
+		Material sphereMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0.5, 0.5, 1.0), 0.0f);
 		Mesh sphere = Mesh(triangles, sphereTransform, sphereMaterial);
 		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
 		m_TLAS.AddBLAS(sphereBLAS);
 
 		m_PrevFrameResolution = glm::i32vec2(std::numeric_limits<int>().max(), std::numeric_limits<int>().max());
-		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_SphereLights));
+		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
@@ -136,7 +136,7 @@ public:
 		m_Camera.UpdateFrustrum();
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
-		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_SphereLights));
+		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 	}
 
 	virtual void OnImGuiRender()
@@ -318,10 +318,8 @@ public:
 				ImGui::Spacing();
 				ImGui::Spacing();
 				ImGui::Spacing();
-				ImGui::ColorEdit3("Albedo", glm::value_ptr(blas->GetMaterialRef().Albedo));
 				ImGui::ColorEdit3("EmissiveColor", glm::value_ptr(blas->GetMaterialRef().EmissiveColor));
 				ImGui::DragFloat("EmmisiveIntensity", &blas->GetMaterialRef().EmissiveIntensity);
-				ImGui::DragFloat("Roughness", &blas->GetMaterialRef().Roughness, 0.001f, 0.0f, 1.0f);
 
 				ImGui::PopID();
 
@@ -372,7 +370,7 @@ private:
 	TLAS m_TLAS;
 	TLAS m_TLAS_EmmisiveOnly;
 	TLAS m_TLAS_NonEmmisiveOnly;
-	std::vector<Sphere> m_SphereLights;
+	std::vector<PointLight> m_pointLights;
 
 	// UI
 	int m_SelectedNode;

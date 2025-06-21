@@ -65,22 +65,18 @@ public:
 };
 
 
-class Sphere : public Primitive
+class PointLight
 {
 public:
 	glm::vec3 position;
-	float radius;
 	Material material;
 
 public:
-	Sphere():
-		position{ glm::vec3(0) }, radius{ 0 }, material{ Material(Material::Type::Emissive, 0 , glm::vec3(0), glm::vec3(0), 0) }
+	PointLight():
+		position{ glm::vec3(0) }, material{ Material(Material::Type::Emissive, glm::vec3(0), 0) }
 	{}
 
-	Sphere(const glm::vec3& position, float radius, const Material& material):
-		position{ position }, radius{ radius }, material{ material }
+	PointLight(const glm::vec3& position, const Material& material):
+		position{ position }, material{ material }
 	{}
-
-	virtual bool Intersect(Ray& ray) const override;
-	virtual float Area() const override;
 };

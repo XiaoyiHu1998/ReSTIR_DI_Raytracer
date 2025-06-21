@@ -19,17 +19,17 @@ struct PathDI
 
 	HitInfo FirstRayHitInfo;
 	HitInfo ShadowRayHitInfo;
-	Sphere Light;
+	PointLight Light;
 
 	PathDI() = default;
 
 	PathDI(const glm::vec3 cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation) :
 		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, Light{ Sphere() }
+		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, Light{ PointLight() }
 	{}
 
 	PathDI(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation,
-		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const Sphere & light) :
+		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const PointLight & light) :
 		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
 		FirstRayHitInfo{ firstRayHitInfo }, ShadowRayHitInfo{ ShadowRayHitInfo }, Light{ light }
 	{}
@@ -181,12 +181,12 @@ public:
 	{
 		Camera camera;
 		TLAS tlas;
-		std::vector<Sphere> sphereLights;
+		std::vector<PointLight> pointLights;
 
 		Scene() = default;
 
-		Scene(Camera& camera, TLAS& tlas, std::vector<Sphere>& sphereLights) :
-			camera{ camera }, tlas{ tlas }, sphereLights{ sphereLights }
+		Scene(Camera& camera, TLAS& tlas, std::vector<PointLight>& pointLights) :
+			camera{ camera }, tlas{ tlas }, pointLights{ pointLights }
 		{}
 	};
 private:
@@ -207,17 +207,17 @@ private:
 	int m_PrevBuffer;
 private:
 	void RenderFrameBuffer();
-	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t seed);
-	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, ReSTIRPass restirPass, uint32_t seed);
-	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t seed);
+	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<PointLight>& pointLights, ReSTIRPass restirPass, uint32_t seed);
+	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed);
 
 	// ReSTIR original paper
-	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
 	Resevoir<Sample> CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed);
 
 	// ResTIR passes
-	inline void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	inline void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed);
 	inline void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
 	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
 	inline void TemporalReuse(const Camera& camera, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);

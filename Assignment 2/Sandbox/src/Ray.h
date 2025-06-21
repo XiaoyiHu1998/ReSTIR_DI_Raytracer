@@ -22,15 +22,15 @@ public:
 	HitInfo():
 		hit{ false }, distance{ std::numeric_limits<float>().max() }, location{ glm::vec3(0) },
 		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
-		material { Material(Material::Type::Emissive, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) },
-		prevMaterial { Material(Material::Type::Emissive, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) },
+		material { Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f), 1) },
+		prevMaterial { Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f), 1) },
 		normal { glm::vec3(0)}
 	{}
 
 	HitInfo(bool hit) : // Members should be set manually after initialization
 		hit{ hit },
-		material{ Material(Material::Type::Emissive, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f),1 ) },
-		prevMaterial{ Material(Material::Type::Emissive, 0, glm::vec3(0), glm::vec3(0.8f, 0.2f, 0.2f), 1) }
+		material{ Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f),1 ) },
+		prevMaterial{ Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f), 1) }
 	{}
 };
 

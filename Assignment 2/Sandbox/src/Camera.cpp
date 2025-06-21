@@ -48,6 +48,7 @@ void Camera::UpdateFrustrum()
 
 glm::vec3 Camera::GetDirection(uint32_t x, uint32_t y) const
 {
+	//TODO: double check if adding 0.5f and 0.5f of halfwidth won't result in sampling the next pixel
 	float directionX =  (static_cast<float>(x) + 0.5f) - m_HalfWidth;
 	float directionY = -(static_cast<float>(y) + 0.5f) + m_HalfHeight; // this flips the image at the same time
 
