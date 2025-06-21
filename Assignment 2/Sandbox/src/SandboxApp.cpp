@@ -204,10 +204,6 @@ public:
 				// Spatial Reuse
 				ImGui::Text("Spatial Reuse");
 				ImGui::Checkbox("Enable", &m_RendererSettingsUI.EnableSpatialReuse);
-				if (ImGui::InputInt("Iterations", &m_RendererSettingsUI.SpatialReuseIterationCount))
-				{
-					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
-				}
 				if (ImGui::InputInt("Neighbours", &m_RendererSettingsUI.SpatialReuseNeighbours))
 				{
 					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;

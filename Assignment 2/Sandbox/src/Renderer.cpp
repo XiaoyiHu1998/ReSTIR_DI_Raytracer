@@ -390,37 +390,32 @@ void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
 		resevoir.WeightSampleOut = 0.0f;
 }
 
-// TODO: transfer light point to currentpixel path
 void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
 {
-	for (int i = 0; i < m_Settings.SpatialReuseIterationCount; i++)
+	for (int i = 0; i < m_Settings.SpatialReuseNeighbours; i++)
 	{
-		std::vector<glm::i32vec2> neighbours = Utils::GetNeighbourPixels(pixel, resolution, m_Settings.SpatialReuseNeighbours, m_Settings.SpatialReuseRadius, seed);
-		std::vector<Resevoir<Sample>> resevoirs;
+		glm::i32vec2 neighbour = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialReuseRadius, seed);
 
-		Resevoir<Sample> pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][pixel.x + pixel.y * resolution.x];
+		Resevoir<Sample> pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
 		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
 		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
 
-		for (glm::i32vec2 neighbour : neighbours)
+		Resevoir<Sample> neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
+		glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
+		glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
+
+		bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
+		bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
+		// TODO: shadowray test against neighbour lightsource with pixelHitLocation
+		//bool notOccluded = !tlas.isOccluded();
+
+		if (withinMaxDistance && similarNormals) // && notOccluded
 		{
-			Resevoir<Sample> neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
-			glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
-			glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
-
-			bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
-			bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
-
-			// TODO: shadowray test against neighbour lightsource with pixelHitLocation
-
-			if (withinMaxDistance && similarNormals)
-				resevoirs.push_back(neighbourResevoir);
+			Resevoir<Sample> newSample = CombineResevoirBiased(pixelResevoir, neighbourResevoir, seed);
+			newSample.GetSampleOutRef().Path.HitLocation = pixelHitLocation;
+			newSample.GetSampleOutRef().Path.FirstRayHitInfo = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo;
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = newSample;
 		}
-
-		Resevoir<Sample> newSample = CombineResevoirsBiased(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], resevoirs, seed);
-		newSample.GetSampleOutRef().Path.HitLocation = pixelHitLocation;
-		newSample.GetSampleOutRef().Path.FirstRayHitInfo = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo;
-		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = newSample;
 	}
 }
 
@@ -516,6 +511,25 @@ Resevoir<Sample> Renderer::CombineResevoirsBiased(const Resevoir<Sample>& origin
 	}
 
 	combinedResevoir.SetSampleCount(totalCandidates);
+	combinedResevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(combinedResevoir.GetSampleOut().Path))) * (combinedResevoir.GetWeightTotal() / combinedResevoir.GetSampleCount());
+
+	return combinedResevoir;
+}
+
+Resevoir<Sample> Renderer::CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, Resevoir<Sample>& newResevoir, uint32_t& seed)
+{
+	Resevoir<Sample> combinedResevoir;
+
+	Sample originalSample = originalResevoir.GetSampleOut();
+	Sample newSample = newResevoir.GetSampleOut();
+
+	float originalWeight = Utils::colorToContribution(TargetDistribution(originalSample.Path)) * originalResevoir.WeightSampleOut * originalResevoir.GetSampleCount();
+	float newWeight = Utils::colorToContribution(TargetDistribution(newSample.Path)) * newResevoir.WeightSampleOut * newResevoir.GetSampleCount();
+
+	combinedResevoir.Update(originalSample, originalWeight, seed);
+	combinedResevoir.Update(newSample, newWeight, seed);
+
+	combinedResevoir.SetSampleCount(originalResevoir.GetSampleCount() + newResevoir.GetSampleCount());
 	combinedResevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(combinedResevoir.GetSampleOut().Path))) * (combinedResevoir.GetWeightTotal() / combinedResevoir.GetSampleCount());
 
 	return combinedResevoir;

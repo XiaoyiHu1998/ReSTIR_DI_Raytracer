@@ -53,36 +53,22 @@ namespace Utils
 
     static inline float colorToContribution(const glm::vec3& color) 
     {
+        // TODO: Replace with max channel value in rgb channels
         return glm::length(color);
     };
 
-    static inline std::vector<glm::i32vec2> GetNeighbourPixels(glm::i32vec2 pixel, glm::i32vec2 resolution, int neighbourCandidateCount, float radius, uint32_t& seed)
+    static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, float radius, uint32_t& seed)
     {
-        std::vector<glm::i32vec2> neighbourPixels;
-        neighbourPixels.reserve(neighbourCandidateCount);
+        glm::i32vec2 neighbourPixel = glm::i32vec2(-1, -1);
 
-        while (neighbourPixels.size() < neighbourCandidateCount)
+        // Check if neighour is within the frame and max radius
+        while (0 > neighbourPixel.x || neighbourPixel.x >= resolution.x || 0 > neighbourPixel.y || neighbourPixel.y >= resolution.y || (neighbourPixel - pixel).length() > radius)
         {
-            int xOffset = Utils::RandomInt(0, radius, seed);
-            int yOffset = Utils::RandomInt(0, radius, seed);
-
-            int newX = pixel.x + xOffset;
-            int newY = pixel.y + yOffset;
-
-            glm::vec2 offset;
-            offset.x = xOffset;
-            offset.y = yOffset;
-
-            auto validPixel = [](uint32_t value, uint32_t min, uint32_t max) {
-                return min <= value && value < max;
-            };
-
-            bool validNeighbour = glm::length(offset) <= radius && validPixel(newX, 0, resolution.x) && validPixel(newY, 0, resolution.y);
-            if (validNeighbour)
-                neighbourPixels.push_back(glm::i32vec2(newX, newY));
+            neighbourPixel.x = pixel.x + Utils::RandomInt(0, radius, seed);
+            neighbourPixel.y = pixel.y + Utils::RandomInt(0, radius, seed);
         }
 
-        return neighbourPixels;
+        return neighbourPixel;
     }
 
 }
