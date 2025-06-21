@@ -245,8 +245,8 @@ void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, 
 
 void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<PointLight>& pointLights, ReSTIRPass restirPass, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
-	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width - 1);
+	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height - 1);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -261,9 +261,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				uint32_t bufferIndex = x + yOffset;
-
-				GenerateSample(camera, glm::i32vec2(x, y), bufferIndex, tlas, pointLights, seed);
+				GenerateSample(camera, glm::i32vec2(x, y), x + yOffset, tlas, pointLights, seed);
 			}
 		}
 		break;
@@ -273,9 +271,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				uint32_t bufferIndex = x + yOffset;
-
-				VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas);
+				VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][x + yOffset], tlas);
 			}
 		}
 		break;
@@ -285,9 +281,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				uint32_t bufferIndex = x + yOffset;
-
-				TemporalReuse(camera, glm::i32vec2(x, y), glm::i32vec2(width, height), bufferIndex, seed);
+				TemporalReuse(camera, glm::i32vec2(x, y), glm::i32vec2(width, height), x + yOffset, seed);
 			}
 		}
 		break;
@@ -297,9 +291,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				uint32_t bufferIndex = x + yOffset;
-
-				SpatialReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), bufferIndex, seed);
+				SpatialReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), x + yOffset, seed);
 			}
 		}
 		break;
@@ -309,9 +301,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				uint32_t bufferIndex = x + yOffset;
-
-				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers[m_CurrentBuffer][bufferIndex], tlas, seed), width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers[m_CurrentBuffer][x + yOffset], tlas, seed), width, frameBuffer);
 			}
 		}
 		break;
