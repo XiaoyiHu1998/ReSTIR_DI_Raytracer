@@ -124,26 +124,16 @@ void Renderer::RenderFrameBuffer()
 
 		if (currentFrameSettings.Mode != Settings::RenderMode::ReSTIR)
 		{
-			TaskBatch renderThreadBatch(currentFrameSettings.ThreadCount);
-
-			std::vector<uint32_t> threadStartHeights;
-			threadStartHeights.reserve(m_Settings.ThreadCount);
-
-			int threadRenderHeight = height / m_Settings.ThreadCount;
-			int startHeight = 0;
-			for (int i = 0; i < m_Settings.ThreadCount; i++)
+			TaskBatch taskBatch(currentFrameSettings.ThreadCount);
+			for (uint32_t y = 0; y < height; y += currentFrameSettings.RenderingKernelSize)
 			{
-				threadStartHeights.push_back(i * threadRenderHeight);
+				for (uint32_t x = 0; x < width; x += currentFrameSettings.RenderingKernelSize)
+				{
+					uint32_t seed = x + y * width;
+					taskBatch.EnqueueTask([=]() { RenderKernelNonReSTIR(camera, framebuffer, width, height, x, y, tlas, sphereLights, seed); });
+				}
 			}
-
-			for (int i = 0; i < threadStartHeights.size() - 1; i++)
-			{
-				uint32_t startHeight = threadStartHeights[i];
-				renderThreadBatch.EnqueueTask([=]() {RenderThreadNonReSTIR(startHeight, startHeight + threadRenderHeight, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
-			}
-			int lastIndex = threadStartHeights.size() - 1;
-			renderThreadBatch.EnqueueTask([=]() {RenderThreadNonReSTIR(threadStartHeights[lastIndex], height, width, camera, framebuffer, tlas, sphereLights, currentFrameSettings, startHeight); });
-			renderThreadBatch.ExecuteTasks();
+			taskBatch.ExecuteTasks();
 		}
 		else
 		{
@@ -216,18 +206,6 @@ void Renderer::RenderFrameBuffer()
 		m_FrameBufferMutex.lock();
 		m_FrameBuffers.SwapFrameBuffers();
 		m_FrameBufferMutex.unlock();
-	}
-}
-
-void Renderer::RenderThreadNonReSTIR(uint32_t startY, uint32_t endY, uint32_t endX, const Camera& camera, FrameBufferRef frameBuffer, const TLAS& tlas, const std::vector<Sphere>& sphereLights, const Settings& settings, uint32_t seed)
-{
-	for (uint32_t kernelY = startY; kernelY < endY; kernelY += settings.RenderingKernelSize)
-	{
-		for (uint32_t kernelX = 0; kernelX < endX; kernelX += settings.RenderingKernelSize)
-		{
-			//Call Kernel
-			Renderer::RenderKernelNonReSTIR(camera, frameBuffer, settings.RenderResolutionWidth, settings.RenderResolutionHeight, kernelX, kernelY, tlas, sphereLights, seed);
-		}
 	}
 }
 
