@@ -10,7 +10,6 @@ uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& BLAS)
 	m_BLASList.push_back(BLAS);
 	return m_BLASList.size() - 1;
 }
-}
 
 void TLAS::Traverse(Ray& ray) const
 {

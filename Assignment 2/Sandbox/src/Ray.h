@@ -34,24 +34,6 @@ public:
 	{}
 };
 
-struct LightSampleInfo
-{
-public:
-	float distance;
-	float Area;
-	float emissiveIntensity;
-	float Probability; // Probability of finding this specific point on the light from the whole scene
-
-	glm::vec3 location;
-	glm::vec3 direction;
-	glm::vec3 normal;
-	glm::vec3 emissiveColor;
-public:
-	LightSampleInfo() :
-		distance{ std::numeric_limits<float>().max() }, Area{ 0 }, direction{ glm::vec3(0) }, normal{ glm::vec3(0) }, emissiveColor{ glm::vec3(0) }, emissiveIntensity{ 0 }, Probability{ 0 }
-	{}
-};
-
 struct Ray
 {
 public:
