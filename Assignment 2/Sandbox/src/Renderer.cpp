@@ -266,7 +266,7 @@ void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uin
 			{
 				uint32_t bufferIndex = x + yOffset;
 
-				m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = GenerateSample(camera, glm::i32vec2(x, y), bufferIndex, tlas, sphereLights, seed);
+				GenerateSample(camera, glm::i32vec2(x, y), bufferIndex, tlas, sphereLights, seed);
 			}
 		}
 		break;
@@ -359,8 +359,7 @@ glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 	//float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
 	return glm::dot(path.FirstRayHitInfo.normal, lightDirection) * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
 }
-
-Resevoir<Sample> Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
+void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed)
 {
 	Resevoir<Sample> resevoir;
 	Sample sample;
@@ -374,7 +373,7 @@ Resevoir<Sample> Renderer::GenerateSample(const Camera& camera, const glm::i32ve
 	}
 
 	resevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(resevoir.GetSampleOut().Path))) * (resevoir.GetWeightTotal() / resevoir.GetSampleCount());
-	return resevoir;
+	m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = resevoir;
 }
 
 void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
@@ -396,11 +395,11 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 	{
 		glm::i32vec2 neighbour = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialReuseRadius, seed);
 
-		Resevoir<Sample> pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
+		const Resevoir<Sample>& pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
 		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
 		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
 
-		Resevoir<Sample> neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
+		const Resevoir<Sample>& neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
 		glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.location;
 		glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOut().Path.FirstRayHitInfo.normal;
 
@@ -411,10 +410,9 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 
 		if (withinMaxDistance && similarNormals) // && notOccluded
 		{
-			Resevoir<Sample> newSample = CombineResevoirBiased(pixelResevoir, neighbourResevoir, seed);
-			newSample.GetSampleOutRef().Path.HitLocation = pixelHitLocation;
-			newSample.GetSampleOutRef().Path.FirstRayHitInfo = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo;
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = newSample;
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(pixelResevoir, neighbourResevoir, seed);
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.HitLocation = pixelHitLocation;
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.FirstRayHitInfo = pixelResevoir.GetSampleOut().Path.FirstRayHitInfo;
 		}
 	}
 }
@@ -422,11 +420,11 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 void Renderer::TemporalReuse(const Camera& camera, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed)
 {
 	// Follows original paper pseudocode, does not seem to do much
-	Resevoir<Sample> currentFrameResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
+	const Resevoir<Sample>& currentFrameResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
 	glm::vec3 hitLocation = currentFrameResevoir.GetSampleOut().Path.HitLocation;
 
 	glm::i32vec2 prevFramePixel = camera.GetPrevFramePixelCoordinates(hitLocation);
-	Resevoir<Sample> prevFrameResevoir = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x];
+	const Resevoir<Sample>& prevFrameResevoir = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x];
 
 	bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
 	bool sameNormal = glm::dot(currentFrameResevoir.GetSampleOut().Path.FirstRayHitInfo.normal, prevFrameResevoir.GetSampleOut().Path.FirstRayHitInfo.normal) >= 0.99;
@@ -437,44 +435,15 @@ void Renderer::TemporalReuse(const Camera& camera, const glm::i32vec2& pixel, co
 	{
 		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(currentFrameResevoir, prevFrameResevoir, seed);
 	}
-
-	// A gentle introduction to Restir method
-
-	//glm::vec3 hitLocation = resevoir.GetSampleOut().Path.HitLocation;
-	//glm::i32vec2 prevFramePixel = camera.GetPrevFramePixelCoordinates(hitLocation);
-	//bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
-	//
-	//if (withinBounds)
-	//{
-	//	Resevoir<Sample> temporalResevoir;
-	//
-	//	Sample currentSample = resevoir.GetSampleOut();
-	//	Sample prevSample = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x].GetSampleOut();
-	//
-	//	float contributionCurrent = Utils::colorToContribution(TargetDistribution(currentSample.Path));
-	//	float contributionPrev = Utils::colorToContribution(TargetDistribution(prevSample.Path));
-	//	float MISWeightCurrent = contributionCurrent / (20 * contributionPrev + contributionCurrent);
-	//	float MISWeightPrev = (20 * contributionPrev) / (20 * contributionPrev + contributionCurrent);
-	//
-	//	float weightCurrent = MISWeightCurrent * contributionCurrent * currentSample.Weight;
-	//	temporalResevoir.Update(currentSample, weightCurrent, seed);
-	//
-	//	float weightPrev = MISWeightPrev * contributionPrev * prevSample.Weight;
-	//	temporalResevoir.Update(prevSample, weightPrev, seed);
-	//
-	//	Sample sampleOut = temporalResevoir.GetSampleOut();
-	//	temporalResevoir.WeightSampleOut = 1.0f / Utils::colorToContribution(TargetDistribution(sampleOut.Path)) * temporalResevoir.GetWeightTotal();
-	//	m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = temporalResevoir;
-	//}
 }
 
 glm::vec4 Renderer::RenderSample(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed)
 {
 	// Direct lighting calculation
 	glm::vec3 outputColor(0.0f);
-	Sample sample = resevoir.GetSampleOut();
-	HitInfo hitInfo = sample.Path.FirstRayHitInfo;
-	Sphere light = sample.Path.Light;
+	const Sample& sample = resevoir.GetSampleOut();
+	const HitInfo& hitInfo = sample.Path.FirstRayHitInfo;
+	const Sphere& light = sample.Path.Light;
 
 	glm::vec3 lightDirection = sample.Path.LightLocation - sample.Path.HitLocation;
 	float lightDistance = glm::length(lightDirection);
@@ -495,7 +464,7 @@ glm::vec4 Renderer::RenderSample(const Resevoir<Sample>& resevoir, const TLAS& t
 	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
 }
 
-Resevoir<Sample> Renderer::CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, Resevoir<Sample>& newResevoir, uint32_t& seed)
+Resevoir<Sample> Renderer::CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed)
 {
 	Resevoir<Sample> combinedResevoir;
 

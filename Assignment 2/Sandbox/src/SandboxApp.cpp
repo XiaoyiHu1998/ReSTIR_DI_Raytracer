@@ -218,7 +218,6 @@ public:
 
 				// Temporal Reuse
 				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
-
 			}
 
 			ImGui::End();

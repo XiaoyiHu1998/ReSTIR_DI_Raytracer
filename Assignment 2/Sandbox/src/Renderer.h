@@ -207,10 +207,6 @@ private:
 	int m_PrevBuffer;
 private:
 	void RenderFrameBuffer();
-	void RenderFrameBufferTest();
-
-	void Renderer::RenderThreadNonReSTIR(uint32_t startY, uint32_t endY, uint32_t endX, const Camera& camera, FrameBufferRef frameBuffer, const TLAS& tlas, const std::vector<Sphere>& sphereLights, const Settings& settings, uint32_t seed);
-
 	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t seed);
 	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<Sphere>& sphereLights, ReSTIRPass restirPass, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
@@ -218,9 +214,10 @@ private:
 	// ReSTIR original paper
 	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
-	Resevoir<Sample> CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, Resevoir<Sample>& newResevoir, uint32_t& seed);
+	Resevoir<Sample> CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed);
 
-	Resevoir<Sample> GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
+	// ResTIR passes
+	inline void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<Sphere>& sphereLights, uint32_t& seed);
 	inline void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
 	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
 	inline void TemporalReuse(const Camera& camera, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
@@ -279,7 +276,6 @@ public:
 		}
 	}
 
-	//Settings& GetSettings() { return m_Settings; }
 	float GetLastFrameTime() { return m_LastFrameTime; }
 
 	glm::i32vec2 GetRenderResolution()
