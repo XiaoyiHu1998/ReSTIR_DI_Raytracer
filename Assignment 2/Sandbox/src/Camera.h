@@ -21,7 +21,6 @@ private:
 	//Viewport
 	float m_Width, m_Height;
 	float m_HalfWidth, m_HalfHeight;
-	float m_PrevWidth, m_PrevHeight;
 	float m_VerticalFov;
 
 	//Frustrum
@@ -42,10 +41,15 @@ private:
 	float m_CameraPlaneDistance;
 public:
 	Camera():
-		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_VerticalFov{ 60 },
+		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_HalfWidth{ 640.0f }, m_HalfHeight{ 360.0f }, m_VerticalFov {
+		60
+	},
 		transform{ Transform(glm::vec3(0, 0, 10), glm::vec3(0), glm::vec3(1)) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
 		UpdateCameraMatrix();
+
+		// double call to init prevFrustrum
+		UpdateFrustrum();
 		UpdateFrustrum();
 	}
 
@@ -53,7 +57,13 @@ public:
 		m_Width{ static_cast<float>(width) }, m_Height{ static_cast<float>(height) }, m_VerticalFov{ verticalFov },
 		transform{ Transform(glm::vec3(0, 0, 10), glm::vec3(0), glm::vec3(1)) }, m_UpDirection{ glm::vec3(0,1,0) }
 	{
+		m_HalfWidth = m_Width * 0.5f;
+		m_HalfHeight = m_Height * 0.5f;
+
 		UpdateCameraMatrix();
+
+		// double call to init prevFrustrum
+		UpdateFrustrum();
 		UpdateFrustrum();
 	}
 
