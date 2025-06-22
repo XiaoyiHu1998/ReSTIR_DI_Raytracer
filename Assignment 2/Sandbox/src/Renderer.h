@@ -18,20 +18,20 @@ struct PathDI
 	glm::vec3 LightLocation;
 
 	HitInfo FirstRayHitInfo;
-	HitInfo ShadowRayHitInfo;
+	//HitInfo ShadowRayHitInfo;
 	PointLight Light;
 
 	PathDI() = default;
 
 	PathDI(const glm::vec3 cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation) :
 		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ HitInfo() }, ShadowRayHitInfo{ HitInfo() }, Light{ PointLight() }
+		FirstRayHitInfo{ HitInfo() }, /*ShadowRayHitInfo{HitInfo()},*/ Light{PointLight()}
 	{}
 
 	PathDI(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation,
 		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const PointLight & light) :
 		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ firstRayHitInfo }, ShadowRayHitInfo{ ShadowRayHitInfo }, Light{ light }
+		FirstRayHitInfo{ firstRayHitInfo }, /*ShadowRayHitInfo{ ShadowRayHitInfo },*/ Light{ light }
 	{}
 };
 
@@ -229,8 +229,8 @@ public:
 		//m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
 		m_ResevoirBuffers[0] = std::vector<Resevoir<Sample>>();
 		m_ResevoirBuffers[1] = std::vector<Resevoir<Sample>>();
-		//m_ResevoirBuffers[0].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
-		//m_ResevoirBuffers[1].reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
+		m_ResevoirBuffers[0].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
+		m_ResevoirBuffers[1].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
 
 		m_CurrentBuffer = 0;
 		m_PrevBuffer = 1;

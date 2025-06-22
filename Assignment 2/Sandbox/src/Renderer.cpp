@@ -329,7 +329,7 @@ Sample Renderer::SamplePointLight(const Camera& camera, const glm::i32vec2& pixe
 	sample.Path.HitLocation = ray.hitInfo.location;
 	sample.Path.LightLocation = randomPointLight.position;
 	sample.Path.FirstRayHitInfo = ray.hitInfo;
-	sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
+	//sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
 	sample.Path.Light = randomPointLight;
 	sample.PDF = 1.0f / pointLights.size();
 	sample.Weight = pointLights.size(); //1.0f / sample.PDF; // 1 / PDF
@@ -368,7 +368,7 @@ void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
 	const PathDI& path = resevoir.GetSampleOutRef().Path;
 	glm::vec3 rayDirection = path.Light.position - path.FirstRayHitInfo.location;
 	float rayDistance = glm::length(rayDirection);
-	rayDirection = rayDirection / rayDistance;
+	//rayDirection = rayDirection / rayDistance;
 	glm::vec3 rayOrigin = path.FirstRayHitInfo.location + m_Settings.Eta * rayDirection;
 
 	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2.0f * m_Settings.Eta);
