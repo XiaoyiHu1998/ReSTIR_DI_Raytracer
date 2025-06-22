@@ -135,49 +135,6 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
 }
 
-Triangle BVH_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
-{
-	// Find a random triangle using binary search.
-	float randomArea = Utils::RandomFloat(seed) * m_Area;
-
-	int left = 0; //inclusive
-	int right = m_CumulativeArea.size() - 1; //exclusive
-
-	while (left < right)
-	{
-		int mid = left + (right - left) / 2;
-		if (m_CumulativeArea[mid] < randomArea)
-		{
-			left = mid + 1;
-		}
-		else
-		{
-			right = mid;
-		}
-	}
-
-	// Set chance of selecting the triangle found
-	float triangleArea = (left > 0) ? m_CumulativeArea[left] - m_CumulativeArea[left - 1] : m_CumulativeArea[left];
-	triangleChanceOut = triangleArea / m_Area;
-
-	// Construct Triangle
-	uint32_t index = left * 3;
-
-	glm::vec3 position0 = m_TransformMatrix * glm::vec4(m_Positions[index + 0].x, m_Positions[index + 0].y, m_Positions[index + 0].z, 1.0f);
-	glm::vec3 position1 = m_TransformMatrix * glm::vec4(m_Positions[index + 1].x, m_Positions[index + 1].y, m_Positions[index + 1].z, 1.0f);
-	glm::vec3 position2 = m_TransformMatrix * glm::vec4(m_Positions[index + 2].x, m_Positions[index + 2].y, m_Positions[index + 2].z, 1.0f);
-
-	glm::vec3 normal0 = m_TransformMatrix * glm::vec4(m_Normals[index * 3 + 0], 0.0f);
-	glm::vec3 normal1 = m_TransformMatrix * glm::vec4(m_Normals[index * 3 + 1], 0.0f);
-	glm::vec3 normal2 = m_TransformMatrix * glm::vec4(m_Normals[index * 3 + 2], 0.0f);
-
-	glm::vec2 texCoord0 = m_TexCoords[index * 3 + 0];
-	glm::vec2 texCoord1 = m_TexCoords[index * 3 + 1];
-	glm::vec2 texCoord2 = m_TexCoords[index * 3 + 2];
-
-	return Triangle(Vertex(position0, normal0, texCoord0), Vertex(position1, normal1, texCoord1), Vertex(position2, normal2, texCoord2));
-}
-
 //=================== Debug_BLAS ===================
 
 void Debug_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
@@ -239,41 +196,4 @@ bool Debug_BLAS::IsOccluded(const Ray& ray)
 	Traverse(occlusionRay);
 
 	return ray.hitInfo.hit;
-}
-
-Triangle Debug_BLAS::GetRandomTriangle(float& triangleChanceOut, uint32_t& seed) const
-{
-	// Find a random triangle using binary search.
-	float randomArea = Utils::RandomFloat(seed) * m_Area;
-
-	int left = 0; //inclusive
-	int right = m_CumulativeArea.size() - 1; //exclusive
-
-	while (left < right)
-	{
-		int mid = left + (right - left) / 2;
-		if (m_CumulativeArea[mid] < randomArea)
-		{
-			left = mid + 1;
-		}
-		else
-		{
-			right = mid;
-		}
-	}
-
-	// Set chance of selecting the triangle found
-	float triangleArea = (left > 0) ? m_CumulativeArea[left] - m_CumulativeArea[left - 1] : m_CumulativeArea[left];
-	triangleChanceOut = triangleArea / m_Area;
-
-	// Construct Triangle
-	Vertex vertex0 = m_Triangles[left].GetVertex0();
-	Vertex vertex1 = m_Triangles[left].GetVertex1();
-	Vertex vertex2 = m_Triangles[left].GetVertex2();
-
-	Vertex vertex0WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f), m_TransformMatrix * glm::vec4(vertex0.normal, 0.0f), vertex0.texCoord);
-	Vertex vertex1WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f), m_TransformMatrix * glm::vec4(vertex1.normal, 0.0f), vertex1.texCoord);
-	Vertex vertex2WorldSpace = Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f), m_TransformMatrix * glm::vec4(vertex2.normal, 0.0f), vertex2.texCoord);
-
-	return Triangle(vertex0WorldSpace, vertex1WorldSpace, vertex2WorldSpace);
 }

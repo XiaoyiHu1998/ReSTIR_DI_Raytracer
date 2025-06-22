@@ -60,8 +60,6 @@ public:
 	Vertex GetVertex2() const	 { return m_Vertex2; }
 	glm::vec3 GetNormal() const  { return m_Normal; }
 	glm::vec3 GetTangent() const { return m_Vertex1.position - m_Vertex0.position; }
-
-	const glm::vec3 GetRandomPoint(uint32_t& seed);
 };
 
 

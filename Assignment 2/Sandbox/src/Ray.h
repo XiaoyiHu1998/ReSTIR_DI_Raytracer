@@ -27,7 +27,7 @@ public:
 
 	HitInfo(bool hit) : // Members should be set manually after initialization
 		hit{ hit },
-		material{ Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f),1 ) }
+		material{ Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f), 1) }
 	{}
 };
 
