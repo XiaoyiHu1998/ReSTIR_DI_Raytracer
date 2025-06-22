@@ -326,10 +326,7 @@ Sample Renderer::SamplePointLight(const Camera& camera, const glm::i32vec2& pixe
 	Sample sample;
 	sample.valid = ray.hitInfo.hit && ray.hitInfo.material.MaterialType != Material::Type::Emissive;
 	sample.Path.CameraOrigin = camera.GetTransform().translation;
-	sample.Path.HitLocation = ray.hitInfo.location;
-	sample.Path.LightLocation = randomPointLight.position;
-	sample.Path.FirstRayHitInfo = ray.hitInfo;
-	//sample.Path.ShadowRayHitInfo = shadowRay.hitInfo;
+	sample.Path.hitInfo = ray.hitInfo;
 	sample.Path.Light = randomPointLight;
 	sample.PDF = 1.0f / pointLights.size();
 	sample.Weight = pointLights.size(); //1.0f / sample.PDF; // 1 / PDF
@@ -339,12 +336,12 @@ Sample Renderer::SamplePointLight(const Camera& camera, const glm::i32vec2& pixe
 
 glm::vec3 Renderer::TargetDistribution(const PathDI& path)
 {
-	glm::vec3 lightDirection = path.LightLocation - path.HitLocation;
+	glm::vec3 lightDirection = path.Light.position - path.hitInfo.location;
 	float lightDistance = glm::length(lightDirection);
 	lightDirection = lightDirection / lightDistance;
 
-	//float BRDF = glm::dot(path.FirstRayHitInfo.normal, lightDirection);
-	return glm::dot(path.FirstRayHitInfo.normal, lightDirection) * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
+	//float BRDF = glm::dot(path.hitInfo.normal, lightDirection);
+	return glm::dot(path.hitInfo.normal, lightDirection) * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
 }
 void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed)
 {
@@ -366,10 +363,10 @@ void Renderer::GenerateSample(const Camera& camera, const glm::i32vec2 pixel, ui
 void Renderer::VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas)
 {
 	const PathDI& path = resevoir.GetSampleOutRef().Path;
-	glm::vec3 rayDirection = path.Light.position - path.FirstRayHitInfo.location;
+	glm::vec3 rayDirection = path.Light.position - path.hitInfo.location;
 	float rayDistance = glm::length(rayDirection);
 	//rayDirection = rayDirection / rayDistance;
-	glm::vec3 rayOrigin = path.FirstRayHitInfo.location + m_Settings.Eta * rayDirection;
+	glm::vec3 rayOrigin = path.hitInfo.location + m_Settings.Eta * rayDirection;
 
 	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2.0f * m_Settings.Eta);
 	if (tlas.IsOccluded(shadowRay))
@@ -383,12 +380,12 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		glm::i32vec2 neighbour = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialReuseRadius, seed);
 
 		Resevoir<Sample>& pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
-		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOutRef().Path.FirstRayHitInfo.location;
-		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOutRef().Path.FirstRayHitInfo.normal;
+		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOutRef().Path.hitInfo.location;
+		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOutRef().Path.hitInfo.normal;
 
 		Resevoir<Sample>& neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
-		glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOutRef().Path.FirstRayHitInfo.location;
-		glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOutRef().Path.FirstRayHitInfo.normal;
+		glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOutRef().Path.hitInfo.location;
+		glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOutRef().Path.hitInfo.normal;
 
 		bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
 		bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
@@ -398,8 +395,8 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		if (withinMaxDistance && similarNormals) // && notOccluded
 		{
 			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(pixelResevoir, neighbourResevoir, seed);
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.HitLocation = pixelHitLocation;
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.FirstRayHitInfo = pixelResevoir.GetSampleOutRef().Path.FirstRayHitInfo;
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.hitInfo.location = pixelHitLocation;
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.hitInfo = pixelResevoir.GetSampleOutRef().Path.hitInfo;
 		}
 	}
 }
@@ -408,13 +405,13 @@ void Renderer::TemporalReuse(const Camera& camera, const glm::i32vec2& pixel, co
 {
 	// Follows original paper pseudocode, does not seem to do much
 	Resevoir<Sample>& currentFrameResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
-	glm::vec3 hitLocation = currentFrameResevoir.GetSampleOutRef().Path.HitLocation;
+	glm::vec3 hitLocation = currentFrameResevoir.GetSampleOutRef().Path.hitInfo.location;
 
 	glm::i32vec2 prevFramePixel = camera.GetPrevFramePixelCoordinates(hitLocation);
 	Resevoir<Sample>& prevFrameResevoir = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x];
 
 	bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
-	bool sameNormal = glm::dot(currentFrameResevoir.GetSampleOutRef().Path.FirstRayHitInfo.normal, prevFrameResevoir.GetSampleOutRef().Path.FirstRayHitInfo.normal) >= 0.99;
+	bool sameNormal = glm::dot(currentFrameResevoir.GetSampleOutRef().Path.hitInfo.normal, prevFrameResevoir.GetSampleOutRef().Path.hitInfo.normal) >= 0.99;
 	//TODO: Check for occlusion 
 	//bool notOccluded = !tlas.isOccluded();
 
@@ -429,10 +426,10 @@ glm::vec4 Renderer::RenderSample(const Resevoir<Sample>& resevoir, const TLAS& t
 	// Direct lighting calculation
 	glm::vec3 outputColor(0.0f);
 	const Sample& sample = resevoir.GetSampleOut();
-	const HitInfo& hitInfo = sample.Path.FirstRayHitInfo;
+	const HitInfo& hitInfo = sample.Path.hitInfo;
 	const PointLight& light = sample.Path.Light;
 
-	glm::vec3 lightDirection = sample.Path.LightLocation - sample.Path.HitLocation;
+	glm::vec3 lightDirection = sample.Path.Light.position - sample.Path.hitInfo.location;
 	float lightDistance = glm::length(lightDirection);
 	lightDirection = glm::normalize(lightDirection);
 

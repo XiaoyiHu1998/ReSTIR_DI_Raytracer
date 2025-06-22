@@ -14,24 +14,17 @@
 struct PathDI
 {
 	glm::vec3 CameraOrigin;
-	glm::vec3 HitLocation;
-	glm::vec3 LightLocation;
-
-	HitInfo FirstRayHitInfo;
-	//HitInfo ShadowRayHitInfo;
+	HitInfo hitInfo;
 	PointLight Light;
 
 	PathDI() = default;
 
-	PathDI(const glm::vec3 cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation) :
-		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ HitInfo() }, /*ShadowRayHitInfo{HitInfo()},*/ Light{PointLight()}
+	PathDI(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation ) :
+		CameraOrigin{ cameraOrigin }, hitInfo{ HitInfo() }, Light{ PointLight() }
 	{}
 
-	PathDI(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation,
-		const HitInfo & firstRayHitInfo, const HitInfo & ShadowRayHitInfo, const PointLight & light) :
-		CameraOrigin{ cameraOrigin }, HitLocation{ hitLocation }, LightLocation{ lightLocation },
-		FirstRayHitInfo{ firstRayHitInfo }, /*ShadowRayHitInfo{ ShadowRayHitInfo },*/ Light{ light }
+	PathDI(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const HitInfo& hitInfo, const PointLight& light) :
+		CameraOrigin{ cameraOrigin }, hitInfo{ hitInfo }, Light{ light }
 	{}
 };
 
@@ -47,11 +40,11 @@ struct Sample
 		valid{ false }
 	{}
 
-	Sample(const glm::vec3 cameraOrigin, const glm::vec3 & hitLocation, const glm::vec3 & lightLocation, float weight) :
-		valid{ false }, Path{ cameraOrigin, hitLocation, lightLocation}, Weight{weight}
+	Sample(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation, float weight) :
+		valid{ false }, Path{ cameraOrigin, hitLocation}, Weight{weight}
 	{}
 
-	Sample(Sample sample, float weight) :
+	Sample(const Sample& sample, float weight) :
 		valid{ sample.valid }, Path{ sample.Path }, Weight{ weight }
 	{}
 };
@@ -71,7 +64,7 @@ public:
 		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
 	{}
 
-	Resevoir(T initialSample, float totalWeight, uint32_t totalSampleCount) :
+	Resevoir(const T& initialSample, float totalWeight, uint32_t totalSampleCount) :
 		m_SampleOut{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ totalWeight }, m_SampleCount{ totalSampleCount }
 	{}
 
@@ -185,7 +178,7 @@ public:
 
 		Scene() = default;
 
-		Scene(Camera& camera, TLAS& tlas, std::vector<PointLight>& pointLights) :
+		Scene(const Camera& camera, const TLAS& tlas, const std::vector<PointLight>& pointLights) :
 			camera{ camera }, tlas{ tlas }, pointLights{ pointLights }
 		{}
 	};
