@@ -56,8 +56,13 @@ class BVH_BLAS : public BLAS
 {
 private:
 	std::string m_Name;
-
+#if defined(__AVX2__)
+	tinybvh::BVH8_CPU m_BVH;
+#elif defined(__AVX__)
 	tinybvh::BVH_SoA m_BVH;
+#else
+	tinybvh::BVH4_CPU m_BVH;
+#endif
 	std::vector<tinybvh::bvhvec4> m_Positions;
 	std::vector<glm::vec3> m_Normals;
 	std::vector<glm::vec2> m_TexCoords;
@@ -71,7 +76,15 @@ private:
 
 public:
 	BVH_BLAS():
-		m_Name{ "" }, m_BVH{tinybvh::BVH_SoA()}, m_Positions{std::vector<tinybvh::bvhvec4>()}, m_Normals{std::vector<glm::vec3>()}, m_TexCoords{std::vector<glm::vec2>()},
+		m_Name{ "" }, m_BVH{
+#if defined(__AVX2__)
+			tinybvh::BVH8_CPU()
+#elif defined(__AVX__) && defined(USE_EXPERIMENTAL_BVH)
+			tinybvh::BVH_SoA()
+#else
+			tinybvh::BVH4_CPU()
+#endif
+		}, m_Positions{std::vector<tinybvh::bvhvec4>()}, m_Normals{std::vector<glm::vec3>()}, m_TexCoords{std::vector<glm::vec2>()},
 		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) }, m_Area{ 0.0f },
 		m_Material{ Material(Material::Type::Emissive, glm::vec3(0.8, 0.2, 0.2), 1.0f) }
 	{}
