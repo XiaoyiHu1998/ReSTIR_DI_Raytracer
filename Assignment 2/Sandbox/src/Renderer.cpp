@@ -15,7 +15,7 @@ namespace RenderModeNormal
 
 		tlas.Traverse(ray);
 		if (ray.hitInfo.hit)
-			E = 0.5f * ray.hitInfo.normal + glm::vec3(0.5f);
+			E = 0.5f * ray.hitInfo.normal + 0.5f;
 
 		return glm::vec4(E, 1.0f);
 	}
@@ -29,7 +29,7 @@ namespace RenderModeTraversalSteps
 
 		tlas.Traverse(ray);
 		if (ray.hitInfo.hit)
-			E = 0.5f * glm::vec3(ray.hitInfo.traversalStepsHitBVH / 100.0f) + glm::vec3(0.5f);
+			E = 0.5f * (1.0f / 100.0f) * glm::vec3(ray.hitInfo.traversalStepsHitBVH) + 0.5f;
 
 		return glm::vec4(E, 1.0f);
 	}
@@ -221,29 +221,48 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 		seed += milliseconds;
 	}
 
-	for (uint32_t y = yMin; y < yMax; y++)
+	glm::vec4 colorAccumulator;
+
+	switch (m_Settings.Mode)
 	{
-		for (uint32_t x = xMin; x < xMax; x++)
+	case Settings::RenderMode::Normals:
+		for (uint32_t y = yMin; y < yMax; y++)
 		{
-			Ray ray = m_Scene.camera.GetRay(x, y);
-			glm::vec4 colorAccumulator = glm::vec4(0);
-
-			switch (m_Settings.Mode)
+			for (uint32_t x = xMin; x < xMax; x++)
 			{
-			case Settings::RenderMode::Normals:
-				colorAccumulator += RenderModeNormal::RenderRay(ray, m_Scene.tlas, seed);
-				break;
-			case Settings::RenderMode::TraversalSteps:
-				colorAccumulator += RenderModeTraversalSteps::RenderRay(ray, m_Scene.tlas, seed);
-				break;
-			case Settings::RenderMode::DI:
-				colorAccumulator += RenderDI(ray, seed);
-				break;
-			}
+				Ray ray = m_Scene.camera.GetRay(x, y);
+				colorAccumulator = RenderModeNormal::RenderRay(ray, m_Scene.tlas, seed);
 
-			Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+			}
 		}
+		break;
+	case Settings::RenderMode::TraversalSteps:
+		for (uint32_t y = yMin; y < yMax; y++)
+		{
+			for (uint32_t x = xMin; x < xMax; x++)
+			{
+				Ray ray = m_Scene.camera.GetRay(x, y);
+				colorAccumulator = RenderModeTraversalSteps::RenderRay(ray, m_Scene.tlas, seed);
+
+				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+			}
+		}
+		break;
+	case Settings::RenderMode::DI:
+		for (uint32_t y = yMin; y < yMax; y++)
+		{
+			for (uint32_t x = xMin; x < xMax; x++)
+			{
+				Ray ray = m_Scene.camera.GetRay(x, y);
+				colorAccumulator = RenderDI(ray, seed);
+
+				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
+			}
+		}
+		break;
 	}
+
 }
 
 void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed)
