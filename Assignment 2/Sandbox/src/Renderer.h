@@ -187,10 +187,16 @@ private:
 	Settings m_Settings;
 	Scene m_Scene;
 
+	Settings m_SubmittedSettings;
+	Scene m_SubmittedScene;
+
 	std::thread m_RenderThread;
 	std::mutex m_FrameBufferMutex;
 	std::mutex m_SettingsLock;
 	std::mutex m_SceneLock;
+
+	bool m_SettingsUpdated;
+	bool m_SceneUpdated;
 
 	float m_LastFrameTime;
 
@@ -200,21 +206,21 @@ private:
 	int m_PrevBuffer;
 private:
 	void RenderFrameBuffer();
-	void Renderer::RenderKernelNonReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t seed);
-	void Renderer::RenderKernelReSTIR(Camera camera, FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, const TLAS& tlas, const std::vector<PointLight>& pointLights, ReSTIRPass restirPass, uint32_t seed);
-	glm::vec4 RenderDI(Ray& ray, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed);
+	void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t xMin, uint32_t yMin, uint32_t seed);
+	void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed);
+	glm::vec4 RenderDI(Ray& ray, uint32_t& seed);
 
 	// ReSTIR original paper
-	Sample SamplePointLight(const Camera& camera, const glm::i32vec2& pixel, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed);
+	Sample SamplePointLight(const glm::i32vec2& pixel, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
 	Resevoir<Sample> CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed);
 
 	// ResTIR passes
-	inline void GenerateSample(const Camera& camera, const glm::i32vec2 pixel, uint32_t bufferIndex, const TLAS& tlas, const std::vector<PointLight>& pointLights, uint32_t& seed);
-	inline void VisibilityPass(Resevoir<Sample>& resevoir, const TLAS& tlas);
+	inline void GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
+	inline void VisibilityPass(uint32_t bufferIndex);
 	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
-	inline void TemporalReuse(const Camera& camera, const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
-	inline glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, const TLAS& tlas, uint32_t& seed);
+	inline void TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, uint32_t& seed);
 public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
@@ -229,6 +235,9 @@ public:
 		m_PrevBuffer = 1;
 
 		m_FrameBuffers = FrameDoubleBuffer();
+
+		bool m_SettingsUpdated = true;
+		bool m_SceneUpdated = true;
 	}
 
 	void Init(const Scene& scene)
@@ -240,15 +249,19 @@ public:
 	void SubmitRenderSettings(const Settings& newRenderSettings) 
 	{ 
 		m_SettingsLock.lock();
-		m_Settings = newRenderSettings;
+		m_SubmittedSettings = newRenderSettings;
 		m_SettingsLock.unlock();
+
+		m_SettingsUpdated = true;
 	}
 
 	void SubmitScene(const Scene& newScene) 
 	{
 		m_SceneLock.lock();
-		m_Scene = newScene;
+		m_SubmittedScene = newScene;
 		m_SceneLock.unlock();
+
+		m_SceneUpdated = true;
 	}
 
 	void UpdateSampleBufferSize(uint32_t bufferSize)
