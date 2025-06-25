@@ -41,8 +41,6 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 #else
 	m_BVH = tinybvh::BVH4_CPU();
 #endif
-	m_Area = 0.0f;
-	m_CumulativeArea.resize(triangles.size());
 
 	m_Transform = transform;
 	m_InverseTransformMatrix = transform.GetInverseTransformMatrix();
@@ -50,13 +48,7 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 
 	m_Material = material;
 
-	m_Positions.resize(0);
-	m_Normals.resize(0);
-	m_TexCoords.resize(0);
-
 	m_Positions.reserve(triangles.size() * 3);
-	m_Normals.reserve(triangles.size() * 3);
-	m_TexCoords.reserve(triangles.size() *3);
 
 	for (int i = 0; i < triangles.size(); i++)
 	{
@@ -67,22 +59,6 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 		m_Positions.emplace_back(vertex0.position.x, vertex0.position.y, vertex0.position.z, 0.0f);
 		m_Positions.emplace_back(vertex1.position.x, vertex1.position.y, vertex1.position.z, 0.0f);
 		m_Positions.emplace_back(vertex2.position.x, vertex2.position.y, vertex2.position.z, 0.0f);
-
-		m_Normals.push_back(vertex0.normal);
-		m_Normals.push_back(vertex1.normal);
-		m_Normals.push_back(vertex2.normal);
-		
-		m_TexCoords.push_back(vertex0.texCoord);
-		m_TexCoords.push_back(vertex1.texCoord);
-		m_TexCoords.push_back(vertex2.texCoord);
-
-		// Need to account for transforms
-		Triangle transformedTriangle = Triangle(Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f)),
-												Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f)),
-												Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f)));
-
-		m_Area += transformedTriangle.Area();
-		m_CumulativeArea[i] = m_Area;
 	}
 
 	m_BVH.BuildHQ(m_Positions.data(), m_Positions.size() / 3);
@@ -140,21 +116,12 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 void Debug_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
 {
 	m_Triangles = triangles;
-	m_Area = 0.0f;
-	m_CumulativeArea.resize(triangles.size());
 
 	for (int i = 0; i < m_Triangles.size(); i++)
 	{
 		Vertex vertex0 = triangles[i].GetVertex0();
 		Vertex vertex1 = triangles[i].GetVertex1();
 		Vertex vertex2 = triangles[i].GetVertex2();
-
-		Triangle transformedTriangle = Triangle(Vertex(m_TransformMatrix * glm::vec4(vertex0.position, 1.0f)),
-												Vertex(m_TransformMatrix * glm::vec4(vertex1.position, 1.0f)),
-												Vertex(m_TransformMatrix * glm::vec4(vertex2.position, 1.0f)));
-
-		m_Area += transformedTriangle.Area();
-		m_CumulativeArea[i] = m_Area;
 	}
 
 	m_Transform = transform;
@@ -182,10 +149,6 @@ void Debug_BLAS::Traverse(Ray& ray)
 			ray.hitInfo.material = m_Material;
 			ray.hitInfo.traversalStepsHitBVH = 1;
 			ray.hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + 1;
-
-			// Debug Values
-			//ray.hitInfo.normal = currentTriangle.GetNormal();
-			//ray.hitInfo.tangent = currentTriangle.GetTangent();
 		}
 	}
 }
