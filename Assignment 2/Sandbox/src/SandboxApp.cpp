@@ -22,22 +22,10 @@ public:
 	PathTracingLayer() :
 		Layer("PathTracing")
 	{
-		m_FrameBuffer = std::make_shared<std::vector<uint8_t>>();
-		m_CurrentWidth = m_NextWidth = 640;
-		m_CurrentHeight = m_NextHeight = 480;
-
-		m_Renderer;
-		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
-		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
-		m_Camera.GetTransformRef().rotation = glm::vec3(0.0f, -111.0f, 0.0f);
-
-		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
-		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, m_FrameBuffer, m_CurrentWidth, m_CurrentHeight);
-		
+		// Create Scene
 		m_TLAS = TLAS();
-		m_TLAS_EmmisiveOnly = TLAS();
-		m_TLAS_NonEmmisiveOnly = TLAS();
 
+		// Pointlights
 		uint32_t lightCount = 10;
 		m_pointLights = std::vector<PointLight>();
 		m_pointLights.reserve(lightCount);
@@ -64,50 +52,42 @@ public:
 			std::cout << "PointLight " << i << " Pos:" << glm::to_string(position) << ", Radius: " << radius << ",Color: " << glm::to_string(emissiveColor) << ", intensity: " << emissiveStrength << std::endl;
 		}
 
-
+		// Geometry
 		std::vector<Triangle> triangles;
-		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
-		//
-		////ceiling
-		//std::shared_ptr<BLAS_TYPE> ceilingBLAS = std::make_shared<BLAS_TYPE>();
-		//ceilingBLAS->SetName("Ceiling");
-		//Transform ceilingTransform = Transform(glm::vec3(0, 2, 0), glm::vec3(0), glm::vec3(1, 1, 1));
-		//Material ceilingMaterial = Material(Material::Type::Emissive, 1, glm::vec3(0.5f), glm::vec3(1.0), 1.0f);
-		//Mesh ceiling = Mesh(triangles, ceilingTransform, ceilingMaterial);
-		//ceilingBLAS->SetObject(ceiling.GetTriangles(), ceiling.GetTransform(), ceiling.GetMaterial());
-		//m_TLAS.AddBLAS(ceilingBLAS);
-		//m_TLAS_EmmisiveOnly.AddBLAS(ceilingBLAS);
 
 		//floor
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza_small.obj", triangles);
-		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\cube.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
 		floorBLAS->SetName("Sponza");
 		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
 		Material floorMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0) , 0.0f);
-		Mesh floor = Mesh(triangles, floorTransform, floorMaterial);
-		floorBLAS->SetObject(floor.GetTriangles(), floor.GetTransform(), floor.GetMaterial());
+		floorBLAS->SetObject(triangles, floorTransform, floorMaterial);
 		m_TLAS.AddBLAS(floorBLAS);
 
 		//sphere
-		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere.obj", triangles);
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
-		//GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_ico_high_res.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
-		sphereBLAS->SetName("PointLight");
+		sphereBLAS->SetName("Sphere");
 		Transform sphereTransform = Transform(glm::vec3(3.6f, -0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-		//Transform sphereTransform = Transform(glm::vec3(0, 0, 0.85), glm::vec3(0, 0, 0), glm::vec3(5));
 		Material sphereMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0.5, 0.5, 1.0), 0.0f);
-		Mesh sphere = Mesh(triangles, sphereTransform, sphereMaterial);
-		sphereBLAS->SetObject(sphere.GetTriangles(), sphere.GetTransform(), sphere.GetMaterial());
+		sphereBLAS->SetObject(triangles, sphereTransform, sphereMaterial);
 		m_TLAS.AddBLAS(sphereBLAS);
 
-		m_PrevFrameResolution = glm::i32vec2(std::numeric_limits<int>().max(), std::numeric_limits<int>().max());
+		// Setup Rendering
+		m_CurrentWidth = m_NextWidth = 640;
+		m_CurrentHeight = m_NextHeight = 480;
+
+		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
+		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
+		m_Camera.GetTransformRef().rotation = glm::vec3(0.0f, -111.0f, 0.0f);
+
+		m_Renderer;
 		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
-		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
-		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
+		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
 	~PathTracingLayer()
@@ -132,6 +112,10 @@ public:
 		// Setup next frame to be rendered
 		m_CurrentWidth = m_NextWidth;
 		m_CurrentHeight = m_NextHeight;
+
+		m_RendererSettingsUI.RenderResolutionWidth = m_CurrentWidth;
+		m_RendererSettingsUI.RenderResolutionHeight = m_CurrentHeight;
+
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
 		m_Camera.UpdateFrustrum();
 
