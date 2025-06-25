@@ -4,11 +4,11 @@
 
 void Camera::SetResolution(uint32_t width, uint32_t height)
 {
-	m_Width = width;
-	m_Height = height;
+	m_Width = static_cast<float>(width);
+	m_Height = static_cast<float>(height);
 
-	m_HalfWidth = width * 0.5f;
-	m_HalfHeight = height * 0.5f;
+	m_HalfWidth = m_Width * 0.5f;
+	m_HalfHeight = m_Height * 0.5f;
 	
 	UpdateCameraMatrix();
 }
