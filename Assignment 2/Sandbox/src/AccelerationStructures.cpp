@@ -104,8 +104,11 @@ void BVH_BLAS::Traverse(Ray& ray)
 
 bool BVH_BLAS::IsOccluded(const Ray& ray)
 {
-	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(ray.origin.x, ray.origin.y, ray.origin.z);
-	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(ray.direction.x, ray.direction.y, ray.direction.z);
+	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
+
+	tinybvh::bvhvec3 origin = tinybvh::bvhvec3(transformedOrigin.x, transformedOrigin.y, transformedOrigin.z);
+	tinybvh::bvhvec3 direction = tinybvh::bvhvec3(transformedDirection.x, transformedDirection.y, transformedDirection.z);
 	float maxDistance = ray.hitInfo.distance;
 
 	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
@@ -155,7 +158,9 @@ void Debug_BLAS::Traverse(Ray& ray)
 
 bool Debug_BLAS::IsOccluded(const Ray& ray)
 {
-	Ray occlusionRay = ray;
+	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
+	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
+	Ray occlusionRay = Ray(transformedOrigin, transformedDirection);
 	Traverse(occlusionRay);
 
 	return ray.hitInfo.hit;
