@@ -117,7 +117,9 @@ public:
 		m_RendererSettingsUI.RenderResolutionHeight = m_CurrentHeight;
 
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
+		m_Camera.transform.translation += glm::vec3(0.00001f * timestep, 0, 0);
 		m_Camera.UpdateFrustrum();
+		m_Camera.UpdateCameraMatrix();
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -196,12 +198,14 @@ public:
 				{
 					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 1 ? 1 : m_RendererSettingsUI.SpatialReuseRadius;
 				}
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Spatial Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Spatial Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 
 				// Temporal Reuse
 				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
+				ImGui::DragFloat("Temporal Max distance", &m_RendererSettingsUI.TemporalReuseMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Temporal Normal Similarity", &m_RendererSettingsUI.TemporalReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 			}
 
 			ImGui::End();

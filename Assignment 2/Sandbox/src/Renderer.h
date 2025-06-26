@@ -44,7 +44,7 @@ struct Sample
 		valid{ false }, Path{ cameraOrigin, hitLocation}, Weight{weight}
 	{}
 
-	Sample(const Sample& sample, float weight) :
+	Sample(const Sample& sample, float weight):
 		valid{ sample.valid }, Path{ sample.Path }, Weight{ weight }
 	{}
 };
@@ -157,17 +157,19 @@ public:
 		int CandidateCountDI = 1;
 
 		// ReSTIR Rendering
-		int CandidateCountReSTIR = 4;
+		int CandidateCountReSTIR = 1;
 
 		bool EnableVisibilityPass = true;
 		bool EnableSpatialReuse = true;
 
-		int SpatialReuseNeighbours = 4;
+		int SpatialReuseNeighbours = 1;
 		int SpatialReuseRadius = 10;
 		float SpatialReuseMaxDistance = 0.06f;
 		float SpatialReuseMinNormalSimilarity = 0.90f;
 
 		bool EnableTemporalReuse = true;
+		float TemporalReuseMaxDistance = 0.09f;
+		float TemporalReuseMinNormalSimilarity = 0.98f;
 	};
 
 	struct Scene

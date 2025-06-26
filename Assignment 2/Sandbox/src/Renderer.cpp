@@ -108,6 +108,9 @@ void Renderer::RenderFrameBuffer()
 			m_Scene = m_NewScene;
 			SceneUpdated = false;
 			m_SceneLock.unlock();
+
+			m_Scene.camera.UpdateFrustrum();
+			m_Scene.camera.UpdateCameraMatrix();
 		}
 
 		uint32_t width = m_Settings.RenderResolutionWidth;
@@ -183,10 +186,11 @@ void Renderer::RenderFrameBuffer()
 				{
 					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
 					{
-						SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
+						//SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
+						RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width);
 					}
 				}
-				SpatialBatch.ExecuteTasks();
+				//SpatialBatch.ExecuteTasks();
 			}
 
 			TaskBatch shadingBatch(m_Settings.ThreadCount);
@@ -385,9 +389,16 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 void Renderer::VisibilityPass(Resevoir<Sample>& resevoir)
 {
 	const PathDI& path = resevoir.GetSampleOutRef().Path;
+
+	if (!path.hitInfo.hit)
+	{
+		resevoir.WeightSampleOut = 0.0f;
+		return;
+	}
+
 	glm::vec3 rayDirection = path.Light.position - path.hitInfo.location;
 	float rayDistance = glm::length(rayDirection);
-	//rayDirection = rayDirection / rayDistance;
+	rayDirection = rayDirection / rayDistance;
 	glm::vec3 rayOrigin = path.hitInfo.location + m_Settings.Eta * rayDirection;
 
 	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2.0f * m_Settings.Eta);
@@ -402,23 +413,35 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		glm::i32vec2 neighbour = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialReuseRadius, seed);
 
 		Resevoir<Sample>& pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
-		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOutRef().Path.hitInfo.location;
-		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOutRef().Path.hitInfo.normal;
+		const Sample& pixelSample = pixelResevoir.GetSampleOutRef();
+		const glm::vec3& pixelHitLocation = pixelSample.Path.hitInfo.location;
+		const glm::vec3& pixelHitNormal = pixelSample.Path.hitInfo.normal;
 
 		Resevoir<Sample>& neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
-		glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOutRef().Path.hitInfo.location;
-		glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOutRef().Path.hitInfo.normal;
+		const Sample& neighbourSample = neighbourResevoir.GetSampleOutRef();
+		const glm::vec3& neighbourHitLocation = neighbourSample.Path.hitInfo.location;
+		const glm::vec3& neighbourHitNormal = neighbourSample.Path.hitInfo.normal;
+
+		//bool notOccluded = false;
+		//if (pixelSample.Path.hitInfo.hit)
+		//{
+		//	glm::vec3 testDirection = neighbourSample.Path.Light.position - pixelHitLocation;
+		//	float testDistance = glm::length(testDirection);
+		//	testDirection /= testDistance;
+		//	glm::vec3 testOrigin = pixelHitLocation + m_Settings.Eta * testDirection;
+		//	notOccluded = !m_Scene.tlas.IsOccluded(Ray(testOrigin, testDirection, testDistance - 2 * m_Settings.Eta));
+		//}
 
 		bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
 		bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
-		// TODO: shadowray test against neighbour lightsource with pixelHitLocation
-		//bool notOccluded = !m_Scene.tlas.isOccluded();
+		bool validSample = neighbourSample.Weight > 0 && !std::isnan(neighbourSample.Weight);
 
-		if (withinMaxDistance && similarNormals) // && notOccluded
+		if (withinMaxDistance && similarNormals)// && notOccluded && validSample)
 		{
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(pixelResevoir, neighbourResevoir, seed);
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.hitInfo.location = pixelHitLocation;
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.hitInfo = pixelResevoir.GetSampleOutRef().Path.hitInfo;
+			Resevoir<Sample> newResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
+			newResevoir.GetSampleOutRef().Path.hitInfo = pixelSample.Path.hitInfo;
+
+			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(pixelResevoir, newResevoir, seed);
 		}
 	}
 }
@@ -430,16 +453,31 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	glm::vec3 hitLocation = currentFrameResevoir.GetSampleOutRef().Path.hitInfo.location;
 
 	glm::i32vec2 prevFramePixel = m_Scene.camera.GetPrevFramePixelCoordinates(hitLocation);
+	//TODO: check for issues with this line
 	Resevoir<Sample>& prevFrameResevoir = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x];
 
 	bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
-	bool sameNormal = glm::dot(currentFrameResevoir.GetSampleOutRef().Path.hitInfo.normal, prevFrameResevoir.GetSampleOutRef().Path.hitInfo.normal) >= 0.99;
-	//TODO: Check for occlusion 
-	//bool notOccluded = !m_Scene.tlas.isOccluded();
+	bool sameNormal = glm::dot(currentFrameResevoir.GetSampleOutRef().Path.hitInfo.normal, prevFrameResevoir.GetSampleOutRef().Path.hitInfo.normal) >= m_Settings.TemporalReuseMinNormalSimilarity;
+	bool withinMaxDistance = glm::length(hitLocation - prevFrameResevoir.GetSampleOutRef().Path.hitInfo.location) < m_Settings.TemporalReuseMaxDistance;
 
-	if (withinBounds && sameNormal) // && notOccluded
+	bool notOccluded = false;
+	if (currentFrameResevoir.GetSampleOutRef().Path.hitInfo.hit)
+	{
+		glm::vec3 testDirection = prevFrameResevoir.GetSampleOutRef().Path.hitInfo.location - m_Scene.camera.transform.translation;
+		float testDistance = glm::length(testDirection);
+		testDirection /= testDistance;
+		glm::vec3 testOrigin = m_Scene.camera.transform.translation + m_Settings.Eta * testDirection;
+		notOccluded = !m_Scene.tlas.IsOccluded(Ray(testOrigin, testDirection, testDistance - 2 * m_Settings.Eta));
+	}
+
+	// TODO: improve prevFrame lookup to reduce errors that require withinMaxDistance checks
+	if (withinMaxDistance && withinBounds && sameNormal && notOccluded)
 	{
 		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(currentFrameResevoir, prevFrameResevoir, seed);
+	}
+	else
+	{
+		//m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].WeightSampleOut = 0.0f;
 	}
 }
 
