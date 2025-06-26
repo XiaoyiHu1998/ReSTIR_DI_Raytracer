@@ -160,16 +160,16 @@ public:
 		int CandidateCountReSTIR = 1;
 
 		bool EnableVisibilityPass = true;
-		bool EnableSpatialReuse = true;
 
+		bool EnableSpatialReuse = true;
 		int SpatialReuseNeighbours = 1;
 		int SpatialReuseRadius = 10;
 		float SpatialReuseMaxDistance = 0.06f;
 		float SpatialReuseMinNormalSimilarity = 0.90f;
 
 		bool EnableTemporalReuse = true;
-		float TemporalReuseMaxDistance = 0.09f;
-		float TemporalReuseMinNormalSimilarity = 0.98f;
+		float TemporalReuseMaxDistance = 0.60f;
+		float TemporalReuseMinNormalSimilarity = 0.90f;
 	};
 
 	struct Scene

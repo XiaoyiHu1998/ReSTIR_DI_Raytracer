@@ -117,7 +117,7 @@ public:
 		m_RendererSettingsUI.RenderResolutionHeight = m_CurrentHeight;
 
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
-		m_Camera.transform.translation += glm::vec3(0.00001f * timestep, 0, 0);
+		m_Camera.transform.translation += glm::vec3(0.00005f * timestep, 0, 0);
 		m_Camera.UpdateFrustrum();
 		m_Camera.UpdateCameraMatrix();
 
