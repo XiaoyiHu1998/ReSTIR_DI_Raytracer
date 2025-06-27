@@ -44,9 +44,8 @@ namespace Utils
 
     static inline int RandomInt(int minInclusive, int maxExclusive, uint32_t& seed)
     {
-        float randomFloat = RandomFloat(seed) * static_cast<float>(maxExclusive);
-        int randomInt = static_cast<int>(randomFloat);
-        randomInt = randomInt == maxExclusive ? maxExclusive - 1 : randomInt; // In case of issues
+        float randomFloat = RandomFloat(seed) * static_cast<float>(maxExclusive - 1 - minInclusive);
+        int randomInt = minInclusive + static_cast<int>(randomFloat);
 
         return randomInt;
     }
@@ -57,15 +56,16 @@ namespace Utils
         return glm::length(color);
     };
 
-    static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, float radius, uint32_t& seed)
+    static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, uint32_t radius, uint32_t& seed)
     {
         glm::i32vec2 neighbourPixel = glm::i32vec2(-1, -1);
+        uint32_t doubleRadius = radius << 2;
 
         // Check if neighour is within the frame and max radius
         while (0 > neighbourPixel.x || neighbourPixel.x >= resolution.x || 0 > neighbourPixel.y || neighbourPixel.y >= resolution.y || (neighbourPixel - pixel).length() > radius)
         {
-            neighbourPixel.x = pixel.x + Utils::RandomInt(0, radius, seed);
-            neighbourPixel.y = pixel.y + Utils::RandomInt(0, radius, seed);
+            neighbourPixel.x = pixel.x + (Utils::RandomInt(0, doubleRadius, seed) - radius);
+            neighbourPixel.y = pixel.y + (Utils::RandomInt(0, doubleRadius, seed) - radius);
         }
 
         return neighbourPixel;
