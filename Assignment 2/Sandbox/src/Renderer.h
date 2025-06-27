@@ -10,12 +10,13 @@
 #include "Ray.h"
 #include "Primitives.h"
 #include "AccelerationStructures.h"
+#include "Utils.h"
 
 struct PathDI
 {
 	glm::vec3 CameraOrigin;
 	HitInfo hitInfo;
-	PointLight Light;
+	PointLight Light; // TODO: consider making a pointer to the light
 
 	PathDI() = default;
 
@@ -30,63 +31,50 @@ struct PathDI
 
 struct Sample
 {
-	bool valid;
-
 	PathDI Path;
 	float Weight;
 	float PDF;
 
-	Sample() :
-		valid{ false }
-	{}
+	Sample() = default;
 
 	Sample(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation, float weight) :
-		valid{ false }, Path{ cameraOrigin, hitLocation}, Weight{weight}
+		Path{ cameraOrigin, hitLocation}, Weight{weight}
 	{}
 
 	Sample(const Sample& sample, float weight):
-		valid{ sample.valid }, Path{ sample.Path }, Weight{ weight }
+		Path{ sample.Path }, Weight{ weight }
 	{}
 };
 
-template <class T>
 class Resevoir
 {
 public:
 	float WeightSampleOut;
 private:
-	T m_SampleOut;
+	Sample m_SampleOut;
+	uint32_t m_SampleCount;
 	float m_WeightTotal;
-
-	int m_SampleCount;
 public:
 	Resevoir() :
-		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
+		m_SampleOut{ Sample() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
 	{}
 
-	Resevoir(const T& initialSample, float totalWeight, uint32_t totalSampleCount) :
-		m_SampleOut{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ totalWeight }, m_SampleCount{ totalSampleCount }
+	Resevoir(const Sample& initialSample, float totalWeight, uint32_t totalSampleCount) :
+		m_SampleOut{ initialSample }, m_WeightTotal{ totalWeight }, m_SampleCount{ totalSampleCount }
 	{}
 
-	bool Update(const T& sample, float weight, uint32_t& seed)
+	void Update(const Sample& sample, float weight, uint32_t& seed)
 	{
 		m_SampleCount++;
 		m_WeightTotal += weight;
 
-		
 		if (Utils::RandomFloat(seed) < weight / m_WeightTotal)
-		{
 			m_SampleOut = sample;
-			return true;
-		}
-
-		return false;
 	}
 
 	void SetSampleCount(uint32_t sampleCount) { m_SampleCount = sampleCount; }
-
-	T GetSampleOut() const { return m_SampleOut; }
-	T& GetSampleOutRef() { return m_SampleOut; }
+	Sample GetSample() const { return m_SampleOut; }
+	Sample& GetSampleRef() { return m_SampleOut; }
 	float GetWeightTotal() const { return m_WeightTotal; }
 	int GetSampleCount() const { return m_SampleCount; }
 };
@@ -168,7 +156,7 @@ public:
 		float SpatialReuseMinNormalSimilarity = 0.90f;
 
 		bool EnableTemporalReuse = true;
-		float TemporalReuseMaxDistance = 0.60f;
+		float TemporalReuseMaxDistance = 0.04f;
 		float TemporalReuseMinNormalSimilarity = 0.90f;
 
 		bool operator==(const Settings& otherSettings)
@@ -247,7 +235,7 @@ private:
 	float m_LastFrameTime;
 
 	std::vector<Sample> m_SampleBuffer;
-	std::vector<Resevoir<Sample>> m_ResevoirBuffers[2];
+	std::vector<Resevoir> m_ResevoirBuffers[2];
 	int m_CurrentBuffer;
 	int m_PrevBuffer;
 	bool m_ValidHistory;
@@ -260,21 +248,21 @@ private:
 	// ReSTIR original paper
 	Sample SamplePointLight(const glm::i32vec2& pixel, uint32_t& seed);
 	glm::vec3 TargetDistribution(const PathDI& path);
-	Resevoir<Sample> CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed);
+	Resevoir CombineResevoirBiased(const Resevoir& originalResevoir, const Resevoir& newResevoir, uint32_t& seed);
 
 	// ResTIR passes
 	inline void GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
-	inline void VisibilityPass(Resevoir<Sample>& resevoir);
+	inline void VisibilityPass(Resevoir& resevoir);
 	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
 	inline void TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
-	inline glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, uint32_t& seed);
+	inline glm::vec4 RenderSample(const Resevoir& resevoir, uint32_t& seed);
 public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
 		//m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffers[0] = std::vector<Resevoir<Sample>>();
-		m_ResevoirBuffers[1] = std::vector<Resevoir<Sample>>();
+		m_ResevoirBuffers[0] = std::vector<Resevoir>();
+		m_ResevoirBuffers[1] = std::vector<Resevoir>();
 		m_ResevoirBuffers[0].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
 		m_ResevoirBuffers[1].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
 
@@ -293,6 +281,8 @@ public:
 		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
 		m_RenderThread = std::thread(&Renderer::RenderFrameBuffer, this);
 	}
+
+	void InvalidateHistory() { m_ValidHistory = false; }
 
 	void SubmitRenderSettings(const Settings& newRenderSettings) 
 	{ 
@@ -326,11 +316,6 @@ public:
 			m_ResevoirBuffers[0].resize(bufferSize);
 			m_ResevoirBuffers[1].resize(bufferSize);
 		}
-	}
-
-	void InvalidateHistory()
-	{
-		m_ValidHistory = false;
 	}
 
 	float GetLastFrameTime() { return m_LastFrameTime; }

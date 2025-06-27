@@ -67,14 +67,19 @@ class PointLight
 {
 public:
 	glm::vec3 position;
-	Material material;
+	glm::vec3 emmission;
 
 public:
 	PointLight():
-		position{ glm::vec3(0) }, material{ Material(Material::Type::Emissive, glm::vec3(0), 0) }
-	{}
+		position{ glm::vec3(0) }
+	{
+		Material material = Material(Material::Type::Emissive, glm::vec3(0), 0);
+		emmission = material.EmissiveColor * material.EmissiveIntensity; 
+	}
 
 	PointLight(const glm::vec3& position, const Material& material):
-		position{ position }, material{ material }
-	{}
+		position{ position }
+	{
+		emmission = material.EmissiveColor * material.EmissiveIntensity;
+	}
 };

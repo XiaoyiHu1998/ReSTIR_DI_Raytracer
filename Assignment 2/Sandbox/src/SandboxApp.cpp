@@ -34,7 +34,7 @@ public:
 		for (int i = 0; i < lightCount; i++)
 		{
 			float x = Utils::RandomFloat(sphereLocationSeed) * 10;
-			float y = Utils::RandomFloat(sphereLocationSeed) * 0;
+			float y = Utils::RandomFloat(sphereLocationSeed) * 0.1f;
 			float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
 			glm::vec3 position = glm::vec3(x, y, z);
 
@@ -391,16 +391,6 @@ private:
 		// Main dockspace, this is where all our windows are drawn
 		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-
-		if (ImGui::BeginMenuBar()) {
-			if (ImGui::BeginMenu("File")) {
-				if (ImGui::MenuItem("import obj")) {
-					//importFile = true;
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::EndMenuBar();
-		}
 		ImGui::End();
 	}
 };

@@ -93,7 +93,7 @@ void BVH_BLAS::Traverse(Ray& ray)
 		hitInfo.distance = tinybvhRay.hit.t;
 		hitInfo.location = ray.origin + ray.direction * tinybvhRay.hit.t;
 		hitInfo.normal = glm::normalize(glm::cross(position1 - position0, position2 - position0));
-		hitInfo.material = m_Material;
+		//hitInfo.material = m_Material;
 		hitInfo.traversalStepsHitBVH = traversalSteps;
 		hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + traversalSteps;
 
@@ -149,7 +149,7 @@ void Debug_BLAS::Traverse(Ray& ray)
 			ray.hitInfo.distance = currentRay.hitInfo.distance;
 			ray.hitInfo.location = ray.origin + ray.direction * currentRay.hitInfo.distance;
 			ray.hitInfo.normal = m_TransformMatrix * glm::vec4(currentTriangle.GetNormal(), 0.0f);
-			ray.hitInfo.material = m_Material;
+			//ray.hitInfo.material = m_Material;
 			ray.hitInfo.traversalStepsHitBVH = 1;
 			ray.hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + 1;
 		}
