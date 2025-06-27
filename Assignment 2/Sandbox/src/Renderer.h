@@ -170,6 +170,50 @@ public:
 		bool EnableTemporalReuse = true;
 		float TemporalReuseMaxDistance = 0.60f;
 		float TemporalReuseMinNormalSimilarity = 0.90f;
+
+		bool operator==(const Settings& otherSettings)
+		{
+			bool sameSettings = true;
+			sameSettings &= Mode == otherSettings.Mode;
+
+			sameSettings &= ThreadCount == otherSettings.ThreadCount;
+
+			sameSettings &= RenderResolutionWidth == otherSettings.RenderResolutionWidth;
+			sameSettings &= RenderResolutionHeight == otherSettings.RenderResolutionHeight;
+			sameSettings &= RenderingKernelSize == otherSettings.RenderingKernelSize;
+			sameSettings &= SamplesPerPixel == otherSettings.SamplesPerPixel;
+
+			sameSettings &= RandomSeed == otherSettings.RandomSeed;
+			sameSettings &= Eta == otherSettings.Eta;
+
+			// DI Rendering
+			sameSettings &= LightOcclusionCheckDI == otherSettings.LightOcclusionCheckDI;
+			sameSettings &= SampleAllLightsDI == otherSettings.SampleAllLightsDI;
+
+			sameSettings &= CandidateCountDI == otherSettings.CandidateCountDI;
+
+			// ReSTIR Rendering
+			sameSettings &= CandidateCountReSTIR == otherSettings.CandidateCountReSTIR;
+
+			sameSettings &= EnableVisibilityPass == otherSettings.EnableVisibilityPass;
+
+			sameSettings &= EnableSpatialReuse == otherSettings.EnableSpatialReuse;
+			sameSettings &= SpatialReuseNeighbours == otherSettings.SpatialReuseNeighbours;
+			sameSettings &= SpatialReuseRadius == otherSettings.SpatialReuseRadius;
+			sameSettings &= SpatialReuseMaxDistance == otherSettings.SpatialReuseMaxDistance;
+			sameSettings &= SpatialReuseMinNormalSimilarity == otherSettings.SpatialReuseMinNormalSimilarity;
+
+			sameSettings &= EnableTemporalReuse == otherSettings.EnableTemporalReuse;
+			sameSettings &= TemporalReuseMaxDistance == otherSettings.TemporalReuseMaxDistance;
+			sameSettings &= TemporalReuseMinNormalSimilarity == otherSettings.TemporalReuseMinNormalSimilarity;
+
+			return sameSettings;
+		}
+
+		bool operator!=(const Settings& otherSettings)
+		{
+			return !operator==(otherSettings);
+		}
 	};
 
 	struct Scene
@@ -206,6 +250,7 @@ private:
 	std::vector<Resevoir<Sample>> m_ResevoirBuffers[2];
 	int m_CurrentBuffer;
 	int m_PrevBuffer;
+	bool m_ValidHistory;
 private:
 	void RenderFrameBuffer();
 	void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed);
@@ -240,6 +285,7 @@ public:
 
 		SettingsUpdated = false;
 		SceneUpdated = false;
+		m_ValidHistory = false;
 	}
 
 	void Init(const Scene& scene)
@@ -280,6 +326,11 @@ public:
 			m_ResevoirBuffers[0].resize(bufferSize);
 			m_ResevoirBuffers[1].resize(bufferSize);
 		}
+	}
+
+	void InvalidateHistory()
+	{
+		m_ValidHistory = false;
 	}
 
 	float GetLastFrameTime() { return m_LastFrameTime; }

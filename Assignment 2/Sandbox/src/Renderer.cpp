@@ -97,6 +97,10 @@ void Renderer::RenderFrameBuffer()
 		if (SettingsUpdated)
 		{
 			m_SettingsLock.lock();
+
+			if (m_Settings != m_NewSettings)
+				m_ValidHistory = false;
+
 			m_Settings = m_NewSettings;
 			SettingsUpdated = false;
 			m_SettingsLock.unlock();
@@ -106,7 +110,6 @@ void Renderer::RenderFrameBuffer()
 		{
 			m_SceneLock.lock();
 			m_Scene = m_NewScene;
-			SceneUpdated = false;
 			m_SceneLock.unlock();
 
 			m_Scene.camera.UpdateFrustrum();
@@ -210,6 +213,8 @@ void Renderer::RenderFrameBuffer()
 		m_FrameBufferMutex.lock();
 		m_FrameBuffers.SwapFrameBuffers();
 		m_FrameBufferMutex.unlock();
+
+		m_ValidHistory = true;
 	}
 }
 
@@ -302,12 +307,15 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 		}
 		break;
 	case ReSTIRPass::Temporal:
-		for (uint32_t y = yMin; y < yMax; y++)
+		if (m_ValidHistory)
 		{
-			uint32_t yOffset = y * width;
-			for (uint32_t x = xMin; x < xMax; x++)
+			for (uint32_t y = yMin; y < yMax; y++)
 			{
-				TemporalReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), x + yOffset, seed);
+				uint32_t yOffset = y * width;
+				for (uint32_t x = xMin; x < xMax; x++)
+				{
+					TemporalReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), x + yOffset, seed);
+				}
 			}
 		}
 		break;

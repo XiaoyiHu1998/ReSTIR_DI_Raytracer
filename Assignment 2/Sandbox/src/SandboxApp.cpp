@@ -45,7 +45,7 @@ public:
 			float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
 			float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
 			glm::vec3 emissiveColor = glm::vec3(r, g, b);
-			float emissiveStrength = 3.0f;
+			float emissiveStrength = 30.0f / lightCount;
 			Material material = Material(Material::Type::Emissive, emissiveColor, emissiveStrength);
 
 			m_pointLights.emplace_back(position, material);
