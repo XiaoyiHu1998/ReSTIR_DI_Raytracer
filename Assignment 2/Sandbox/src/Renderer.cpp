@@ -189,11 +189,10 @@ void Renderer::RenderFrameBuffer()
 				{
 					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
 					{
-						//SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
-						RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width);
+						SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
 					}
 				}
-				//SpatialBatch.ExecuteTasks();
+				SpatialBatch.ExecuteTasks();
 			}
 
 			TaskBatch shadingBatch(m_Settings.ThreadCount);
@@ -276,8 +275,8 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 
 void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width - 1);
-	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height - 1);
+	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -430,21 +429,21 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		const glm::vec3& neighbourHitLocation = neighbourSample.Path.hitInfo.location;
 		const glm::vec3& neighbourHitNormal = neighbourSample.Path.hitInfo.normal;
 
-		//bool notOccluded = false;
-		//if (pixelSample.Path.hitInfo.hit)
-		//{
-		//	glm::vec3 testDirection = neighbourSample.Path.Light.position - pixelHitLocation;
-		//	float testDistance = glm::length(testDirection);
-		//	testDirection /= testDistance;
-		//	glm::vec3 testOrigin = pixelHitLocation + m_Settings.Eta * testDirection;
-		//	notOccluded = !m_Scene.tlas.IsOccluded(Ray(testOrigin, testDirection, testDistance - 2 * m_Settings.Eta));
-		//}
+		bool notOccluded = false;
+		if (pixelSample.Path.hitInfo.hit)
+		{
+			glm::vec3 testDirection = neighbourSample.Path.Light.position - pixelHitLocation;
+			float testDistance = glm::length(testDirection);
+			testDirection /= testDistance;
+			glm::vec3 testOrigin = pixelHitLocation + m_Settings.Eta * testDirection;
+			notOccluded = !m_Scene.tlas.IsOccluded(Ray(testOrigin, testDirection, testDistance - 2 * m_Settings.Eta));
+		}
 
 		bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
 		bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
 		bool validSample = neighbourSample.Weight > 0 && !std::isnan(neighbourSample.Weight);
 
-		if (withinMaxDistance && similarNormals)// && notOccluded && validSample)
+		if (withinMaxDistance && similarNormals && notOccluded && validSample)
 		{
 			Resevoir<Sample> newResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
 			newResevoir.GetSampleOutRef().Path.hitInfo = pixelSample.Path.hitInfo;
