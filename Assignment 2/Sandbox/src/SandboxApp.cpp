@@ -34,7 +34,7 @@ public:
 		for (int i = 0; i < lightCount; i++)
 		{
 			float x = Utils::RandomFloat(sphereLocationSeed) * 10;
-			float y = Utils::RandomFloat(sphereLocationSeed) * 0.1f;
+			float y = Utils::RandomFloat(sphereLocationSeed) * 0.5f + 1.0f;
 			float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
 			glm::vec3 position = glm::vec3(x, y, z);
 
@@ -159,11 +159,13 @@ public:
 		// Settings Window
 		{
 			ImGui::Begin("Settings");
+			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.35f);
 			ImGui::Text("Render Settings");
 			const char* RenderModes[] = { "Normals", "TraversalSteps", "Direct Illumination", "ReSTIR" };
 			int selectedMode = static_cast<int>(m_RendererSettingsUI.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
 			m_RendererSettingsUI.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
+			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Separator();
@@ -183,7 +185,7 @@ public:
 			{
 				// Streaming RIS
 				ImGui::Text("Streaming RIS");
-				if (ImGui::InputInt("Candidate Count RIS", &m_RendererSettingsUI.CandidateCountReSTIR))
+				if (ImGui::InputInt("Candidate Count", &m_RendererSettingsUI.CandidateCountReSTIR))
 				{
 					m_RendererSettingsUI.CandidateCountReSTIR = m_RendererSettingsUI.CandidateCountReSTIR < 1 ? 1 : m_RendererSettingsUI.CandidateCountReSTIR;
 				}
@@ -191,24 +193,28 @@ public:
 				ImGui::Separator();
 
 				// Spatial Reuse
+				ImGui::PushID("Spatial Reuse Options");
 				ImGui::Text("Spatial Reuse");
 				ImGui::Checkbox("Enable", &m_RendererSettingsUI.EnableSpatialReuse);
 				if (ImGui::InputInt("Neighbours", &m_RendererSettingsUI.SpatialReuseNeighbours))
 				{
 					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
 				}
-				if (ImGui::InputInt("Radius", &m_RendererSettingsUI.SpatialReuseRadius))
+				if (ImGui::InputInt("Pixel Radius", &m_RendererSettingsUI.SpatialReuseRadius))
 				{
 					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 3 ? 3 : m_RendererSettingsUI.SpatialReuseRadius;
 				}
-				ImGui::DragFloat("Spatial Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Spatial Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
+				ImGui::PopID();
 
 				// Temporal Reuse
+				ImGui::PushID("Temporal Reuse Options");
 				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
-				ImGui::DragFloat("Temporal Max distance", &m_RendererSettingsUI.TemporalReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Temporal Normal Similarity", &m_RendererSettingsUI.TemporalReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalReuseMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::PopID();
 			}
 
 			ImGui::End();
