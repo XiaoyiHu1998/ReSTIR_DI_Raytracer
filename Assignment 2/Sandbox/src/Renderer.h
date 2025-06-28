@@ -11,73 +11,7 @@
 #include "Primitives.h"
 #include "AccelerationStructures.h"
 #include "Utils.h"
-
-struct PathDI
-{
-	glm::vec3 CameraOrigin;
-	HitInfo hitInfo;
-	PointLight Light; // TODO: consider making a pointer to the light
-
-	PathDI() = default;
-
-	PathDI(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation ) :
-		CameraOrigin{ cameraOrigin }, hitInfo{ HitInfo() }, Light{ PointLight() }
-	{}
-
-	PathDI(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const HitInfo& hitInfo, const PointLight& light) :
-		CameraOrigin{ cameraOrigin }, hitInfo{ hitInfo }, Light{ light }
-	{}
-};
-
-struct Sample
-{
-	PathDI Path;
-	float Weight;
-	float PDF;
-
-	Sample() = default;
-
-	Sample(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation, float weight) :
-		Path{ cameraOrigin, hitLocation}, Weight{weight}
-	{}
-
-	Sample(const Sample& sample, float weight):
-		Path{ sample.Path }, Weight{ weight }
-	{}
-};
-
-class Resevoir
-{
-public:
-	float WeightSampleOut;
-private:
-	Sample m_SampleOut;
-	uint32_t m_SampleCount;
-	float m_WeightTotal;
-public:
-	Resevoir() :
-		m_SampleOut{ Sample() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
-	{}
-
-	Resevoir(const Sample& initialSample, float totalWeight, uint32_t totalSampleCount) :
-		m_SampleOut{ initialSample }, m_WeightTotal{ totalWeight }, m_SampleCount{ totalSampleCount }
-	{}
-
-	void Update(const Sample& sample, float weight, uint32_t& seed)
-	{
-		m_SampleCount++;
-		m_WeightTotal += weight;
-
-		if (Utils::RandomFloat(seed) < weight / m_WeightTotal)
-			m_SampleOut = sample;
-	}
-
-	void SetSampleCount(uint32_t sampleCount) { m_SampleCount = sampleCount; }
-	Sample GetSample() const { return m_SampleOut; }
-	Sample& GetSampleRef() { return m_SampleOut; }
-	float GetWeightTotal() const { return m_WeightTotal; }
-	int GetSampleCount() const { return m_SampleCount; }
-};
+#include "ReSTIR.h"
 
 class FrameDoubleBuffer
 {
@@ -226,6 +160,7 @@ private:
 
 	std::thread m_RenderThread;
 	std::mutex m_FrameBufferMutex;
+	std::mutex m_ResevoirBufferMutex;
 	std::mutex m_SettingsLock;
 	std::mutex m_SceneLock;
 
@@ -245,16 +180,11 @@ private:
 	void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed);
 	glm::vec4 RenderDI(Ray& ray, uint32_t& seed);
 
-	// ReSTIR original paper
-	Sample SamplePointLight(const glm::i32vec2& pixel, uint32_t& seed);
-	glm::vec3 TargetDistribution(const PathDI& path);
-	Resevoir CombineResevoirBiased(const Resevoir& originalResevoir, const Resevoir& newResevoir, uint32_t& seed);
-
 	// ResTIR passes
 	inline void GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
 	inline void VisibilityPass(Resevoir& resevoir);
-	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
 	inline void TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
 	inline glm::vec4 RenderSample(const Resevoir& resevoir, uint32_t& seed);
 public:
 	Renderer() :
@@ -308,7 +238,6 @@ public:
 		}
 	}
 
-	//TODO: Need to make resize happen after flipping m_CurrentBuffer to support resizing during temporal reuse
 	void UpdateResevoirBufferSize(uint32_t bufferSize)
 	{
 		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize)

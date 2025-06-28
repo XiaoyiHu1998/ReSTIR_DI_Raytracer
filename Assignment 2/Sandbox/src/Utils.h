@@ -49,11 +49,6 @@ namespace Utils
         return randomInt;
     }
 
-    static inline float colorToContribution(const glm::vec3& color) 
-    {
-        return std::max(color.r, std::max(color.g, color.b));
-    };
-
     static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, uint32_t radius, uint32_t& seed)
     {
         glm::i32vec2 neighbourPixel = glm::i32vec2(-1, -1);
