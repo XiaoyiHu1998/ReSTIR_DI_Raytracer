@@ -273,6 +273,7 @@ public:
 				ImGui::Separator();
 
 				ImGui::Text("Camera Settings");
+				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
 				ImGui::DragFloat("Vertical FoV", &m_Camera.GetFOVRef(), 0.1f, 0.0f, 360.0f);
 				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
 
