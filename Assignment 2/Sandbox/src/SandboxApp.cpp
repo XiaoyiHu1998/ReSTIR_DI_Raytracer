@@ -80,6 +80,7 @@ public:
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
 		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
 		m_Camera.GetTransformRef().rotation = glm::vec3(0.0f, -111.0f, 0.0f);
+		m_MoveCamera = false;
 
 		m_Renderer;
 		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -116,8 +117,10 @@ public:
 		m_RendererSettingsUI.RenderResolutionWidth = m_CurrentWidth;
 		m_RendererSettingsUI.RenderResolutionHeight = m_CurrentHeight;
 
+		if (m_MoveCamera)
+			m_Camera.transform.translation += glm::vec3(0.00005f * timestep, 0, 0);
+
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
-		m_Camera.transform.translation += glm::vec3(0.00005f * timestep, 0, 0);
 		m_Camera.UpdateFrustrum();
 		m_Camera.UpdateCameraMatrix();
 
@@ -196,7 +199,7 @@ public:
 				}
 				if (ImGui::InputInt("Radius", &m_RendererSettingsUI.SpatialReuseRadius))
 				{
-					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 1 ? 1 : m_RendererSettingsUI.SpatialReuseRadius;
+					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 3 ? 3 : m_RendererSettingsUI.SpatialReuseRadius;
 				}
 				ImGui::DragFloat("Spatial Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
 				ImGui::DragFloat("Spatial Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
@@ -265,6 +268,7 @@ public:
 
 				ImGui::Text("Camera Settings");
 				ImGui::DragFloat("Vertical FoV", &m_Camera.GetFOVRef(), 0.1f, 0.0f, 360.0f);
+				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
 
 				ImGui::PopID();
 
@@ -359,6 +363,8 @@ private:
 	TLAS m_TLAS_EmmisiveOnly;
 	TLAS m_TLAS_NonEmmisiveOnly;
 	std::vector<PointLight> m_pointLights;
+
+	bool m_MoveCamera;
 
 	// UI
 	int m_SelectedNode;

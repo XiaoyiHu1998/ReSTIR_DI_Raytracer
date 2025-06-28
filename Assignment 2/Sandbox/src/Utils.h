@@ -46,7 +46,7 @@ namespace Utils
         float delta = RandomFloat(seed) * static_cast<float>(maxExclusive - 1 - minInclusive);
         int randomInt = minInclusive + static_cast<int>(delta);
 
-        return randomInt;
+        return std::max(minInclusive, randomInt);
     }
 
     static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, uint32_t radius, uint32_t& seed)
@@ -55,7 +55,7 @@ namespace Utils
         uint32_t doubleRadius = radius << 2;
 
         // Check if neighour is within the frame and max radius
-        while (0 > neighbourPixel.x || neighbourPixel.x >= resolution.x || 0 > neighbourPixel.y || neighbourPixel.y >= resolution.y || (neighbourPixel - pixel).length() > radius)
+        while (0 > neighbourPixel.x || neighbourPixel.x >= resolution.x || 0 > neighbourPixel.y || neighbourPixel.y >= resolution.y || (neighbourPixel - pixel).length() >= radius)
         {
             neighbourPixel.x = pixel.x + (Utils::RandomInt(0, doubleRadius, seed) - radius);
             neighbourPixel.y = pixel.y + (Utils::RandomInt(0, doubleRadius, seed) - radius);

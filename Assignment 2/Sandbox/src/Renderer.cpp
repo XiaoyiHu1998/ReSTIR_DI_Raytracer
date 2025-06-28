@@ -299,7 +299,7 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				VisibilityPass(m_ResevoirBuffers.GetCurrentBuffer()[x + yOffset]);
+				VisibilityPass(x + yOffset);
 			}
 		}
 		break;
@@ -332,7 +332,7 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers.GetCurrentBuffer()[x + yOffset], seed), width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, RenderSample(x + yOffset, seed), width, frameBuffer);
 			}
 		}
 		break;
@@ -344,7 +344,7 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 	Resevoir resevoir;
 	Sample sample;
 
-	while (resevoir.GetSampleCount() < m_Settings.CandidateCountReSTIR)
+	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
 	{
 		PointLight randomPointLight = m_Scene.pointLights[Utils::RandomInt(0, m_Scene.pointLights.size(), seed)];
 		Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
@@ -359,15 +359,16 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 	m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = resevoir;
 }
 
-void Renderer::VisibilityPass(Resevoir& resevoir)
+void Renderer::VisibilityPass(uint32_t bufferIndex)
 {
-	const Sample& sample = resevoir.GetSampleRef();
+	Resevoir& resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+	const Sample& sample = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex].GetSampleRef();
 
 	//Debug check
-	if (sample.lightDistance <= 0.0001f)
-	{
-		std::cout << "VisibilityPass: Lightdistance ~ 0!" << std::endl;
-	}
+	//if (sample.lightDistance <= 0.0001f)
+	//{
+	//	std::cout << "VisibilityPass: Lightdistance ~ 0!" << std::endl;
+	//}
 
 	if (!sample.hit)
 	{
@@ -393,7 +394,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 		return;
 
 	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
-	Sample prevSample = prevResevoir.GetSample();
+	const Sample& prevSample = prevResevoir.GetSample();
 
 	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= m_Settings.TemporalReuseMaxDistance;
 	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalReuseMinNormalSimilarity;
@@ -406,10 +407,10 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 
 	if (withinMaxDistance && sameNormals && notOccluded)
 	{
+		// Limit Temporal propogation
 		prevResevoir.SetSampleCount(std::min(20 * pixelResevoir.GetSampleCount(), prevResevoir.GetSampleCount()));
-		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
 
-		// Create new Sample using current path and temporalSample's light
+		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
 		pixelSample.ReplaceLight(temporalResevoir.GetSampleRef().light);
 		temporalResevoir.SetSample(pixelSample);
 		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = temporalResevoir;
@@ -418,13 +419,39 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 
 void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
 {
+	for (int i = 0; i < m_Settings.SpatialReuseNeighbours; i++)
+	{
+		const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+		Sample pixelSample = pixelResevoir.GetSample();
 
+		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution,  m_Settings.SpatialReuseRadius, seed);
+		const Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
+		const Sample& neighbourSample = neighbourResevoir.GetSample();
+
+		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= m_Settings.SpatialReuseMaxDistance;
+		bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
+
+		glm::vec3 shadowRayDirection = neighbourSample.light.position - pixelSample.hitPosition;
+		float shadowRayDistance = glm::length(shadowRayDirection);
+		shadowRayDirection = glm::normalize(shadowRayDirection);
+		glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
+		bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
+
+		if (withinMaxDistance && sameNormals && notOccluded)
+		{
+			Resevoir spatialResevoir = Resevoir::CombineBiased(pixelResevoir, neighbourResevoir, seed);
+			pixelSample.ReplaceLight(spatialResevoir.GetSampleRef().light);
+			spatialResevoir.SetSample(pixelSample);
+			m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = spatialResevoir;
+		}
+	}
 }
 
-glm::vec4 Renderer::RenderSample(const Resevoir& resevoir, uint32_t& seed)
+glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 {
 	// Direct lighting calculation
 	glm::vec3 outputColor(0.0f);
+	Resevoir resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample sample = resevoir.GetSample();
 
 	//Debug check
@@ -443,8 +470,12 @@ glm::vec4 Renderer::RenderSample(const Resevoir& resevoir, uint32_t& seed)
 		{
 			outputColor = sample.BRDF * sample.light.emmission / (sample.lightDistance * sample.lightDistance);
 		}
+		else if (m_Settings.LightOcclusionCheckDI)
+		{
+			resevoir.WeightSampleOut = 0.0f;
+			return glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		}
 	}
 
-	//return glm::vec4(outputColor * 0.0f, 1.0f);
 	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
 }
