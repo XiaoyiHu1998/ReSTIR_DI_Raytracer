@@ -143,9 +143,6 @@ void Renderer::RenderFrameBuffer()
 		}
 		else
 		{
-			m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
-			m_PrevBuffer = (m_PrevBuffer + 1) % 2;
-
 			TaskBatch risBatch(m_Settings.ThreadCount);
 			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
 			{
@@ -210,7 +207,8 @@ void Renderer::RenderFrameBuffer()
 		m_LastFrameTime = std::chrono::duration<float, std::ratio<1, 1000>>(timeEnd - timeStart).count();
 
 		m_FrameBufferMutex.lock();
-		m_FrameBuffers.SwapFrameBuffers();
+		m_FrameBuffers.SwapBuffers();
+		m_ResevoirBuffers.SwapBuffers();
 		m_FrameBufferMutex.unlock();
 
 		m_ValidHistory = true;
@@ -301,7 +299,7 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][x + yOffset]);
+				VisibilityPass(m_ResevoirBuffers.GetCurrentBuffer()[x + yOffset]);
 			}
 		}
 		break;
@@ -334,7 +332,7 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers[m_CurrentBuffer][x + yOffset], seed), width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers.GetCurrentBuffer()[x + yOffset], seed), width, frameBuffer);
 			}
 		}
 		break;
@@ -358,7 +356,7 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 	}
 
 	resevoir.WeightSampleOut = (1.0f / resevoir.GetSampleRef().contribution) * (resevoir.GetWeightTotal() / resevoir.GetSampleCount());
-	m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = resevoir;
+	m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = resevoir;
 }
 
 void Renderer::VisibilityPass(Resevoir& resevoir)
@@ -386,7 +384,7 @@ void Renderer::VisibilityPass(Resevoir& resevoir)
 
 void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed)
 {
-	const Resevoir& pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
+	const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample pixelSample = pixelResevoir.GetSample();
 
 	glm::i32vec2 prevPixel = m_Scene.camera.GetPrevFramePixelCoordinates(pixelSample.hitPosition);
@@ -394,7 +392,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	if (!withinFrame || !m_ValidHistory)
 		return;
 
-	Resevoir& prevResevoir = m_ResevoirBuffers[m_PrevBuffer][prevPixel.x + prevPixel.y * resolution.x];
+	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
 	Sample prevSample = prevResevoir.GetSample();
 
 	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= m_Settings.TemporalReuseMaxDistance;
@@ -414,7 +412,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 		// Create new Sample using current path and temporalSample's light
 		pixelSample.ReplaceLight(temporalResevoir.GetSampleRef().light);
 		temporalResevoir.SetSample(pixelSample);
-		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = temporalResevoir;
+		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = temporalResevoir;
 	}
 }
 

@@ -13,10 +13,10 @@
 #include "Utils.h"
 #include "ReSTIR.h"
 
-class FrameDoubleBuffer
+class DoubleFrameBuffer
 {
 public:
-	FrameDoubleBuffer()
+	DoubleFrameBuffer()
 	{
 		m_NextBuffer = 1;
 		m_CurrentBuffer = 0;
@@ -24,18 +24,43 @@ public:
 		m_FrameBuffers[1] = std::make_shared<std::vector<uint8_t>>();
 	}
 
-	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
-	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
-
-	void SwapFrameBuffers()
+	void SwapBuffers()
 	{
 		m_NextBuffer = (m_NextBuffer + 1) % 2;
 		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
 	}
+
+	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
+	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
 private:
 	FrameBufferRef m_FrameBuffers[2];
 	uint32_t m_CurrentBuffer;
 	uint32_t m_NextBuffer;
+};
+
+class DoubleResevoirBuffer
+{
+public:
+	DoubleResevoirBuffer()
+	{
+		m_PrevBuffer = 1;
+		m_CurrentBuffer = 0;
+		m_ResevoirBuffers[0] = std::vector<Resevoir>();
+		m_ResevoirBuffers[1] = std::vector<Resevoir>();
+	}
+
+	void SwapBuffers()
+	{
+		m_PrevBuffer = (m_PrevBuffer + 1) % 2;
+		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
+	}
+
+	std::vector<Resevoir>& GetCurrentBuffer() { return m_ResevoirBuffers[m_CurrentBuffer]; }
+	std::vector<Resevoir>& GetPrevBuffer() { return m_ResevoirBuffers[m_PrevBuffer]; }
+private:
+	std::vector<Resevoir> m_ResevoirBuffers[2];
+	uint32_t m_CurrentBuffer;
+	uint32_t m_PrevBuffer;
 };
 
 class Renderer
@@ -151,7 +176,11 @@ public:
 		{}
 	};
 private:
-	FrameDoubleBuffer m_FrameBuffers;
+	std::vector<Sample> m_SampleBuffer;
+	DoubleFrameBuffer m_FrameBuffers;
+	DoubleResevoirBuffer m_ResevoirBuffers;
+	bool m_ValidHistory;
+
 	Settings m_Settings;
 	Scene m_Scene;
 
@@ -169,11 +198,6 @@ private:
 
 	float m_LastFrameTime;
 
-	std::vector<Sample> m_SampleBuffer;
-	std::vector<Resevoir> m_ResevoirBuffers[2];
-	int m_CurrentBuffer;
-	int m_PrevBuffer;
-	bool m_ValidHistory;
 private:
 	void RenderFrameBuffer();
 	void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed);
@@ -190,16 +214,8 @@ public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
-		//m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffers[0] = std::vector<Resevoir>();
-		m_ResevoirBuffers[1] = std::vector<Resevoir>();
-		m_ResevoirBuffers[0].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffers[1].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
-
-		m_CurrentBuffer = 0;
-		m_PrevBuffer = 1;
-
-		m_FrameBuffers = FrameDoubleBuffer();
+		m_FrameBuffers = DoubleFrameBuffer();
+		m_ResevoirBuffers = DoubleResevoirBuffer();
 
 		SettingsUpdated = false;
 		SceneUpdated = false;
@@ -240,10 +256,10 @@ public:
 
 	void UpdateResevoirBufferSize(uint32_t bufferSize)
 	{
-		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize)
+		if (m_ResevoirBuffers.GetCurrentBuffer().size() != bufferSize || m_ResevoirBuffers.GetPrevBuffer().size() != bufferSize)
 		{
-			m_ResevoirBuffers[0].resize(bufferSize);
-			m_ResevoirBuffers[1].resize(bufferSize);
+			m_ResevoirBuffers.GetCurrentBuffer().resize(bufferSize);
+			m_ResevoirBuffers.GetPrevBuffer().resize(bufferSize);
 		}
 	}
 
