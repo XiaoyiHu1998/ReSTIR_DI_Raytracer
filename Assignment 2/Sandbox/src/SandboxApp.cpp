@@ -122,9 +122,6 @@ public:
 		if (m_MoveCamera)
 			m_Camera.transform.translation += glm::vec3(0.00005f * timestep, 0, 0);
 
-		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
-		m_Camera.UpdateFrustrum();
-		m_Camera.UpdateCameraMatrix();
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 	}

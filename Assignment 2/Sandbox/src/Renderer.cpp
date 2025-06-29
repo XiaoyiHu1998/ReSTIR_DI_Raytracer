@@ -112,8 +112,10 @@ void Renderer::RenderFrameBuffer()
 			m_Scene = m_NewScene;
 			m_SceneLock.unlock();
 
-			m_Scene.camera.UpdateFrustrum();
+			m_Scene.camera.SetResolution(m_Settings.FrameWidth, m_Settings.FrameHeight);
 			m_Scene.camera.UpdateCameraMatrix();
+			m_Scene.camera.UpdateFrustrum();
+			m_Scene.camera.UpdateFrustrum();
 		}
 
 		uint32_t width = m_Settings.FrameWidth;
