@@ -34,14 +34,6 @@ void RenderCommand::DeleteFrameBufferTexture(uint32_t& frameBufferID)
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void RenderCommand::RegenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
-{
-	frameBuffer->resize(width * height * 4, 0);
-
-	DeleteFrameBufferTexture(frameBufferID);
-	GenerateFrameBufferTexture(frameBufferID, frameBuffer, width, height);
-}
-
 void RenderCommand::InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
 {
 	// Bind PBO
@@ -56,7 +48,7 @@ void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBuff
 {
 	// Update PBO
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER, frameBuffer->size() * sizeof(uint8_t), frameBuffer->data(), GL_STATIC_DRAW);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, frameBuffer->size() * sizeof(frameBuffer.get()[0][0]), frameBuffer->data(), GL_STATIC_DRAW);
 
 	// Update Texture
 	glBindTexture(GL_TEXTURE_2D, frameBufferID);
@@ -70,14 +62,4 @@ void RenderCommand::Clear()
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
-}
-
-void RenderCommand::UpdateSampleBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight)
-{
-	renderer.UpdateSampleBufferSize(currentWidth * currentHeight);
-}
-
-void RenderCommand::UpdateResevoirBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight)
-{
-	renderer.UpdateResevoirBufferSize(currentWidth * currentHeight);
 }
