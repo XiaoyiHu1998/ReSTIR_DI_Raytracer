@@ -110,13 +110,14 @@ public:
 
 		bool EnableSpatialReuse = true;
 		int SpatialReuseNeighbours = 1;
-		int SpatialReuseRadius = 10;
-		float SpatialReuseMaxDistance = 0.06f;
-		float SpatialReuseMinNormalSimilarity = 0.90f;
+		int SpatialPixelRadius = 10;
+		float SpatialMaxDistance = 0.06f;
+		float SpatialMinNormalSimilarity = 0.90f;
 
 		bool EnableTemporalReuse = true;
-		float TemporalReuseMaxDistance = 0.04f;
-		float TemporalReuseMinNormalSimilarity = 0.90f;
+		float TemporalMaxDistance = 0.04f;
+		float TemporalMinNormalSimilarity = 0.90f;
+		int TemporalSampleCountRatio = 20;
 
 		bool operator==(const Settings& otherSettings)
 		{
@@ -146,13 +147,14 @@ public:
 
 			sameSettings &= EnableSpatialReuse == otherSettings.EnableSpatialReuse;
 			sameSettings &= SpatialReuseNeighbours == otherSettings.SpatialReuseNeighbours;
-			sameSettings &= SpatialReuseRadius == otherSettings.SpatialReuseRadius;
-			sameSettings &= SpatialReuseMaxDistance == otherSettings.SpatialReuseMaxDistance;
-			sameSettings &= SpatialReuseMinNormalSimilarity == otherSettings.SpatialReuseMinNormalSimilarity;
+			sameSettings &= SpatialPixelRadius == otherSettings.SpatialPixelRadius;
+			sameSettings &= SpatialMaxDistance == otherSettings.SpatialMaxDistance;
+			sameSettings &= SpatialMinNormalSimilarity == otherSettings.SpatialMinNormalSimilarity;
 
 			sameSettings &= EnableTemporalReuse == otherSettings.EnableTemporalReuse;
-			sameSettings &= TemporalReuseMaxDistance == otherSettings.TemporalReuseMaxDistance;
-			sameSettings &= TemporalReuseMinNormalSimilarity == otherSettings.TemporalReuseMinNormalSimilarity;
+			sameSettings &= TemporalMaxDistance == otherSettings.TemporalMaxDistance;
+			sameSettings &= TemporalMinNormalSimilarity == otherSettings.TemporalMinNormalSimilarity;
+			sameSettings &= TemporalSampleCountRatio == otherSettings.TemporalSampleCountRatio;
 
 			return sameSettings;
 		}

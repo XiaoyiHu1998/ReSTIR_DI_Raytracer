@@ -390,8 +390,8 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
 	const Sample& prevSample = prevResevoir.GetSample();
 
-	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= m_Settings.TemporalReuseMaxDistance;
-	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalReuseMinNormalSimilarity;
+	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= m_Settings.TemporalMaxDistance;
+	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalMinNormalSimilarity;
 
 	glm::vec3 shadowRayDirection = prevSample.light.position - pixelSample.hitPosition;
 	float shadowRayDistance = glm::length(shadowRayDirection);
@@ -402,7 +402,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	if (withinMaxDistance && sameNormals && notOccluded && prevResevoir.WeightSampleOut > 0.00001f)
 	{
 		// Limit Temporal propogation
-		prevResevoir.SetSampleCount(std::min(20 * pixelResevoir.GetSampleCount(), prevResevoir.GetSampleCount()));
+		prevResevoir.SetSampleCount(std::min(m_Settings.TemporalSampleCountRatio * pixelResevoir.GetSampleCount(), prevResevoir.GetSampleCount()));
 
 		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
 		pixelSample.ReplaceLight(temporalResevoir.GetSample().light);
@@ -418,12 +418,12 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 		Sample pixelSample = pixelResevoir.GetSample();
 
-		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution,  m_Settings.SpatialReuseRadius, seed);
-		const Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
-		const Sample& neighbourSample = neighbourResevoir.GetSample();
+		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution,  m_Settings.SpatialPixelRadius, seed);
+		Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
+		const Sample& neighbourSample = neighbourResevoir.GetSampleRef();
 
-		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= m_Settings.SpatialReuseMaxDistance;
-		bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
+		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= m_Settings.SpatialMaxDistance;
+		bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialMinNormalSimilarity;
 
 		glm::vec3 shadowRayDirection = neighbourSample.light.position - pixelSample.hitPosition;
 		float shadowRayDistance = glm::length(shadowRayDirection);

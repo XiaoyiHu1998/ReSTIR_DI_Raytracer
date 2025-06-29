@@ -200,20 +200,24 @@ public:
 				{
 					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
 				}
-				if (ImGui::InputInt("Pixel Radius", &m_RendererSettingsUI.SpatialReuseRadius))
+				if (ImGui::InputInt("Pixel Radius", &m_RendererSettingsUI.SpatialPixelRadius))
 				{
-					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 3 ? 3 : m_RendererSettingsUI.SpatialReuseRadius;
+					m_RendererSettingsUI.SpatialPixelRadius = m_RendererSettingsUI.SpatialPixelRadius < 3 ? 3 : m_RendererSettingsUI.SpatialPixelRadius;
 				}
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 				ImGui::PopID();
 
 				// Temporal Reuse
 				ImGui::PushID("Temporal Reuse Options");
 				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				if (ImGui::InputInt("Sample Count Ratio", &m_RendererSettingsUI.TemporalSampleCountRatio))
+				{
+					m_RendererSettingsUI.TemporalSampleCountRatio = m_RendererSettingsUI.TemporalSampleCountRatio < 1 ? 1 : m_RendererSettingsUI.TemporalSampleCountRatio;
+				}
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::PopID();
 			}
 
@@ -308,17 +312,7 @@ public:
 				ImGui::Text("Transform");
 				transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
 				transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
-				// Not accessible until ray transform issues are fixed
-				//transformUpdated |= ImGui::DragFloat3("scale", glm::value_ptr(blas->GetTransformRef().scale), 0.05f); 
 				ImGui::Separator();
-
-				ImGui::Text("Material");
-				ImGui::Combo("Material Type", &selectedMaterialType, materialTypes, IM_ARRAYSIZE(materialTypes));
-				ImGui::Spacing();
-				ImGui::Spacing();
-				ImGui::Spacing();
-				ImGui::ColorEdit3("EmissiveColor", glm::value_ptr(blas->GetMaterialRef().EmissiveColor));
-				ImGui::DragFloat("EmmisiveIntensity", &blas->GetMaterialRef().EmissiveIntensity);
 
 				ImGui::PopID();
 
