@@ -32,6 +32,14 @@ public:
 
 	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
 	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
+	void ResizeRenderBuffer(uint32_t bufferSize)
+	{
+		uint32_t subPixelCount = bufferSize << 2;
+		if (m_FrameBuffers[m_NextBuffer]->size() != subPixelCount)
+		{
+			m_FrameBuffers[m_NextBuffer]->resize(subPixelCount);
+		}
+	}
 private:
 	FrameBufferRef m_FrameBuffers[2];
 	uint32_t m_CurrentBuffer;
@@ -57,6 +65,13 @@ public:
 
 	std::vector<Resevoir>& GetCurrentBuffer() { return m_ResevoirBuffers[m_CurrentBuffer]; }
 	std::vector<Resevoir>& GetPrevBuffer() { return m_ResevoirBuffers[m_PrevBuffer]; }
+	void ResizeBuffers(uint32_t bufferSize) 
+	{
+		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize)
+		{
+			m_ResevoirBuffers[0].resize(bufferSize); m_ResevoirBuffers[1].resize(bufferSize);
+		}
+	}
 private:
 	std::vector<Resevoir> m_ResevoirBuffers[2];
 	uint32_t m_CurrentBuffer;
@@ -89,31 +104,32 @@ public:
 
 		uint32_t ThreadCount = std::thread::hardware_concurrency() - 1;
 
-		uint32_t RenderResolutionWidth = 640;
-		uint32_t RenderResolutionHeight = 480;
-		uint32_t RenderingKernelSize = 64;
+		uint32_t FrameWidth = 640;
+		uint32_t FrameHeight = 480;
+		uint32_t KernelSize = 64;
 		uint32_t SamplesPerPixel = 1;
 
 		bool RandomSeed = true;
 		float Eta = 0.001f;
 
 		// DI Rendering
-		bool LightOcclusionCheckDI = true;
+		bool OcclusionCheckDI = true;
 		bool SampleAllLightsDI = false;
-
 		int CandidateCountDI = 1;
 
 		// ReSTIR Rendering
+		// RIS
 		int CandidateCountReSTIR = 1;
-
 		bool EnableVisibilityPass = true;
-
+		
+		// Spatial Reuse
 		bool EnableSpatialReuse = true;
 		int SpatialReuseNeighbours = 1;
 		int SpatialPixelRadius = 10;
 		float SpatialMaxDistance = 0.06f;
 		float SpatialMinNormalSimilarity = 0.90f;
 
+		// Temporal Reuse
 		bool EnableTemporalReuse = true;
 		float TemporalMaxDistance = 0.04f;
 		float TemporalMinNormalSimilarity = 0.90f;
@@ -126,16 +142,16 @@ public:
 
 			sameSettings &= ThreadCount == otherSettings.ThreadCount;
 
-			sameSettings &= RenderResolutionWidth == otherSettings.RenderResolutionWidth;
-			sameSettings &= RenderResolutionHeight == otherSettings.RenderResolutionHeight;
-			sameSettings &= RenderingKernelSize == otherSettings.RenderingKernelSize;
+			sameSettings &= FrameWidth == otherSettings.FrameWidth;
+			sameSettings &= FrameHeight == otherSettings.FrameHeight;
+			sameSettings &= KernelSize == otherSettings.KernelSize;
 			sameSettings &= SamplesPerPixel == otherSettings.SamplesPerPixel;
 
 			sameSettings &= RandomSeed == otherSettings.RandomSeed;
 			sameSettings &= Eta == otherSettings.Eta;
 
 			// DI Rendering
-			sameSettings &= LightOcclusionCheckDI == otherSettings.LightOcclusionCheckDI;
+			sameSettings &= OcclusionCheckDI == otherSettings.OcclusionCheckDI;
 			sameSettings &= SampleAllLightsDI == otherSettings.SampleAllLightsDI;
 
 			sameSettings &= CandidateCountDI == otherSettings.CandidateCountDI;
@@ -191,7 +207,6 @@ private:
 
 	std::thread m_RenderThread;
 	std::mutex m_FrameBufferMutex;
-	std::mutex m_ResevoirBufferMutex;
 	std::mutex m_SettingsLock;
 	std::mutex m_SceneLock;
 
@@ -224,9 +239,15 @@ public:
 		m_ValidHistory = false;
 	}
 
-	void Init(const Scene& scene)
+	void Init(const Settings& settings, const Scene& scene)
 	{
+		m_Settings = settings;
 		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
+		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
+		m_FrameBuffers.SwapBuffers();
+		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
+
+		// Start rendering
 		m_RenderThread = std::thread(&Renderer::RenderFrameBuffer, this);
 	}
 
@@ -269,9 +290,9 @@ public:
 
 	glm::i32vec2 GetRenderResolution()
 	{
-		m_SceneLock.lock();
-		glm::i32vec2 resolution = m_Scene.camera.GetResolution();
-		m_SceneLock.unlock();
+		m_SettingsLock.lock();
+		glm::i32vec2 resolution = glm::i32vec2(m_Settings.FrameWidth, m_Settings.FrameHeight);
+		m_SettingsLock.unlock();
 
 		return resolution;
 	}

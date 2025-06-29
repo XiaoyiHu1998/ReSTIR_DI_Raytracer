@@ -74,8 +74,9 @@ public:
 		m_TLAS.AddBLAS(sphereBLAS);
 
 		// Setup Rendering
-		m_CurrentWidth = m_NextWidth = 640;
-		m_CurrentHeight = m_NextHeight = 480;
+		m_RendererSettingsUI;
+		m_CurrentWidth = m_NextWidth = m_RendererSettingsUI.FrameWidth;
+		m_CurrentHeight = m_NextHeight = m_RendererSettingsUI.FrameHeight;
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
 		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
@@ -83,12 +84,13 @@ public:
 		m_MoveCamera = false;
 
 		m_Renderer;
-		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
+		m_Renderer.Init(m_RendererSettingsUI, Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
 	~PathTracingLayer()
@@ -102,7 +104,7 @@ public:
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
 
-		if (m_CurrentFrameResolution.x != m_PrevFrameResolution.x || m_CurrentFrameResolution.y != m_PrevFrameResolution.y)
+		if (m_CurrentFrameResolution != m_PrevFrameResolution)
 		{
 			RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
 			m_PrevFrameResolution = m_CurrentFrameResolution;
@@ -114,8 +116,8 @@ public:
 		m_CurrentWidth = m_NextWidth;
 		m_CurrentHeight = m_NextHeight;
 
-		m_RendererSettingsUI.RenderResolutionWidth = m_CurrentWidth;
-		m_RendererSettingsUI.RenderResolutionHeight = m_CurrentHeight;
+		m_RendererSettingsUI.FrameWidth = m_CurrentWidth;
+		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
 		if (m_MoveCamera)
 			m_Camera.transform.translation += glm::vec3(0.00005f * timestep, 0, 0);
@@ -123,7 +125,6 @@ public:
 		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
 		m_Camera.UpdateFrustrum();
 		m_Camera.UpdateCameraMatrix();
-
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 	}
@@ -174,7 +175,7 @@ public:
 			{
 				ImGui::Text("DI Rendering");
 				ImGui::Checkbox("Sample all lights", &m_RendererSettingsUI.SampleAllLightsDI);
-				ImGui::Checkbox("Light Occlusion", &m_RendererSettingsUI.LightOcclusionCheckDI);
+				ImGui::Checkbox("Light Occlusion", &m_RendererSettingsUI.OcclusionCheckDI);
 				if (ImGui::InputInt("Light Candidates", &m_RendererSettingsUI.CandidateCountDI))
 				{
 					m_RendererSettingsUI.CandidateCountDI = m_RendererSettingsUI.CandidateCountDI < 1 ? 1 : m_RendererSettingsUI.CandidateCountDI;
@@ -230,9 +231,9 @@ public:
 
 			// Configurate TreeNodeEX
 			static ImGuiTreeNodeFlags baseNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow |
-				ImGuiTreeNodeFlags_OpenOnDoubleClick |
-				ImGuiTreeNodeFlags_SpanAvailWidth |
-				ImGuiTreeNodeFlags_SpanFullWidth;
+													  ImGuiTreeNodeFlags_OpenOnDoubleClick |
+													  ImGuiTreeNodeFlags_SpanAvailWidth |
+													  ImGuiTreeNodeFlags_SpanFullWidth;
 
 			// TreeNodeEX Drawing Lambda
 			auto DrawImGUiTreeNodeEX = [&](uint32_t index, const char* nodeName)
@@ -260,7 +261,6 @@ public:
 
 		// Properties Window
 		{
-
 			ImGui::Begin("Properties");
 			if (m_SelectedNode == 0)
 			{
@@ -292,20 +292,7 @@ public:
 				std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);
 				bool transformUpdated = false;
 
-				const char* materialTypes[] = { "Non_Emissive", "Emissive" };
-				int selectedMaterialType = 0;
-				switch (blas->GetMaterial().MaterialType)
-				{
-				case Material::Type::Non_Emissive:
-					selectedMaterialType = 0;
-					break;
-				case Material::Type::Emissive:
-					selectedMaterialType = 1;
-					break;
-				}
-
 				ImGui::PushID(blas->GetName().c_str());
-
 				ImGui::InputText("Name", &blas->GetNameRef()[0], blas->GetName().length());
 				ImGui::Separator();
 
@@ -315,16 +302,6 @@ public:
 				ImGui::Separator();
 
 				ImGui::PopID();
-
-				switch (selectedMaterialType)
-				{
-				case 0:
-					blas->GetMaterialRef().MaterialType = Material::Type::Non_Emissive;
-					break;
-				case 1:
-					blas->GetMaterialRef().MaterialType = Material::Type::Emissive;
-					break;
-				}
 
 				if (transformUpdated)
 					blas->SetTransform(blas->GetTransform());

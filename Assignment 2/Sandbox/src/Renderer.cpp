@@ -54,7 +54,7 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 		{
 			Ray shadowRay = Ray(ray.hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2 * m_Settings.Eta);
 			bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
-			if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
+			if (!lightOccluded || !m_Settings.OcclusionCheckDI)
 			{
 				//glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
 				float BRDF = glm::dot(ray.hitInfo.normal, lightDirection);
@@ -116,24 +116,20 @@ void Renderer::RenderFrameBuffer()
 			m_Scene.camera.UpdateCameraMatrix();
 		}
 
-		uint32_t width = m_Settings.RenderResolutionWidth;
-		uint32_t height = m_Settings.RenderResolutionHeight;
+		uint32_t width = m_Settings.FrameWidth;
+		uint32_t height = m_Settings.FrameHeight;
 
 		uint32_t bufferSize = width * height;
 		UpdateSampleBufferSize(bufferSize);
-		UpdateResevoirBufferSize(bufferSize);
-
-		if (framebuffer->size() != width * height * 4)
-		{
-			framebuffer->resize(bufferSize * 4, 0);
-		}
+		m_FrameBuffers.ResizeRenderBuffer(bufferSize);
+		m_ResevoirBuffers.ResizeBuffers(bufferSize);
 
 		if (m_Settings.Mode != Settings::RenderMode::ReSTIR)
 		{
 			TaskBatch taskBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 				{
 					uint32_t seed = x + y * width;
 					taskBatch.EnqueueTask([=]() {RenderKernelNonReSTIR(framebuffer, width, height, x, y, seed); });
@@ -144,9 +140,9 @@ void Renderer::RenderFrameBuffer()
 		else
 		{
 			TaskBatch risBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 				{
 					risBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::RIS, x + y * width); });
 				}
@@ -156,9 +152,9 @@ void Renderer::RenderFrameBuffer()
 			if (m_Settings.EnableVisibilityPass)
 			{
 				TaskBatch visibilityBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 				{
-					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 					{
 						visibilityBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Visibility, x + y * width); });
 					}
@@ -166,12 +162,12 @@ void Renderer::RenderFrameBuffer()
 				visibilityBatch.ExecuteTasks();
 			}
 
-			if (m_Settings.EnableTemporalReuse)
+			if (m_Settings.EnableTemporalReuse && m_ValidHistory)
 			{
 				TaskBatch TemporalBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 				{
-					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 					{
 						TemporalBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Temporal, x + y * width); });
 					}
@@ -182,9 +178,9 @@ void Renderer::RenderFrameBuffer()
 			if (m_Settings.EnableSpatialReuse)
 			{
 				TaskBatch SpatialBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 				{
-					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 					{
 						SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
 					}
@@ -193,9 +189,9 @@ void Renderer::RenderFrameBuffer()
 			}
 
 			TaskBatch shadingBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 				{
 					shadingBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Shading, x + y * width); });
 				}
@@ -217,8 +213,8 @@ void Renderer::RenderFrameBuffer()
 
 void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
-	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.KernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.KernelSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -273,8 +269,8 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 
 void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
-	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.KernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.KernelSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -304,15 +300,12 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 		}
 		break;
 	case ReSTIRPass::Temporal:
-		if (m_ValidHistory)
+		for (uint32_t y = yMin; y < yMax; y++)
 		{
-			for (uint32_t y = yMin; y < yMax; y++)
+			uint32_t yOffset = y * width;
+			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				uint32_t yOffset = y * width;
-				for (uint32_t x = xMin; x < xMax; x++)
-				{
-					TemporalReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), x + yOffset, seed);
-				}
+				TemporalReuse(glm::i32vec2(x, y), glm::i32vec2(width, height), x + yOffset, seed);
 			}
 		}
 		break;
@@ -431,7 +424,7 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
 		bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
 
-		if (withinMaxDistance && sameNormals && notOccluded && neighbourResevoir.WeightSampleOut > 0.00001)
+		if (withinMaxDistance && sameNormals && notOccluded && neighbourResevoir.WeightSampleOut > 0.00001f)
 		{
 			Resevoir spatialResevoir = Resevoir::CombineBiased(pixelResevoir, neighbourResevoir, seed);
 			pixelSample.ReplaceLight(spatialResevoir.GetSample().light);
@@ -454,7 +447,7 @@ glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 		Ray shadowRay = Ray(shadowRayOrigin, sample.lightDirection, sample.lightDistance - 2.0f * m_Settings.Eta);
 
 		bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
-		if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
+		if (!lightOccluded || !m_Settings.OcclusionCheckDI)
 		{
 			outputColor = sample.BRDF * sample.light.emmission / (sample.lightDistance * sample.lightDistance);
 		}
