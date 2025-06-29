@@ -1,7 +1,7 @@
 #include "ReSTIR.h"
 
 
-Sample::Sample(const HitInfo& hitInfo, const glm::vec3& cameraOrigin, PointLight pointLight, float weight, float pdf)
+Sample::Sample(const HitInfo& hitInfo, const glm::vec3& cameraOrigin, const PointLight& pointLight, float weight, float pdf)
 {
 	hit = hitInfo.hit;
 	hitDistance = hitInfo.distance;

@@ -26,7 +26,7 @@ struct Sample
 	float contribution;
 
 	Sample() = default;
-	Sample(const HitInfo& hitInfo, const glm::vec3& cameraOrigin, PointLight pointLight, float weight, float pdf);
+	Sample(const HitInfo& hitInfo, const glm::vec3& cameraOrigin, const PointLight& pointLight, float weight, float pdf);
 	Sample(const Sample& sample, float weight);
 
 	void ReplaceLight(const PointLight& newLight);

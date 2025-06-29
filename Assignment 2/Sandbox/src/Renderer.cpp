@@ -364,15 +364,9 @@ void Renderer::VisibilityPass(uint32_t bufferIndex)
 	Resevoir& resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	const Sample& sample = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex].GetSampleRef();
 
-	//Debug check
-	//if (sample.lightDistance <= 0.0001f)
-	//{
-	//	std::cout << "VisibilityPass: Lightdistance ~ 0!" << std::endl;
-	//}
-
 	if (!sample.hit)
 	{
-		resevoir.WeightSampleOut = 0.0f;
+		resevoir.WeightSampleOut = 0.001f;
 		return;
 	}
 
@@ -405,13 +399,13 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
 	bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
 
-	if (withinMaxDistance && sameNormals && notOccluded)
+	if (withinMaxDistance && sameNormals && notOccluded && prevResevoir.WeightSampleOut > 0.00001f)
 	{
 		// Limit Temporal propogation
 		prevResevoir.SetSampleCount(std::min(20 * pixelResevoir.GetSampleCount(), prevResevoir.GetSampleCount()));
 
 		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
-		pixelSample.ReplaceLight(temporalResevoir.GetSampleRef().light);
+		pixelSample.ReplaceLight(temporalResevoir.GetSample().light);
 		temporalResevoir.SetSample(pixelSample);
 		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = temporalResevoir;
 	}
@@ -437,10 +431,10 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
 		bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
 
-		if (withinMaxDistance && sameNormals && notOccluded)
+		if (withinMaxDistance && sameNormals && notOccluded && neighbourResevoir.WeightSampleOut > 0.00001)
 		{
 			Resevoir spatialResevoir = Resevoir::CombineBiased(pixelResevoir, neighbourResevoir, seed);
-			pixelSample.ReplaceLight(spatialResevoir.GetSampleRef().light);
+			pixelSample.ReplaceLight(spatialResevoir.GetSample().light);
 			spatialResevoir.SetSample(pixelSample);
 			m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = spatialResevoir;
 		}
@@ -454,12 +448,6 @@ glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 	Resevoir resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample sample = resevoir.GetSample();
 
-	//Debug check
-	if (sample.lightDistance <= 0.0001f)
-	{
-		std::cout << "RenderSample: Lightdistance ~ 0!" << std::endl;
-	}
-
 	if (sample.BRDF > 0.01f)
 	{
 		glm::vec3 shadowRayOrigin = sample.hitPosition + (m_Settings.Eta * sample.lightDirection);
@@ -469,11 +457,6 @@ glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 		if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
 		{
 			outputColor = sample.BRDF * sample.light.emmission / (sample.lightDistance * sample.lightDistance);
-		}
-		else if (m_Settings.LightOcclusionCheckDI)
-		{
-			resevoir.WeightSampleOut = 0.0f;
-			return glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		}
 	}
 
