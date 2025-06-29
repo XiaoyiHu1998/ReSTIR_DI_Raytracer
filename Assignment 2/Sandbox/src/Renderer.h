@@ -131,9 +131,9 @@ public:
 
 		// Temporal Reuse
 		bool EnableTemporalReuse = true;
+		int TemporalSampleCountRatio = 15;
 		float TemporalMaxDistance = 0.04f;
 		float TemporalMinNormalSimilarity = 0.90f;
-		int TemporalSampleCountRatio = 20;
 
 		bool operator==(const Settings& otherSettings)
 		{
@@ -201,6 +201,7 @@ private:
 
 	Settings m_Settings;
 	Scene m_Scene;
+	Camera m_PrevCamera;
 
 	Settings m_NewSettings;
 	Scene m_NewScene;
@@ -243,6 +244,7 @@ public:
 	{
 		m_Settings = settings;
 		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
+		m_PrevCamera = scene.camera;
 		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
 		m_FrameBuffers.SwapBuffers();
 		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);

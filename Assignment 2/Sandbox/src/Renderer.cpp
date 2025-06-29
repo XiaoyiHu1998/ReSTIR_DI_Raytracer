@@ -109,13 +109,12 @@ void Renderer::RenderFrameBuffer()
 		if (SceneUpdated)
 		{
 			m_SceneLock.lock();
+			m_PrevCamera = m_Scene.camera;
 			m_Scene = m_NewScene;
 			m_SceneLock.unlock();
 
 			m_Scene.camera.SetResolution(m_Settings.FrameWidth, m_Settings.FrameHeight);
-			m_Scene.camera.UpdateCameraMatrix();
-			m_Scene.camera.UpdateFrustrum();
-			m_Scene.camera.UpdateFrustrum();
+			m_Scene.camera.UpdateState();
 		}
 
 		uint32_t width = m_Settings.FrameWidth;
@@ -345,7 +344,7 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 		Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
 		m_Scene.tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
 
-		sample = Sample(ray.hitInfo, m_Scene.camera.GetTransform().translation, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
+		sample = Sample(ray.hitInfo, m_Scene.camera.position, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
 		float weight = sample.contribution / sample.pdf;
 		resevoir.Update(sample, weight, seed);
 	}
@@ -377,7 +376,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample pixelSample = pixelResevoir.GetSample();
 
-	glm::i32vec2 prevPixel = m_Scene.camera.GetPrevFramePixelCoordinates(pixelSample.hitPosition);
+	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPosition);
 	bool withinFrame = prevPixel.x >= 0 && prevPixel.y >= 0 && prevPixel.x < resolution.x && prevPixel.y < resolution.y;
 	if (!withinFrame || !m_ValidHistory)
 		return;

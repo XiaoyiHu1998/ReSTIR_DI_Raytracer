@@ -79,8 +79,8 @@ public:
 		m_CurrentHeight = m_NextHeight = m_RendererSettingsUI.FrameHeight;
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
-		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
-		m_Camera.GetTransformRef().rotation = glm::vec3(0.0f, -111.0f, 0.0f);
+		m_Camera.position = glm::vec3(-1.0f, 1.5f, -0.5f);
+		m_Camera.rotation = glm::vec3(0.0f, -111.0f, 0.0f);
 		m_MoveCamera = false;
 
 		m_Renderer;
@@ -120,7 +120,7 @@ public:
 		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
 		if (m_MoveCamera)
-			m_Camera.transform.translation += glm::vec3(0.00005f * timestep, 0, 0);
+			m_Camera.position += glm::vec3(0.00005f * timestep, 0, 0);
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -269,13 +269,13 @@ public:
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
-				cameraUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.GetTransformRef().translation), 0.05f);
-				cameraUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.GetTransformRef().rotation), 0.05f);
+				cameraUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.position), 0.05f);
+				cameraUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.rotation), 0.05f);
 				ImGui::Separator();
 
 				ImGui::Text("Camera Settings");
 				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
-				ImGui::DragFloat("Vertical FoV", &m_Camera.GetFOVRef(), 0.1f, 0.0f, 360.0f);
+				ImGui::DragFloat("Vertical FoV", &m_Camera.verticalFOV, 0.1f, 0.0f, 360.0f);
 				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
 
 				ImGui::PopID();
