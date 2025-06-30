@@ -104,9 +104,9 @@ public:
 
 		uint32_t ThreadCount = std::thread::hardware_concurrency() - 1;
 
-		uint32_t FrameWidth = 640;
-		uint32_t FrameHeight = 480;
-		uint32_t KernelSize = 64;
+		uint32_t FrameWidth = 3840;
+		uint32_t FrameHeight = 2160;
+		uint32_t KernelSize = 32;
 		uint32_t SamplesPerPixel = 1;
 
 		bool RandomSeed = true;
@@ -119,21 +119,23 @@ public:
 
 		// ReSTIR Rendering
 		// RIS
-		int CandidateCountReSTIR = 1;
+		int CandidateCountReSTIR = 2;
 		bool EnableVisibilityPass = true;
-		
-		// Spatial Reuse
-		bool EnableSpatialReuse = true;
-		int SpatialReuseNeighbours = 1;
-		int SpatialPixelRadius = 10;
-		float SpatialMaxDistance = 0.06f;
-		float SpatialMinNormalSimilarity = 0.90f;
 
 		// Temporal Reuse
 		bool EnableTemporalReuse = true;
 		int TemporalSampleCountRatio = 15;
-		float TemporalMaxDistance = 0.04f;
-		float TemporalMinNormalSimilarity = 0.90f;
+		float TemporalMaxDistance = 0.1f;
+		float TemporalMaxDistanceDepthScaling = 0.18f;
+		float TemporalMinNormalSimilarity = 0.93f;
+		
+		// Spatial Reuse
+		bool EnableSpatialReuse = true;
+		int SpatialReuseNeighbours = 4;
+		int SpatialPixelRadius = 15;
+		float SpatialMaxDistance = 0.06f;
+		float SpatialMaxDistanceDepthScaling = 0.005f;
+		float SpatialMinNormalSimilarity = 0.90f;
 
 		bool operator==(const Settings& otherSettings)
 		{
@@ -156,21 +158,24 @@ public:
 
 			sameSettings &= CandidateCountDI == otherSettings.CandidateCountDI;
 
-			// ReSTIR Rendering
+			// ReSTIR RIS
 			sameSettings &= CandidateCountReSTIR == otherSettings.CandidateCountReSTIR;
-
 			sameSettings &= EnableVisibilityPass == otherSettings.EnableVisibilityPass;
 
+			// ReSTIR Temporal Reuse
+			sameSettings &= EnableTemporalReuse == otherSettings.EnableTemporalReuse;
+			sameSettings &= TemporalMaxDistance == otherSettings.TemporalMaxDistance;
+			sameSettings &= TemporalMaxDistanceDepthScaling == otherSettings.TemporalMaxDistanceDepthScaling;
+			sameSettings &= TemporalMinNormalSimilarity == otherSettings.TemporalMinNormalSimilarity;
+			sameSettings &= TemporalSampleCountRatio == otherSettings.TemporalSampleCountRatio;
+
+			// ReSTIR Spatial Reuse
 			sameSettings &= EnableSpatialReuse == otherSettings.EnableSpatialReuse;
 			sameSettings &= SpatialReuseNeighbours == otherSettings.SpatialReuseNeighbours;
 			sameSettings &= SpatialPixelRadius == otherSettings.SpatialPixelRadius;
 			sameSettings &= SpatialMaxDistance == otherSettings.SpatialMaxDistance;
+			sameSettings &= SpatialMaxDistanceDepthScaling == otherSettings.SpatialMaxDistanceDepthScaling;
 			sameSettings &= SpatialMinNormalSimilarity == otherSettings.SpatialMinNormalSimilarity;
-
-			sameSettings &= EnableTemporalReuse == otherSettings.EnableTemporalReuse;
-			sameSettings &= TemporalMaxDistance == otherSettings.TemporalMaxDistance;
-			sameSettings &= TemporalMinNormalSimilarity == otherSettings.TemporalMinNormalSimilarity;
-			sameSettings &= TemporalSampleCountRatio == otherSettings.TemporalSampleCountRatio;
 
 			return sameSettings;
 		}

@@ -387,7 +387,10 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	if (!prevSample.hit)
 		return;
 
-	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= m_Settings.TemporalMaxDistance;
+	float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
+	// Grow maxDistance with camera distance to make sure distance between pixels don't exceed maxDistance
+	float scaledMaxDistance = m_Settings.TemporalMaxDistance * (cameraDistance * m_Settings.TemporalMaxDistanceDepthScaling + 1.0f);
+	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
 	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalMinNormalSimilarity;
 
 	glm::vec3 shadowRayDirection = prevSample.light.position - pixelSample.hitPosition;
@@ -422,7 +425,10 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		if (!neighbourSample.hit)
 			return;
 
-		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= m_Settings.SpatialMaxDistance;
+		float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
+		// Grow maxDistance with camera distance to make sure distance between pixels don't exceed maxDistance
+		float scaledMaxDistance = m_Settings.SpatialMaxDistance * (cameraDistance * m_Settings.SpatialMaxDistanceDepthScaling + 1.0f); 
+		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
 		bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialMinNormalSimilarity;
 
 		glm::vec3 shadowRayDirection = neighbourSample.light.position - pixelSample.hitPosition;

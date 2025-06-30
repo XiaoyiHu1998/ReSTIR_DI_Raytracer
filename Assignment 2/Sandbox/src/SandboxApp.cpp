@@ -25,35 +25,47 @@ public:
 		// Create Scene
 		m_TLAS = TLAS();
 
-		// Pointlights
-		uint32_t lightCount = 10;
+		// Pointlights - TODO: split into generate lights function
+		uint32_t lightCount = 100;
 		m_pointLights = std::vector<PointLight>();
 		m_pointLights.reserve(lightCount);
+
 		uint32_t sphereLocationSeed = 0;
 		uint32_t sphereColorSeed = 0;
+
+		HZ_INFO("Generating {} Lights", lightCount);
 		for (int i = 0; i < lightCount; i++)
 		{
-			float x = Utils::RandomFloat(sphereLocationSeed) * 10;
-			float y = Utils::RandomFloat(sphereLocationSeed) * 0.5f + 1.0f;
-			float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
+			// Simple scene
+			//float x = Utils::RandomFloat(sphereLocationSeed) * 10;
+			//float y = Utils::RandomFloat(sphereLocationSeed) * 0.5f + 1.0f;
+			//float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
+			//glm::vec3 position = glm::vec3(x, y, z);
+
+			//float r = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
+			//float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
+			//float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
+			//glm::vec3 emissiveColor = glm::vec3(r, g, b);
+			//float emissiveStrength = 30.0f / lightCount;
+
+			// Large scene
+			float x = Utils::RandomFloat(sphereLocationSeed) * 50 - 25;
+			float y = Utils::RandomFloat(sphereLocationSeed) * 7 + 1.0f;
+			float z = Utils::RandomFloat(sphereLocationSeed) * 9 - 4;
 			glm::vec3 position = glm::vec3(x, y, z);
 
-			float radius = 1.0f;
-
-			//float uniformColor = 1.0f;
 			float r = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
 			float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
 			float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
 			glm::vec3 emissiveColor = glm::vec3(r, g, b);
-			float emissiveStrength = 30.0f / lightCount;
-			Material material = Material(Material::Type::Emissive, emissiveColor, emissiveStrength);
+			float emissiveStrength = 0.65f;
 
-			m_pointLights.emplace_back(position, material);
-			std::cout << "PointLight " << i << " Pos:" << glm::to_string(position) << ", Radius: " << radius << ",Color: " << glm::to_string(emissiveColor) << ", intensity: " << emissiveStrength << std::endl;
+			m_pointLights.emplace_back(position, emissiveColor, emissiveStrength);
 		}
 
 		// Geometry
 		std::vector<Triangle> triangles;
+		HZ_INFO("Loading Geometry");
 
 		//floor
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza_small.obj", triangles);
@@ -68,12 +80,13 @@ public:
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
 		sphereBLAS->SetName("Sphere");
-		Transform sphereTransform = Transform(glm::vec3(3.6f, -0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
+		Transform sphereTransform = Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
 		Material sphereMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0.5, 0.5, 1.0), 0.0f);
 		sphereBLAS->SetObject(triangles, sphereTransform, sphereMaterial);
 		m_TLAS.AddBLAS(sphereBLAS);
 
 		// Setup Rendering
+		HZ_INFO("Initiating Renderer");
 		m_RendererSettingsUI;
 		m_CurrentWidth = m_NextWidth = m_RendererSettingsUI.FrameWidth;
 		m_CurrentHeight = m_NextHeight = m_RendererSettingsUI.FrameHeight;
@@ -120,7 +133,7 @@ public:
 		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
 		if (m_MoveCamera)
-			m_Camera.position += glm::vec3(0.00005f * timestep, 0, 0);
+			m_Camera.position += glm::vec3(0.00015f * timestep, 0, 0);
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -163,7 +176,8 @@ public:
 			int selectedMode = static_cast<int>(m_RendererSettingsUI.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
 			m_RendererSettingsUI.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
-			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
+
+			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.65f);
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Separator();
@@ -197,12 +211,15 @@ public:
 				if (ImGui::InputInt("Neighbours", &m_RendererSettingsUI.SpatialReuseNeighbours))
 				{
 					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
+					int maxNeighbours = std::max(m_RendererSettingsUI.SpatialPixelRadius - 5, 1);
+					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours > maxNeighbours ? maxNeighbours : m_RendererSettingsUI.SpatialReuseNeighbours;
 				}
 				if (ImGui::InputInt("Pixel Radius", &m_RendererSettingsUI.SpatialPixelRadius))
 				{
 					m_RendererSettingsUI.SpatialPixelRadius = m_RendererSettingsUI.SpatialPixelRadius < 3 ? 3 : m_RendererSettingsUI.SpatialPixelRadius;
 				}
 				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.SpatialMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
 				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 				ImGui::PopID();
@@ -215,6 +232,7 @@ public:
 					m_RendererSettingsUI.TemporalSampleCountRatio = m_RendererSettingsUI.TemporalSampleCountRatio < 1 ? 1 : m_RendererSettingsUI.TemporalSampleCountRatio;
 				}
 				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.TemporalMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
 				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::PopID();
 			}
@@ -317,8 +335,7 @@ public:
 		
 	}
 private:
-	// Output Configuration
-	FrameBufferRef m_FrameBuffer;
+	// Viewport and rendering
 	uint32_t m_FrameBufferID;
 	uint32_t m_PixelBufferObjectID;
 	uint32_t m_CurrentWidth, m_CurrentHeight;
@@ -332,14 +349,11 @@ private:
 	// World state
 	Camera m_Camera;
 	TLAS m_TLAS;
-	TLAS m_TLAS_EmmisiveOnly;
-	TLAS m_TLAS_NonEmmisiveOnly;
 	std::vector<PointLight> m_pointLights;
-
-	bool m_MoveCamera;
 
 	// UI
 	int m_SelectedNode;
+	bool m_MoveCamera;
 private:
 	void DrawImGuiDockSpace()
 	{

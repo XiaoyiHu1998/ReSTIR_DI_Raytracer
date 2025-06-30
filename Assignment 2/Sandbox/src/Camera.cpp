@@ -85,10 +85,10 @@ glm::i32vec2 Camera::WorldSpaceToScreenSpace(const glm::vec3& worldPosition) con
 {
 	glm::vec3 cameraToPosition = worldPosition - position;
 
-	float topDistance = glm::dot(m_Frustrum.topNormal, cameraToPosition);
-	float bottomDistance = glm::dot(m_Frustrum.bottomNormal, cameraToPosition);
-	float leftDistance = glm::dot(m_Frustrum.leftNormal, cameraToPosition);
-	float rightDistance = glm::dot(m_Frustrum.rightNormal, cameraToPosition);
+	float topDistance = glm::dot(cameraToPosition, m_Frustrum.topNormal);
+	float bottomDistance = glm::dot(cameraToPosition, m_Frustrum.bottomNormal);
+	float leftDistance = glm::dot(cameraToPosition, m_Frustrum.leftNormal);
+	float rightDistance = glm::dot(cameraToPosition, m_Frustrum.rightNormal);
 
 	float u = leftDistance / (leftDistance + rightDistance);
 	float v = topDistance / (topDistance + bottomDistance);
