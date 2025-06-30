@@ -269,19 +269,16 @@ public:
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
-				cameraUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.position), 0.05f);
-				cameraUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.rotation), 0.05f);
+				ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.position), 0.05f);
+				ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.rotation), 0.05f);
 				ImGui::Separator();
 
 				ImGui::Text("Camera Settings");
 				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
-				ImGui::DragFloat("Vertical FoV", &m_Camera.verticalFOV, 0.1f, 0.0f, 360.0f);
+				ImGui::DragFloat("Vertical FoV", &m_Camera.verticalFOV, 0.1f, 1.0f, 160.0f);
 				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
 
 				ImGui::PopID();
-
-				if (cameraUpdated)
-					m_Camera.UpdateCameraMatrix();
 			}
 			else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 1)
 			{
