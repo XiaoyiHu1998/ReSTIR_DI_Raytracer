@@ -384,6 +384,9 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
 	const Sample& prevSample = prevResevoir.GetSample();
 
+	if (!prevSample.hit)
+		return;
+
 	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= m_Settings.TemporalMaxDistance;
 	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalMinNormalSimilarity;
 
@@ -415,6 +418,9 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution,  m_Settings.SpatialPixelRadius, seed);
 		Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
 		const Sample& neighbourSample = neighbourResevoir.GetSampleRef();
+
+		if (!neighbourSample.hit)
+			return;
 
 		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= m_Settings.SpatialMaxDistance;
 		bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialMinNormalSimilarity;
