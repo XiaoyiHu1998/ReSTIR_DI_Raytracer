@@ -27,7 +27,7 @@
 //
 //	m_TransformMatrix = glm::lookAt(transform.translation, m_TargetPosition, m_UpDirection);
 //	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix);
-//	m_CameraPlaneDistance = -m_Height / (2.0f * tan(glm::radians(m_VerticalFov) / 2.0f));
+//	m_CameraPlaneZ = -m_Height / (2.0f * tan(glm::radians(m_VerticalFov) / 2.0f));
 //}
 //
 //void Camera::UpdateFrustrum()
@@ -52,7 +52,7 @@
 //	float directionX =  (static_cast<float>(x) + 0.5f) - m_HalfWidth;
 //	float directionY = -(static_cast<float>(y) + 0.5f) + m_HalfHeight; // this flips the image at the same time
 //
-//	return glm::normalize(m_TransformMatrix * glm::vec4(directionX, directionY, m_CameraPlaneDistance, 0.0f));
+//	return glm::normalize(m_TransformMatrix * glm::vec4(directionX, directionY, m_CameraPlaneZ, 0.0f));
 //}
 //
 //Ray Camera::GetRay(uint32_t x, uint32_t y) const
@@ -85,11 +85,10 @@ glm::i32vec2 Camera::WorldSpaceToScreenSpace(const glm::vec3& worldPosition) con
 {
 	glm::vec3 cameraToPosition = worldPosition - position;
 
-	// Triangle normals are already normalized
-	float topDistance = glm::abs(glm::dot(m_Frustrum.topNormal, cameraToPosition));
-	float bottomDistance = glm::abs(glm::dot(m_Frustrum.bottomNormal, cameraToPosition));
-	float leftDistance = glm::abs(glm::dot(m_Frustrum.leftNormal, cameraToPosition));
-	float rightDistance = glm::abs(glm::dot(m_Frustrum.rightNormal, cameraToPosition));
+	float topDistance = glm::dot(m_Frustrum.topNormal, cameraToPosition);
+	float bottomDistance = glm::dot(m_Frustrum.bottomNormal, cameraToPosition);
+	float leftDistance = glm::dot(m_Frustrum.leftNormal, cameraToPosition);
+	float rightDistance = glm::dot(m_Frustrum.rightNormal, cameraToPosition);
 
 	float u = leftDistance / (leftDistance + rightDistance);
 	float v = topDistance / (topDistance + bottomDistance);
@@ -118,43 +117,22 @@ void Camera::UpdateCameraMatrix()
 	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotation.y), glm::vec3(0, 1, 0));
 	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotation.z), glm::vec3(0, 0, 1));
 
-	m_Forward = glm::vec4(position, 1.0f) + (glm::vec4(0.0f, 0.0f, -1.0f, 1.0f) * rotationMatrix);
-
+	m_Forward = glm::vec4(position, 1.0f) + glm::vec4(0.0f, 0.0f, -1.0f, 1.0f) * rotationMatrix;
 	m_Back = glm::normalize(position - m_Forward);
 	m_Right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), m_Back));
 	m_Up = glm::normalize(glm::cross(m_Back, m_Right));
 
 	m_TransformMatrix = glm::lookAt(position, m_Forward, m_Up);
-	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix);
-	m_CameraPlaneDistance = -m_Height / (2.0f * tan(glm::radians(verticalFOV) / 2.0f));
+	m_CameraPlaneZ = -m_HalfHeight / (glm::tan(glm::radians(verticalFOV) * 0.5f));
 }
-
-namespace Utils
-{
-	inline glm::vec3 TriangleNormal(const glm::vec3& vertex0, const glm::vec3& vertex1, const glm::vec3& vertex2)
-	{
-		return glm::normalize(glm::cross(vertex1 - vertex0, vertex2 - vertex0));
-	}
-}
-
 
 void Camera::UpdateFrustrum()
 {
 	glm::vec3 origin = position;
-	glm::vec3 topLeft = position + GetDirection(0, 0);
-	glm::vec3 topRight = position + GetDirection(m_Width - 1, 0);
-	glm::vec3 bottomLeft = position + GetDirection(0, m_Height - 1);
-	glm::vec3 bottomRight = position + GetDirection(m_Width - 1, m_Height - 1);
-
-	//m_Frustrum.topNormal = Triangle(Vertex(origin), Vertex(topLeft), Vertex(topRight)).GetNormal();
-	//m_Frustrum.bottomNormal = Triangle(Vertex(origin), Vertex(bottomRight), Vertex(bottomLeft)).GetNormal();
-	//m_Frustrum.leftNormal = Triangle(Vertex(origin), Vertex(bottomLeft), Vertex(topLeft)).GetNormal();
-	//m_Frustrum.rightNormal = Triangle(Vertex(origin), Vertex(topRight), Vertex(bottomRight)).GetNormal();
-
-	m_Frustrum.topNormal = Utils::TriangleNormal(origin, topLeft, topRight);
-	m_Frustrum.bottomNormal = Utils::TriangleNormal(origin, bottomRight, bottomLeft);
-	m_Frustrum.leftNormal = Utils::TriangleNormal(origin, bottomLeft, topLeft);
-	m_Frustrum.rightNormal = Utils::TriangleNormal(origin, topRight, bottomRight);
+	glm::vec3 topLeft = position + GetDirection(0, 0, false);
+	glm::vec3 topRight = position + GetDirection(m_Width, 0, false);
+	glm::vec3 bottomLeft = position + GetDirection(0, m_Height, false);
+	glm::vec3 bottomRight = position + GetDirection(m_Width, m_Height, false);
 
 	m_Frustrum.topNormal = Utils::TriangleNormal(origin, topRight, topLeft);
 	m_Frustrum.bottomNormal = Utils::TriangleNormal(origin, bottomLeft, bottomRight);
@@ -162,13 +140,9 @@ void Camera::UpdateFrustrum()
 	m_Frustrum.rightNormal = Utils::TriangleNormal(origin, bottomRight, topRight);
 }
 
-glm::vec3 Camera::GetDirection(uint32_t x, uint32_t y) const
+glm::vec3 Camera::GetDirection(float x, float y, bool isPixel) const
 {
-	//TODO: double check if adding 0.5f and 0.5f of halfwidth won't result in sampling the next pixel
-	//float directionX = (static_cast<float>(x) + 0.5f) - m_HalfWidth;
-	//float directionY = -(static_cast<float>(y) + 0.5f) + m_HalfHeight; // this flips the image at the same time
-	float directionX = (static_cast<float>(x) + 0.35f) - m_HalfWidth;
-	float directionY = -(static_cast<float>(y) + 0.35f) + m_HalfHeight; // this flips the image at the same time
-
-	return glm::normalize(m_TransformMatrix * glm::vec4(directionX, directionY, m_CameraPlaneDistance, 1.0f));
+	float delta = isPixel ? 0.5f : 0.0f;
+	glm::vec3 direction = glm::vec4((x + delta) - m_HalfWidth, m_HalfHeight - (y + delta), m_CameraPlaneZ, 1.0f) * m_TransformMatrix;
+	return glm::normalize(direction);
 }

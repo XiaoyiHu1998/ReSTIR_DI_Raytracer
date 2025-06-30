@@ -80,7 +80,7 @@ public:
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
 		m_Camera.position = glm::vec3(-1.0f, 1.5f, -0.5f);
-		m_Camera.rotation = glm::vec3(0.0f, -111.0f, 0.0f);
+		m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
 		m_MoveCamera = false;
 
 		m_Renderer;

@@ -64,4 +64,9 @@ namespace Utils
         return neighbourPixel;
     }
 
+    static inline glm::vec3 TriangleNormal(const glm::vec3& vertex0, const glm::vec3& vertex1, const glm::vec3& vertex2)
+    {
+        return glm::normalize(glm::cross(vertex1 - vertex0, vertex2 - vertex0));
+    }
+
 }

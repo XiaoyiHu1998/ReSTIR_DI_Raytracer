@@ -4,6 +4,7 @@
 #include "Ray.h"
 #include "Transform.h"
 #include "Primitives.h"
+#include "Utils.h"
 
 struct FrustrumNormals
 {
@@ -38,7 +39,7 @@ struct FrustrumNormals
 //	glm::mat4 m_TransformMatrix;
 //	glm::mat4 m_InverseTransformMatrix;
 //
-//	float m_CameraPlaneDistance;
+//	float m_CameraPlaneZ;
 //public:
 //	Camera() :
 //		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_HalfWidth{ 640.0f }, m_HalfHeight{ 360.0f }, m_VerticalFov{
@@ -107,7 +108,7 @@ private:
 	//Viewport
 	float m_Width, m_Height;
 	float m_HalfWidth, m_HalfHeight;
-	float m_CameraPlaneDistance;
+	float m_CameraPlaneZ;
 
 	//Frustrum
 	FrustrumNormals m_Frustrum;
@@ -121,7 +122,7 @@ private:
 
 	//Tranform - calculated
 	glm::mat4 m_TransformMatrix;
-	glm::mat4 m_InverseTransformMatrix;
+	//glm::mat4 m_InverseTransformMatrix;
 public:
 	Camera() :
 		m_Width{ 1280.0f }, m_Height{ 720.0f }, m_HalfWidth{ 640.0f }, m_HalfHeight{ 360.0f }, verticalFOV{ 60 },
@@ -156,7 +157,7 @@ public:
 
 	glm::i32vec2 GetResolution() { return glm::i32vec2(m_Width, m_Height); }
 	glm::mat4 GetCameraMatrix() { return m_TransformMatrix; }
-	glm::mat4 GetInverseCameraMatrix() { return m_InverseTransformMatrix; }
+	//glm::mat4 GetInverseCameraMatrix() { return m_InverseTransformMatrix; }
 
 	glm::vec3 Up() { return m_Up; }
 	glm::vec3 Down() { return -1.0f * m_Up; }
@@ -166,6 +167,6 @@ public:
 	glm::vec3 Left() { return -1.0f * m_Right; }
 
 private:
-	glm::vec3 GetDirection(uint32_t x, uint32_t y) const;
+	glm::vec3 GetDirection(float x, float y, bool isPixel = true) const;
 };
 
