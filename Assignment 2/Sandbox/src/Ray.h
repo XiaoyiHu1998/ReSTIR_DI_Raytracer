@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Include.h"
-#include "Material.h"
 
 struct HitInfo
 {

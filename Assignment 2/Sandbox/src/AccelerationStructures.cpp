@@ -32,7 +32,7 @@ bool TLAS::IsOccluded(const Ray& ray) const
 
 //=================== BVH_BLAS =====================
 
-void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
+void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform)
 {
 #if defined(__AVX2__)
 	m_BVH = tinybvh::BVH8_CPU();
@@ -46,7 +46,6 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 	m_InverseTransformMatrix = transform.GetInverseTransformMatrix();
 	m_TransformMatrix = transform.GetTransformMatrix();
 
-	m_Material = material;
 
 	m_Positions.reserve(triangles.size() * 3);
 
@@ -112,56 +111,4 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 	float maxDistance = ray.hitInfo.distance;
 
 	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
-}
-
-//=================== Debug_BLAS ===================
-
-void Debug_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material)
-{
-	m_Triangles = triangles;
-
-	for (int i = 0; i < m_Triangles.size(); i++)
-	{
-		Vertex vertex0 = triangles[i].GetVertex0();
-		Vertex vertex1 = triangles[i].GetVertex1();
-		Vertex vertex2 = triangles[i].GetVertex2();
-	}
-
-	m_Transform = transform;
-	m_TransformMatrix = transform.GetTransformMatrix();
-	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix);
-
-	m_Material = material;
-}
-
-void Debug_BLAS::Traverse(Ray& ray)
-{
-	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
-	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
-
-	for (int i = 0; i < m_Triangles.size(); i++)
-	{
-		Ray currentRay = Ray(transformedOrigin, transformedDirection);
-		Triangle currentTriangle = m_Triangles[i];
-		if(m_Triangles[i].Intersect(currentRay) && currentRay.hitInfo.distance < ray.hitInfo.distance)
-		{
-			ray.hitInfo.hit = true;
-			ray.hitInfo.distance = currentRay.hitInfo.distance;
-			ray.hitInfo.location = ray.origin + ray.direction * currentRay.hitInfo.distance;
-			ray.hitInfo.normal = m_TransformMatrix * glm::vec4(currentTriangle.GetNormal(), 0.0f);
-			//ray.hitInfo.material = m_Material;
-			ray.hitInfo.traversalStepsHitBVH = 1;
-			ray.hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + 1;
-		}
-	}
-}
-
-bool Debug_BLAS::IsOccluded(const Ray& ray)
-{
-	glm::vec3 transformedOrigin = m_InverseTransformMatrix * glm::vec4(ray.origin, 1.0f);
-	glm::vec3 transformedDirection = m_InverseTransformMatrix * glm::vec4(ray.direction, 0.0f);
-	Ray occlusionRay = Ray(transformedOrigin, transformedDirection);
-	Traverse(occlusionRay);
-
-	return ray.hitInfo.hit;
 }

@@ -70,19 +70,17 @@ public:
 		//floor
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza_small.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
-		floorBLAS->SetName("Sponza");
 		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
-		Material floorMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0) , 0.0f);
-		floorBLAS->SetObject(triangles, floorTransform, floorMaterial);
+		floorBLAS->SetObject(triangles, floorTransform);
+		floorBLAS->name = "Sponza";
 		m_TLAS.AddBLAS(floorBLAS);
 
 		//sphere
 		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
 		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
-		sphereBLAS->SetName("Sphere");
 		Transform sphereTransform = Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-		Material sphereMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0.5, 0.5, 1.0), 0.0f);
-		sphereBLAS->SetObject(triangles, sphereTransform, sphereMaterial);
+		sphereBLAS->SetObject(triangles, sphereTransform);
+		sphereBLAS->name = "Sphere";
 		m_TLAS.AddBLAS(sphereBLAS);
 
 		// Setup Rendering
@@ -268,7 +266,7 @@ public:
 			DrawImGUiTreeNodeEX(0, "Camera");
 			for (uint32_t i = 0; i < m_TLAS.GetObjectCount(); i++)
 			{
-				DrawImGUiTreeNodeEX(i + 1, m_TLAS.GetBLAS(i)->GetName().c_str());
+				DrawImGUiTreeNodeEX(i + 1, m_TLAS.GetBLAS(i)->name.c_str());
 			}
 
 			ImGui::End();
@@ -304,8 +302,8 @@ public:
 				std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);
 				bool transformUpdated = false;
 
-				ImGui::PushID(blas->GetName().c_str());
-				ImGui::InputText("Name", &blas->GetNameRef()[0], blas->GetName().length());
+				ImGui::PushID(blas->name.c_str());
+				ImGui::InputText("Name", &blas->name[0], blas->name.length());
 				ImGui::Separator();
 
 				ImGui::Text("Transform");

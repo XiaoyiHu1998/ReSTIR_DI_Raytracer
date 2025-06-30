@@ -5,25 +5,21 @@
 #include "Include.h"
 #include "Ray.h"
 #include "Primitives.h"
-#include "Material.h"
 #include "Transform.h"
 
 class BLAS
 {
 public:
+	std::string name;
+public:
 	~BLAS() = default;
 
-	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material) = 0;
+	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform) = 0;
 	virtual void Traverse(Ray& ray) = 0;
 	virtual bool IsOccluded(const Ray& ray) = 0;
 
 	virtual void SetTransform(const Transform& transform) = 0;
-	virtual void SetName(const std::string& name) = 0;
 
-	virtual std::string GetName() const = 0;
-	virtual std::string& GetNameRef() = 0;
-	virtual Material GetMaterial() const = 0;
-	virtual Material& GetMaterialRef() = 0;
 	virtual Transform GetTransform() const = 0;
 	virtual Transform& GetTransformRef() = 0;
 	virtual glm::mat4 GetTransformMatrix() const = 0;
@@ -52,8 +48,9 @@ public:
 
 class BVH_BLAS : public BLAS
 {
+public:
+	std::string name;
 private:
-	std::string m_Name;
 #if defined(__AVX2__)
 	tinybvh::BVH8_CPU m_BVH;
 #elif defined(__AVX__)
@@ -66,11 +63,9 @@ private:
 	Transform m_Transform;
 	glm::mat4 m_InverseTransformMatrix;
 	glm::mat4 m_TransformMatrix;
-	Material m_Material;
-
 public:
 	BVH_BLAS():
-		m_Name{ "" }, m_BVH{
+		name{ "" }, m_BVH{
 #if defined(__AVX2__)
 			tinybvh::BVH8_CPU()
 #elif defined(__AVX__) && defined(USE_EXPERIMENTAL_BVH)
@@ -79,60 +74,17 @@ public:
 			tinybvh::BVH4_CPU()
 #endif
 		}, m_Positions{std::vector<tinybvh::bvhvec4>()},
-		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) },
-		m_Material{ Material(Material::Type::Emissive, glm::vec3(0.8, 0.2, 0.2), 1.0f) }
+		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) }
 	{}
 
 	~BVH_BLAS() = default;
 
-	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material) override;
+	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform) override;
 	virtual void Traverse(Ray& ray) override;
 	virtual bool IsOccluded(const Ray& ray) override;
 
 	virtual void SetTransform(const Transform& transform) override { m_Transform = transform; m_TransformMatrix = transform.GetTransformMatrix(); m_InverseTransformMatrix = glm::inverse(m_TransformMatrix); }
-	virtual void SetName(const std::string& name) override { m_Name = name; }
 
-	virtual std::string GetName() const override { return m_Name; }
-	virtual std::string& GetNameRef() override { return m_Name; }
-	virtual Material GetMaterial() const override { return m_Material; }
-	virtual Material& GetMaterialRef() override { return m_Material; }
-	virtual Transform GetTransform() const override { return m_Transform; }
-	virtual Transform& GetTransformRef() override { return m_Transform; }
-	virtual glm::mat4 GetTransformMatrix() const override { return m_TransformMatrix; }
-	virtual glm::mat4 GetInverseTransformMatrix() const override { return m_InverseTransformMatrix; }
-};
-
-
-class Debug_BLAS : public BLAS
-{
-private:
-	std::string m_Name;
-
-	std::vector<Triangle> m_Triangles;
-	
-	Transform m_Transform;
-	glm::mat4 m_InverseTransformMatrix;
-	glm::mat4 m_TransformMatrix;
-	Material m_Material;
-public:
-	Debug_BLAS():
-		m_Name{ "" }, m_Triangles{ std::vector<Triangle>() }, m_Transform { Transform() },
-		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) }, m_Material { Material(Material::Type::Emissive, glm::vec3(0.8, 0.2, 0.2), 1.0f) }
-	{}
-
-	~Debug_BLAS() = default;
-
-	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform, const Material& material) override;
-	virtual void Traverse(Ray& ray) override;
-	virtual bool IsOccluded(const Ray& ray) override;
-
-	virtual void SetTransform(const Transform& transform) override { m_Transform = transform; m_TransformMatrix = transform.GetTransformMatrix(); m_InverseTransformMatrix = glm::inverse(m_TransformMatrix); }
-	virtual void SetName(const std::string& name) override { m_Name = name; }
-	
-	virtual std::string GetName() const override { return m_Name; }
-	virtual std::string& GetNameRef() override { return m_Name; }
-	virtual Material GetMaterial() const override { return m_Material; }
-	virtual Material& GetMaterialRef() override { return m_Material; }
 	virtual Transform GetTransform() const override { return m_Transform; }
 	virtual Transform& GetTransformRef() override { return m_Transform; }
 	virtual glm::mat4 GetTransformMatrix() const override { return m_TransformMatrix; }
