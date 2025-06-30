@@ -10,16 +10,16 @@
 class BLAS
 {
 public:
-	std::string name;
-public:
 	~BLAS() = default;
 
 	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform) = 0;
 	virtual void Traverse(Ray& ray) = 0;
 	virtual bool IsOccluded(const Ray& ray) = 0;
 
+	virtual void SetName(const std::string& name) = 0;
 	virtual void SetTransform(const Transform& transform) = 0;
 
+	virtual std::string& GetNameRef() = 0;
 	virtual Transform GetTransform() const = 0;
 	virtual Transform& GetTransformRef() = 0;
 	virtual glm::mat4 GetTransformMatrix() const = 0;
@@ -48,8 +48,6 @@ public:
 
 class BVH_BLAS : public BLAS
 {
-public:
-	std::string name;
 private:
 #if defined(__AVX2__)
 	tinybvh::BVH8_CPU m_BVH;
@@ -60,12 +58,13 @@ private:
 #endif
 	std::vector<tinybvh::bvhvec4> m_Positions;
 
+	std::string m_Name;
 	Transform m_Transform;
 	glm::mat4 m_InverseTransformMatrix;
 	glm::mat4 m_TransformMatrix;
 public:
-	BVH_BLAS():
-		name{ "" }, m_BVH{
+	BVH_BLAS() :
+		m_Name{ "" }, m_BVH{
 #if defined(__AVX2__)
 			tinybvh::BVH8_CPU()
 #elif defined(__AVX__) && defined(USE_EXPERIMENTAL_BVH)
@@ -73,7 +72,7 @@ public:
 #else
 			tinybvh::BVH4_CPU()
 #endif
-		}, m_Positions{std::vector<tinybvh::bvhvec4>()},
+		}, m_Positions{ std::vector<tinybvh::bvhvec4>() },
 		m_InverseTransformMatrix{ glm::mat4(1) }, m_TransformMatrix{ glm::mat4(1) }
 	{}
 
@@ -83,8 +82,10 @@ public:
 	virtual void Traverse(Ray& ray) override;
 	virtual bool IsOccluded(const Ray& ray) override;
 
+	virtual void SetName(const std::string& name) override;
 	virtual void SetTransform(const Transform& transform) override { m_Transform = transform; m_TransformMatrix = transform.GetTransformMatrix(); m_InverseTransformMatrix = glm::inverse(m_TransformMatrix); }
 
+	virtual std::string& GetNameRef() override { return m_Name; }
 	virtual Transform GetTransform() const override { return m_Transform; }
 	virtual Transform& GetTransformRef() override { return m_Transform; }
 	virtual glm::mat4 GetTransformMatrix() const override { return m_TransformMatrix; }

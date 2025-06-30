@@ -112,3 +112,8 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 
 	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
 }
+
+void BVH_BLAS::SetName(const std::string& name)
+{
+	m_Name = name;
+}
