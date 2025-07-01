@@ -1,4 +1,4 @@
-#include "Mesh.h"
+#include "GeometryLoader.h"
 
 bool GeometryLoader::LoadGeometryFromFile(const std::string& filepath, std::vector<Triangle>& triangles)
 {
@@ -45,16 +45,8 @@ bool GeometryLoader::LoadGeometryFromFile(const std::string& filepath, std::vect
 				attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 1]
 			};
 
-			//std::cout << "Vertex ==========================================" << std::endl;
-			//std::cout << "Position: " << glm::to_string(position) << std::endl;
-			//std::cout << "Normal: " << glm::to_string(normal) << std::endl;
-			//std::cout << "UV: " << glm::to_string(texCoord) << std::endl;
-
 			vertices.emplace_back(position, normal, texCoord);
 		}
-
-		//std::string value;
-		//std::cin >> value;
 	}
 
 	triangles.reserve(vertices.size() / 3);

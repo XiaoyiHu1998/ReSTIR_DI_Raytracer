@@ -11,7 +11,7 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "AccelerationStructures.h"
-#include "Mesh.h"
+#include "GeometryLoader.h"
 #include "Utils.h"
 
 using BLAS_TYPE = BVH_BLAS;
