@@ -25,7 +25,7 @@ void sphere_flake( float x, float y, float z, float s, int d = 0 )
 	for (int i = 0, u = 0; u < 8; u++) for (int v = 0; v < 8; v++, i++)
 		P( 0, u, v, 0 ), P( 1, u, 0, v ), P( 2, 0, u, v ),
 		P( 3, u, v, 7 ), P( 4, u, 7, v ), P( 5, 7, u, v );
-	for (int i = 0; i < 384; i++) p[i] = normalize( p[i] - ofs ) * s + pos;
+	for (int i = 0; i < 384; i++) p[i] = tinybvh_normalize( p[i] - ofs ) * s + pos;
 	for (int i = 0, side = 0; side < 6; side++, i += 8)
 		for (int u = 0; u < 7; u++, i++) for (int v = 0; v < 7; v++, i++)
 			triangles[verts++] = p[i], triangles[verts++] = p[i + 8],
@@ -49,9 +49,9 @@ int main()
 	bvh.Build( (bvhvec4*)triangles, verts / 3 );
 
 	// trace 120x50 primary rays
-	bvhvec3 eye( -3.5f, -1.5f, -6 ), view = normalize( bvhvec3( 3, 1.5f, 5 ) );
-	bvhvec3 right = normalize( cross( bvhvec3( 0, 1, 0 ), view ) );
-	bvhvec3 up = 0.8f * cross( view, right ), C = eye + 2 * view;
+	bvhvec3 eye( -3.5f, -1.5f, -6 ), view = tinybvh_normalize( bvhvec3( 3, 1.5f, 5 ) );
+	bvhvec3 right = tinybvh_normalize( tinybvh_cross( bvhvec3( 0, 1, 0 ), view ) );
+	bvhvec3 up = 0.8f * tinybvh_cross( view, right ), C = eye + 2 * view;
 	bvhvec3 p1 = C - right + up, p2 = C + right + up, p3 = C - right - up;
 	char line[122];
 	float sum;
@@ -64,7 +64,7 @@ int main()
 				float u = (float)(x + (s & 3)) / 480.0f;
 				float v = (float)(y + (s >> 2)) / 200.0f;
 				bvhvec3 P = p1 + u * (p2 - p1) + v * (p3 - p1);
-				Ray ray( eye, normalize( P - eye ) );
+				Ray ray( eye, tinybvh_normalize( P - eye ) );
 				bvh.Intersect( ray );
 				sum += ray.hit.t > 999 ? 0 : ray.hit.t;
 			}

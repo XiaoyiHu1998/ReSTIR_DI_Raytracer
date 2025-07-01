@@ -187,7 +187,7 @@ void kernel Shade( global float4* accumulator,
 			float2 noise0 = Noise( pixelIdx % height, pixelIdx / height, sampleIdx * 2 );
 			float2 noise1 = Noise( pixelIdx % height, pixelIdx / height, sampleIdx * 2 + 1 );
 			r0 = noise0.x, r1 = noise0.y;
-			r2 = noise0.x, r3 = noise0.y;
+			r2 = noise1.x, r3 = noise1.y;
 		}
 		else
 		{

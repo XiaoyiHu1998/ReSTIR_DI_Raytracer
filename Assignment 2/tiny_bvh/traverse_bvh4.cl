@@ -33,10 +33,9 @@ void IntersectTri( const unsigned vertIdx, const float3* O, const float3* D, flo
 	const float f = native_recip( a );
 	const float3 s = *O - v0.xyz;
 	const float u = f * dot( s, h );
-	if (u < 0 || u > 1) return;
 	const float3 q = cross( s, edge1.xyz );
 	const float v = f * dot( *D, q );
-	if (v < 0 || u + v > 1) return;
+	if (u < 0 || v < 0 || u + v > 1) return;
 	const float d = f * dot( edge2.xyz, q );
 	if (d > 0.0f && d < hit->x) *hit = (float4)(d, u, v, v0.w);
 #endif
@@ -64,10 +63,9 @@ bool TriOccluded( const unsigned vertIdx, const float3* O, const float3* D, floa
 	const float f = native_recip( a );
 	const float3 s = *O - v0.xyz;
 	const float u = f * dot( s, h );
-	if (u < 0 || u > 1) return false;
 	const float3 q = cross( s, edge1.xyz );
 	const float v = f * dot( *D, q );
-	if (v < 0 || u + v > 1) return false;
+	if (u < 0 || v < 0 || u + v > 1) return false;
 	const float d = f * dot( edge2.xyz, q );
 	return d > 0.0f && d < tmax;
 #endif

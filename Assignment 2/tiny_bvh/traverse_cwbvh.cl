@@ -75,8 +75,8 @@ inline float fmax_fmax( const float a, const float b, const float c )
 }
 
 #ifdef USE_VLOAD_VSTORE
-#define STACK_POP(X) { unsigned* a = &stack[--stackPtr]; X = vload2( 0, a ); }
-#define STACK_PUSH(X) { unsigned* a = &stack[stackPtr++]; vstore2( X, 0, a ); }
+#define STACK_POP(X) { unsigned* a = (unsigned*)&stack[--stackPtr]; X = vload2( 0, a ); }
+#define STACK_PUSH(X) { unsigned* a = (unsigned*)&stack[stackPtr++]; vstore2( X, 0, a ); }
 #else
 #define STACK_POP(X) { X = stack[--stackPtr]; }
 #define STACK_PUSH(X) { stack[stackPtr++] = X; }
@@ -121,24 +121,24 @@ inline unsigned sign_extend_s8x4( const unsigned i )
 // based on CUDA code by AlanWBFT https://github.com/AlanIWBFT
 
 #ifdef SIMD_AABBTEST
-float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwbvhTris, const float4 O, const float4 D, const float4 rD, const float t )
+float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwbvhTris, const float4 O, const float4 D, const float4 rD, const float t, uint* stepCount )
 #else
-float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwbvhTris, const float3 O, const float3 D, const float3 rD, const float t )
+float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwbvhTris, const float3 O, const float3 D, const float3 rD, const float t, uint* stepCount )
 #endif
 {
 	// initialize ray
 	const unsigned threadId = get_global_id( 0 );
-	float4 hit;
-	hit.x = t; // not fetching this from ray data to avoid one memory operation.
+	float4 hit = (float4)( t, 0, 0, 0 ); // not fetching t from ray data to avoid one memory operation.
 	// prepare traversal
 	uint2 stack[STACK_SIZE];
-	uint hitAddr, stackPtr = 0;
+	uint hitAddr, stackPtr = 0, steps = 0;
 	float2 uv;
 	float tmax = t;
 	const uint octinv4 = (7 - ((D.x < 0 ? 4 : 0) | (D.y < 0 ? 2 : 0) | (D.z < 0 ? 1 : 0))) * 0x1010101;
 	uint2 ngroup = (uint2)(0, 0b10000000000000000000000000000000), tgroup = (uint2)(0);
 	do
 	{
+		steps++;
 		if (ngroup.y > 0x00FFFFFF)
 		{
 			const unsigned hits = ngroup.y, imask = ngroup.y;
@@ -307,7 +307,7 @@ float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwb
 		#else
 			// Möller-Trumbore intersection; triangles are stored as 3x16 bytes,
 			// with the original primitive index in the (otherwise unused) w 
-			// component of vertex 0.
+			// component of vertex 0. iquilezles.org version.
 			const int triangleIndex = __bfind( tgroup.y ), triAddr = tgroup.x + triangleIndex * 3;
 			const float3 e1 = cwbvhTris[triAddr].xyz;
 			const float3 e2 = cwbvhTris[triAddr + 1].xyz;
@@ -315,14 +315,12 @@ float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwb
 			tgroup.y -= 1 << triangleIndex;
 			const float3 r = cross( D.xyz, e1 );
 			const float a = dot( e2, r );
-			if (fabs( a ) < 0.0000001f) continue;
 			const float f = 1 / a;
 			const float3 s = O.xyz - v0.xyz;
 			const float u = f * dot( s, r );
-			if (u < 0 || u > 1) continue;
 			const float3 q = cross( s, e2 );
 			const float v = f * dot( D.xyz, q );
-			if (v < 0 || u + v > 1) continue;
+			if (u < 0 || v < 0 || u + v > 1) continue;
 			const float d = f * dot( e1, q );
 			if (d <= 0.0f || d >= tmax) continue;
 			uv = (float2)(u, v), tmax = d;
@@ -338,6 +336,7 @@ float4 traverse_cwbvh( global const float4* cwbvhNodes, global const float4* cwb
 			}
 		}
 	} while (true);
+	if (stepCount) *stepCount += steps;
 	return hit;
 }
 
@@ -540,10 +539,9 @@ bool isoccluded_cwbvh( global const float4* cwbvhNodes, global const float4* cwb
 			const float f = 1 / a;
 			const float3 s = O.xyz - v0;
 			const float u = f * dot( s, r );
-			if (u < 0 || u > 1) continue;
 			const float3 q = cross( s, e2 );
 			const float v = f * dot( D.xyz, q );
-			if (v < 0 || u + v > 1) continue;
+			if (u < 0 || v < 0 || u + v > 1) continue;
 			const float d = f * dot( e1, q );
 			if (d > 0.0f && d < tmax) return true;
 		#endif
@@ -561,12 +559,12 @@ void kernel batch_cwbvh( global const float4* cwbvhNodes, global const float4* c
 	float4 O4 = rayData[threadId].O; O4.w = 1;
 	float4 D4 = rayData[threadId].D; D4.w = 0;
 	float4 rD4 = rayData[threadId].rD; rD4.w = 1;
-	float4 hit = traverse_cwbvh( cwbvhNodes, cwbvhTris, O4, D4, rD4, 1e30f );
+	float4 hit = traverse_cwbvh( cwbvhNodes, cwbvhTris, O4, D4, rD4, 1e30f, 0 );
 #else
 	const float4 O4 = rayData[threadId].O;
 	const float4 D4 = rayData[threadId].D;
 	const float4 rD4 = rayData[threadId].rD;
-	float4 hit = traverse_cwbvh( cwbvhNodes, cwbvhTris, O4.xyz, D4.xyz, rD4.xyz, 1e30f );
+	float4 hit = traverse_cwbvh( cwbvhNodes, cwbvhTris, O4.xyz, D4.xyz, rD4.xyz, 1e30f, 0 );
 #endif
 	rayData[threadId].hit = hit;
 }
