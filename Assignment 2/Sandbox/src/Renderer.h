@@ -12,6 +12,7 @@
 #include "AccelerationStructures.h"
 #include "Utils.h"
 #include "ReSTIR.h"
+#include "RendererSettings.h"
 
 class DoubleFrameBuffer
 {
@@ -90,102 +91,6 @@ public:
 		Shading
 	};
 
-	struct Settings
-	{
-		enum class RenderMode
-		{
-			Normals = 0,
-			TraversalSteps = 1,
-			DI = 2,
-			ReSTIR = 3
-		};
-
-		RenderMode Mode = RenderMode::ReSTIR;
-
-		uint32_t ThreadCount = std::thread::hardware_concurrency() - 1;
-
-		uint32_t FrameWidth = 3840;
-		uint32_t FrameHeight = 2160;
-		uint32_t KernelSize = 32;
-		uint32_t SamplesPerPixel = 1;
-
-		bool RandomSeed = true;
-		float Eta = 0.001f;
-
-		// DI Rendering
-		bool OcclusionCheckDI = true;
-		bool SampleAllLightsDI = false;
-		int CandidateCountDI = 1;
-
-		// ReSTIR Rendering
-		// RIS
-		int CandidateCountReSTIR = 3;
-		bool EnableVisibilityPass = true;
-
-		// Temporal Reuse
-		bool EnableTemporalReuse = true;
-		int TemporalSampleCountRatio = 25;
-		float TemporalMaxDistance = 0.1f;
-		float TemporalMaxDistanceDepthScaling = 0.18f;
-		float TemporalMinNormalSimilarity = 0.93f;
-		
-		// Spatial Reuse
-		bool EnableSpatialReuse = true;
-		int SpatialReuseNeighbours = 3;
-		int SpatialPixelRadius = 15;
-		float SpatialMaxDistance = 0.06f;
-		float SpatialMaxDistanceDepthScaling = 0.005f;
-		float SpatialMinNormalSimilarity = 0.90f;
-
-		bool operator==(const Settings& otherSettings)
-		{
-			bool sameSettings = true;
-			sameSettings &= Mode == otherSettings.Mode;
-
-			sameSettings &= ThreadCount == otherSettings.ThreadCount;
-
-			sameSettings &= FrameWidth == otherSettings.FrameWidth;
-			sameSettings &= FrameHeight == otherSettings.FrameHeight;
-			sameSettings &= KernelSize == otherSettings.KernelSize;
-			sameSettings &= SamplesPerPixel == otherSettings.SamplesPerPixel;
-
-			sameSettings &= RandomSeed == otherSettings.RandomSeed;
-			sameSettings &= Eta == otherSettings.Eta;
-
-			// DI Rendering
-			sameSettings &= OcclusionCheckDI == otherSettings.OcclusionCheckDI;
-			sameSettings &= SampleAllLightsDI == otherSettings.SampleAllLightsDI;
-
-			sameSettings &= CandidateCountDI == otherSettings.CandidateCountDI;
-
-			// ReSTIR RIS
-			sameSettings &= CandidateCountReSTIR == otherSettings.CandidateCountReSTIR;
-			sameSettings &= EnableVisibilityPass == otherSettings.EnableVisibilityPass;
-
-			// ReSTIR Temporal Reuse
-			sameSettings &= EnableTemporalReuse == otherSettings.EnableTemporalReuse;
-			sameSettings &= TemporalMaxDistance == otherSettings.TemporalMaxDistance;
-			sameSettings &= TemporalMaxDistanceDepthScaling == otherSettings.TemporalMaxDistanceDepthScaling;
-			sameSettings &= TemporalMinNormalSimilarity == otherSettings.TemporalMinNormalSimilarity;
-			sameSettings &= TemporalSampleCountRatio == otherSettings.TemporalSampleCountRatio;
-
-			// ReSTIR Spatial Reuse
-			sameSettings &= EnableSpatialReuse == otherSettings.EnableSpatialReuse;
-			sameSettings &= SpatialReuseNeighbours == otherSettings.SpatialReuseNeighbours;
-			sameSettings &= SpatialPixelRadius == otherSettings.SpatialPixelRadius;
-			sameSettings &= SpatialMaxDistance == otherSettings.SpatialMaxDistance;
-			sameSettings &= SpatialMaxDistanceDepthScaling == otherSettings.SpatialMaxDistanceDepthScaling;
-			sameSettings &= SpatialMinNormalSimilarity == otherSettings.SpatialMinNormalSimilarity;
-
-			return sameSettings;
-		}
-
-		bool operator!=(const Settings& otherSettings)
-		{
-			return !operator==(otherSettings);
-		}
-	};
-
 	struct Scene
 	{
 		Camera camera;
@@ -204,11 +109,11 @@ private:
 	DoubleResevoirBuffer m_ResevoirBuffers;
 	bool m_ValidHistory;
 
-	Settings m_Settings;
+	RendererSettings m_Settings;
 	Scene m_Scene;
 	Camera m_PrevCamera;
 
-	Settings m_NewSettings;
+	RendererSettings m_NewSettings;
 	Scene m_NewScene;
 
 	std::thread m_RenderThread;
@@ -245,7 +150,7 @@ public:
 		m_ValidHistory = false;
 	}
 
-	void Init(const Settings& settings, const Scene& scene)
+	void Init(const RendererSettings& settings, const Scene& scene)
 	{
 		m_Settings = settings;
 		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
@@ -260,7 +165,7 @@ public:
 
 	void InvalidateHistory() { m_ValidHistory = false; }
 
-	void SubmitRenderSettings(const Settings& newRenderSettings) 
+	void SubmitRenderSettings(const RendererSettings& newRenderSettings)
 	{ 
 		m_SettingsLock.lock();
 		m_NewSettings = newRenderSettings;

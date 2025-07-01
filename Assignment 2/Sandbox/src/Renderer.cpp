@@ -125,7 +125,7 @@ void Renderer::RenderFrameBuffer()
 		m_FrameBuffers.ResizeRenderBuffer(bufferSize);
 		m_ResevoirBuffers.ResizeBuffers(bufferSize);
 
-		if (m_Settings.Mode != Settings::RenderMode::ReSTIR)
+		if (m_Settings.Mode != RendererSettings::RenderMode::ReSTIR)
 		{
 			TaskBatch taskBatch(m_Settings.ThreadCount);
 			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
@@ -228,7 +228,7 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 
 	switch (m_Settings.Mode)
 	{
-	case Settings::RenderMode::Normals:
+	case RendererSettings::RenderMode::Normals:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
 			for (uint32_t x = xMin; x < xMax; x++)
@@ -240,7 +240,7 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 			}
 		}
 		break;
-	case Settings::RenderMode::TraversalSteps:
+	case RendererSettings::RenderMode::TraversalSteps:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
 			for (uint32_t x = xMin; x < xMax; x++)
@@ -252,7 +252,7 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 			}
 		}
 		break;
-	case Settings::RenderMode::DI:
+	case RendererSettings::RenderMode::DI:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
 			for (uint32_t x = xMin; x < xMax; x++)
