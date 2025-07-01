@@ -130,6 +130,7 @@ private:
 	void RenderFrameBuffer();
 	void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed);
 	void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed);
+	
 	glm::vec4 RenderDI(Ray& ray, uint32_t& seed);
 
 	// ResTIR passes
