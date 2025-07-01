@@ -44,9 +44,6 @@ void BVH_BLAS::SetObject(const std::vector<Triangle>& triangles, const Transform
 
 	m_Transform = transform;
 	m_InverseTransformMatrix = transform.GetInverseTransformMatrix();
-	m_TransformMatrix = transform.GetTransformMatrix();
-
-
 	m_Positions.reserve(triangles.size() * 3);
 
 	for (int i = 0; i < triangles.size(); i++)
@@ -111,9 +108,4 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 	float maxDistance = ray.hitInfo.distance;
 
 	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
-}
-
-void BVH_BLAS::SetName(const std::string& name)
-{
-	m_Name = name;
 }

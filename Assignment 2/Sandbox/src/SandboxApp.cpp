@@ -314,7 +314,7 @@ public:
 				ImGui::PopID();
 
 				if (transformUpdated)
-					blas->SetTransform(blas->GetTransform());
+					blas->UpdateTransform();
 			}
 			ImGui::End();
 		}
