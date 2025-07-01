@@ -320,7 +320,7 @@ public:
 		}
 
 
-		RenderCommand::Clear();
+		RenderCommand::ClearFrame();
 	}
 
 	void OnEvent(Hazel::Event& event) override
