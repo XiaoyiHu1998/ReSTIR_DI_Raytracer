@@ -119,19 +119,19 @@ public:
 
 		// ReSTIR Rendering
 		// RIS
-		int CandidateCountReSTIR = 2;
+		int CandidateCountReSTIR = 3;
 		bool EnableVisibilityPass = true;
 
 		// Temporal Reuse
 		bool EnableTemporalReuse = true;
-		int TemporalSampleCountRatio = 15;
+		int TemporalSampleCountRatio = 25;
 		float TemporalMaxDistance = 0.1f;
 		float TemporalMaxDistanceDepthScaling = 0.18f;
 		float TemporalMinNormalSimilarity = 0.93f;
 		
 		// Spatial Reuse
 		bool EnableSpatialReuse = true;
-		int SpatialReuseNeighbours = 4;
+		int SpatialReuseNeighbours = 3;
 		int SpatialPixelRadius = 15;
 		float SpatialMaxDistance = 0.06f;
 		float SpatialMaxDistanceDepthScaling = 0.005f;
