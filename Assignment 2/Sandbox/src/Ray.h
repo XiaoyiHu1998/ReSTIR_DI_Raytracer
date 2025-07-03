@@ -16,7 +16,7 @@ public:
 	int32_t traversalStepsTotal;
 public:
 	HitInfo():
-		hit{ false }, distance{ std::numeric_limits<float>().max() }, location{ glm::vec3(0) },
+		hit{ false }, distance{ std::numeric_limits<float>().infinity() }, location{ glm::vec3(0) },
 		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
 		normal { glm::vec3(0)}
 	{}
@@ -35,7 +35,7 @@ public:
 public:
 	Ray() = default;
 
-	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().max()) :
+	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().infinity()) :
 		origin{ origin }, direction{ direction }, hitInfo{ HitInfo() }
 	{
 		hitInfo.distance = tNear;
