@@ -33,7 +33,7 @@ static unsigned threadCount = std::thread::hardware_concurrency();
 // Setup view pyramid for a pinhole camera:
 // eye, p1 (top-left), p2 (top-right) and p3 (bottom-left)
 static bvhvec3 eye( 0, 30, 0 ), p1, p2, p3;
-static bvhvec3 view = normalize( bvhvec3( -1, 0, 0 ) );
+static bvhvec3 view = tinybvh_normalize( bvhvec3( -1, 0, 0 ) );
 
 // Xor32 RNG
 static unsigned RandomUInt( unsigned& seed ) { seed ^= seed << 13, seed ^= seed >> 17, seed ^= seed << 5; return seed; }
@@ -46,13 +46,13 @@ bvhvec3 DiffuseReflection( const bvhvec3 N, unsigned& seed )
 	do
 	{
 		R = bvhvec3( RandomFloat( seed ) * 2 - 1, RandomFloat( seed ) * 2 - 1, RandomFloat( seed ) * 2 - 1 );
-	} while (dot( R, R ) > 1);
-	return normalize( dot( R, N ) < 0 ? R : -R );
+	} while (tinybvh_dot( R, R ) > 1);
+	return tinybvh_normalize( tinybvh_dot( R, N ) < 0 ? R : -R );
 }
 bvhvec3 CosWeightedDiffReflection( const bvhvec3 N, unsigned& seed )
 {
 	bvhvec3 R = DiffuseReflection( N, seed );
-	return normalize( N + R );
+	return tinybvh_normalize( N + R );
 }
 
 // Color conversion
@@ -66,7 +66,7 @@ bvhvec3 TriangleColor( const unsigned idx ) { return rgb32_to_vec3( *(unsigned*)
 bvhvec3 TriangleNormal( const unsigned idx )
 {
 	bvhvec3 a = tris[idx * 3], b = tris[idx * 3 + 1], c = tris[idx * 3 + 2];
-	return normalize( cross( b - a, a - c ) );
+	return tinybvh_normalize( tinybvh_cross( b - a, a - c ) );
 }
 
 // Scene management - Append a file, with optional position, scale and color override, tinyfied
@@ -94,8 +94,12 @@ void Init()
 	AddMesh( "./testdata/xyzrgb_dragon.bin", 0.5f, bvhvec3( -22, 0.95f, 0 ), 0xffffaa );
 	AddMesh( "./testdata/suzanne.bin", 0.2f, bvhvec3( -18, 0.95f, -16 ), 0x90ff90 );
 	AddMesh( "./testdata/head.bin", 0.5f, bvhvec3( 0, 3, 9 ) );
-	// build bvh
-	bvh.Build( tris, triCount );
+	// load or build bvh
+	if (!bvh.Load( "sponzabvh.bin", tris, triCount ))
+	{
+		bvh.Build( tris, triCount );
+		bvh.Save( "sponzabvh.bin" );
+	}
 	// load camera position / direction from file
 	std::fstream t = std::fstream{ "camera.bin", t.binary | t.in };
 	if (!t.is_open()) return;
@@ -107,7 +111,7 @@ void Init()
 // Keyboard handling
 bool UpdateCamera( float delta_time_s, fenster& f )
 {
-	bvhvec3 right = normalize( cross( bvhvec3( 0, 1, 0 ), view ) ), up = 0.8f * cross( view, right );
+	bvhvec3 right = tinybvh_normalize( tinybvh_cross( bvhvec3( 0, 1, 0 ), view ) ), up = 0.8f * tinybvh_cross( view, right );
 	// get camera controls.
 	bool moved = false;
 	if (f.keys['A']) eye += right * -1.0f * delta_time_s * 10, moved = true;
@@ -116,12 +120,12 @@ bool UpdateCamera( float delta_time_s, fenster& f )
 	if (f.keys['S']) eye += view * -1.0f * delta_time_s * 10, moved = true;
 	if (f.keys['R']) eye += up * delta_time_s * 20, moved = true;
 	if (f.keys['F']) eye += up * -1.0f * delta_time_s * 20, moved = true;
-	if (f.keys[20]) view = normalize( view + right * -1.0f * delta_time_s ), moved = true;
-	if (f.keys[19]) view = normalize( view + right * delta_time_s ), moved = true;
-	if (f.keys[17]) view = normalize( view + up * -1.0f * delta_time_s ), moved = true;
-	if (f.keys[18]) view = normalize( view + up * delta_time_s ), moved = true;
+	if (f.keys[20]) view = tinybvh_normalize( view + right * -1.0f * delta_time_s ), moved = true;
+	if (f.keys[19]) view = tinybvh_normalize( view + right * delta_time_s ), moved = true;
+	if (f.keys[17]) view = tinybvh_normalize( view + up * -1.0f * delta_time_s ), moved = true;
+	if (f.keys[18]) view = tinybvh_normalize( view + up * delta_time_s ), moved = true;
 	// recalculate right, up
-	right = normalize( cross( bvhvec3( 0, 1, 0 ), view ) ), up = 0.8f * cross( view, right );
+	right = tinybvh_normalize( tinybvh_cross( bvhvec3( 0, 1, 0 ), view ) ), up = 0.8f * tinybvh_cross( view, right );
 	bvhvec3 C = eye + 1.2f * view;
 	p1 = C - right + up, p2 = C + right + up, p3 = C - right - up;
 	return moved;
@@ -136,13 +140,13 @@ bvhvec3 Trace( Ray ray, unsigned& seed, unsigned depth = 0 )
 	if (ray.hit.t == 1e30f) return bvhvec3( 0.6f, 0.7f, 1 ); // hit nothing
 	bvhvec3 I = ray.O + ray.hit.t * ray.D;
 	bvhvec3 N = TriangleNormal( ray.hit.prim );
-	if (dot( N, ray.D ) > 0) N = -N;
+	if (tinybvh_dot( N, ray.D ) > 0) N = -N;
 	bvhvec3 BRDF = TriangleColor( ray.hit.prim ) * (1.0f / 3.14159f);
 	bvhvec3 Lpos( RandomFloat( seed ) * 30 - 15, 40, RandomFloat( seed ) * 6 - 3 ); // virtual
-	float dist = length( Lpos - I );
+	float dist = tinybvh_length( Lpos - I );
 	bvhvec3 L = (Lpos - I) * (1.0f / dist); // normalize
 	bvhvec3 direct = {}, indirect = {};
-	float NdotL = dot( N, L ), NLdotL = fabs( dot( L, bvhvec3( 0, 1, 0 ) ) );
+	float NdotL = tinybvh_dot( N, L ), NLdotL = fabs( tinybvh_dot( L, bvhvec3( 0, 1, 0 ) ) );
 	if (NdotL > 0)
 		if (!bvh.IsOccluded( Ray( I + L * 0.001f, L, dist ) ))
 			direct = BRDF * NdotL * NLdotL * bvhvec3( 9, 9, 8 ) * 500 * (1.0f / (dist * dist));
@@ -150,7 +154,7 @@ bvhvec3 Trace( Ray ray, unsigned& seed, unsigned depth = 0 )
 	if (depth < 2)
 	{
 		bvhvec3 R = CosWeightedDiffReflection( N, seed );
-		float pdf = 1.0f / dot( N, R );
+		float pdf = 1.0f / tinybvh_dot( N, R );
 		bvhvec3 irradiance = Trace( Ray( I + R * 0.001f, R ), seed, depth + 1 );
 		indirect = BRDF * irradiance * (1.0f / pdf);
 	}
@@ -173,7 +177,7 @@ void TraceWorkerThread( uint32_t* buf, float scale, int threadIdx )
 			const int pixelIdx = pixel_x + pixel_y * SCRWIDTH;
 			// setup primary ray
 			const float u = (float)pixel_x / SCRWIDTH, v = (float)pixel_y / SCRHEIGHT;
-			const bvhvec3 D = normalize( p1 + u * (p2 - p1) + v * (p3 - p1) - eye );
+			const bvhvec3 D = tinybvh_normalize( p1 + u * (p2 - p1) + v * (p3 - p1) - eye );
 			// trace
 			accumulator[pixelIdx] += Trace( Ray( eye, D ), seed );
 			const bvhvec3 E = accumulator[pixelIdx] * scale;

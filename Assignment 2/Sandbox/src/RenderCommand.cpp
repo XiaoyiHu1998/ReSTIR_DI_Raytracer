@@ -58,7 +58,7 @@ void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBuff
 	// Unbind PBO to prevent interference with ImGui rendering
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
-void RenderCommand::Clear()
+void RenderCommand::ClearFrame()
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);

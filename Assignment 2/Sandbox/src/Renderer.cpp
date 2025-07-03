@@ -125,7 +125,7 @@ void Renderer::RenderFrameBuffer()
 		m_FrameBuffers.ResizeRenderBuffer(bufferSize);
 		m_ResevoirBuffers.ResizeBuffers(bufferSize);
 
-		if (m_Settings.Mode != Settings::RenderMode::ReSTIR)
+		if (m_Settings.Mode != RendererSettings::RenderMode::ReSTIR)
 		{
 			TaskBatch taskBatch(m_Settings.ThreadCount);
 			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
@@ -140,64 +140,31 @@ void Renderer::RenderFrameBuffer()
 		}
 		else
 		{
-			TaskBatch risBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
-			{
-				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
+			auto ReSTIRRender = [&](ReSTIRPass restirPass, TaskBatch& taskBatch) {
+				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 				{
-					risBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::RIS, x + y * width); });
+					int yOffset = y * width;
+					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
+					{
+						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + yOffset); });
+					}
 				}
-			}
-			risBatch.ExecuteTasks();
+				taskBatch.ExecuteTasks();
+			};
+
+			TaskBatch taskBatch(m_Settings.ThreadCount);
+			ReSTIRRender(ReSTIRPass::RIS, taskBatch);
 
 			if (m_Settings.EnableVisibilityPass)
-			{
-				TaskBatch visibilityBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
-				{
-					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
-					{
-						visibilityBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Visibility, x + y * width); });
-					}
-				}
-				visibilityBatch.ExecuteTasks();
-			}
+				ReSTIRRender(ReSTIRPass::Visibility, taskBatch);
 
 			if (m_Settings.EnableTemporalReuse && m_ValidHistory)
-			{
-				TaskBatch TemporalBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
-				{
-					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
-					{
-						TemporalBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Temporal, x + y * width); });
-					}
-				}
-				TemporalBatch.ExecuteTasks();
-			}
+				ReSTIRRender(ReSTIRPass::Temporal, taskBatch);
 
 			if (m_Settings.EnableSpatialReuse)
-			{
-				TaskBatch SpatialBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
-				{
-					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
-					{
-						SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
-					}
-				}
-				SpatialBatch.ExecuteTasks();
-			}
+				ReSTIRRender(ReSTIRPass::Spatial, taskBatch);
 
-			TaskBatch shadingBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
-			{
-				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
-				{
-					shadingBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Shading, x + y * width); });
-				}
-			}
-			shadingBatch.ExecuteTasks();
+			ReSTIRRender(ReSTIRPass::Shading, taskBatch);
 		}
 
 		auto timeEnd = std::chrono::system_clock::now();
@@ -225,34 +192,27 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 	}
 
 	glm::vec4 colorAccumulator;
+	auto renderKernel = [&](std::function<glm::vec4(Ray&, const TLAS&, uint32_t&)> renderFunction)
+	{
+		for (uint32_t y = yMin; y < yMax; y++)
+		{
+			for (uint32_t x = xMin; x < xMax; x++)
+			{
+				Ray ray = m_Scene.camera.GetRay(x, y);
+				Utils::FillFrameBufferPixel(x, y, renderFunction(ray, m_Scene.tlas, seed), width, frameBuffer);
+			}
+		}
+	};
 
 	switch (m_Settings.Mode)
 	{
-	case Settings::RenderMode::Normals:
-		for (uint32_t y = yMin; y < yMax; y++)
-		{
-			for (uint32_t x = xMin; x < xMax; x++)
-			{
-				Ray ray = m_Scene.camera.GetRay(x, y);
-				colorAccumulator = RenderModeNormal::RenderRay(ray, m_Scene.tlas, seed);
-
-				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
-			}
-		}
+	case RendererSettings::RenderMode::Normals:
+		renderKernel(RenderModeNormal::RenderRay);
 		break;
-	case Settings::RenderMode::TraversalSteps:
-		for (uint32_t y = yMin; y < yMax; y++)
-		{
-			for (uint32_t x = xMin; x < xMax; x++)
-			{
-				Ray ray = m_Scene.camera.GetRay(x, y);
-				colorAccumulator = RenderModeTraversalSteps::RenderRay(ray, m_Scene.tlas, seed);
-
-				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
-			}
-		}
+	case RendererSettings::RenderMode::TraversalSteps:
+		renderKernel(RenderModeTraversalSteps::RenderRay);
 		break;
-	case Settings::RenderMode::DI:
+	case RendererSettings::RenderMode::DI:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
 			for (uint32_t x = xMin; x < xMax; x++)

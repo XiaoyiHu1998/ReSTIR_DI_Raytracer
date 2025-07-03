@@ -11,7 +11,7 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "AccelerationStructures.h"
-#include "Mesh.h"
+#include "GeometryLoader.h"
 #include "Utils.h"
 
 using BLAS_TYPE = BVH_BLAS;
@@ -173,14 +173,14 @@ public:
 			const char* RenderModes[] = { "Normals", "TraversalSteps", "Direct Illumination", "ReSTIR" };
 			int selectedMode = static_cast<int>(m_RendererSettingsUI.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
-			m_RendererSettingsUI.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
+			m_RendererSettingsUI.Mode = static_cast<RendererSettings::RenderMode>(selectedMode);
 
 			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.65f);
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Separator();
 
-			if (m_RendererSettingsUI.Mode == Renderer::Settings::RenderMode::DI)
+			if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::DI)
 			{
 				ImGui::Text("DI Rendering");
 				ImGui::Checkbox("Sample all lights", &m_RendererSettingsUI.SampleAllLightsDI);
@@ -191,7 +191,7 @@ public:
 				}
 				ImGui::Separator();
 			}
-			else if (m_RendererSettingsUI.Mode == Renderer::Settings::RenderMode::ReSTIR)
+			else if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::ReSTIR)
 			{
 				// Streaming RIS
 				ImGui::Text("Streaming RIS");
@@ -314,13 +314,13 @@ public:
 				ImGui::PopID();
 
 				if (transformUpdated)
-					blas->SetTransform(blas->GetTransform());
+					blas->UpdateTransform();
 			}
 			ImGui::End();
 		}
 
 
-		RenderCommand::Clear();
+		RenderCommand::ClearFrame();
 	}
 
 	void OnEvent(Hazel::Event& event) override
@@ -342,7 +342,7 @@ private:
 
 	//Renderer
 	Renderer m_Renderer;
-	Renderer::Settings m_RendererSettingsUI;
+	RendererSettings m_RendererSettingsUI;
 
 	// World state
 	Camera m_Camera;
