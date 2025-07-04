@@ -108,6 +108,7 @@ private:
 	DoubleFrameBuffer m_FrameBuffers;
 	DoubleResevoirBuffer m_ResevoirBuffers;
 	bool m_ValidHistory;
+	bool m_ValidHistoryNextFrame;
 
 	RendererSettings m_Settings;
 	Scene m_Scene;
@@ -149,6 +150,7 @@ public:
 		SettingsUpdated = false;
 		SceneUpdated = false;
 		m_ValidHistory = false;
+		m_ValidHistoryNextFrame = true;
 	}
 
 	void Init(const RendererSettings& settings, const Scene& scene)
@@ -164,7 +166,7 @@ public:
 		m_RenderThread = std::thread(&Renderer::RenderFrameBuffer, this);
 	}
 
-	void InvalidateHistory() { m_ValidHistory = false; }
+	void InvalidateHistory() { m_ValidHistoryNextFrame = false; }
 
 	void SubmitRenderSettings(const RendererSettings& newRenderSettings)
 	{ 

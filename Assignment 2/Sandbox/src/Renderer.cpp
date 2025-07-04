@@ -175,7 +175,8 @@ void Renderer::RenderFrameBuffer()
 		m_ResevoirBuffers.SwapBuffers();
 		m_FrameBufferMutex.unlock();
 
-		m_ValidHistory = true;
+		m_ValidHistory = true && m_ValidHistoryNextFrame;
+		m_ValidHistoryNextFrame = true;
 	}
 }
 

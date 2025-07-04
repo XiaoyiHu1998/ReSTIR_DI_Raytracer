@@ -24,64 +24,17 @@ public:
 	{
 		// Create Scene
 		m_TLAS = TLAS();
-
-		// Pointlights - TODO: split into generate lights function
-		uint32_t lightCount = 100;
-		m_pointLights = std::vector<PointLight>();
-		m_pointLights.reserve(lightCount);
-
-		uint32_t sphereLocationSeed = 0;
-		uint32_t sphereColorSeed = 0;
-
-		HZ_INFO("Generating {} Lights", lightCount);
-		for (int i = 0; i < lightCount; i++)
-		{
-			// Simple scene
-			//float x = Utils::RandomFloat(sphereLocationSeed) * 10;
-			//float y = Utils::RandomFloat(sphereLocationSeed) * 0.5f + 1.0f;
-			//float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
-			//glm::vec3 position = glm::vec3(x, y, z);
-
-			//float r = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			//float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			//float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			//glm::vec3 emissiveColor = glm::vec3(r, g, b);
-			//float emissiveStrength = 30.0f / lightCount;
-
-			// Large scene
-			float x = Utils::RandomFloat(sphereLocationSeed) * 50 - 25;
-			float y = Utils::RandomFloat(sphereLocationSeed) * 7 + 1.0f;
-			float z = Utils::RandomFloat(sphereLocationSeed) * 9 - 4;
-			glm::vec3 position = glm::vec3(x, y, z);
-
-			float r = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			glm::vec3 emissiveColor = glm::vec3(r, g, b);
-			float emissiveStrength = 0.65f;
-
-			m_pointLights.emplace_back(position, emissiveColor, emissiveStrength);
-		}
+		
+		// Lights
+		m_LightLocationSeed = 0;
+		m_LightColorSeed = 0;
+		m_LightStrength = 0.65f;
+		m_LightCount = 100;
+		GenerateLights();
 
 		// Geometry
-		std::vector<Triangle> triangles;
-		HZ_INFO("Loading Geometry");
-
-		//floor
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza_small.obj", triangles);
-		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
-		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
-		floorBLAS->SetObject(triangles, floorTransform);
-		floorBLAS->SetName("Sponza");
-		m_TLAS.AddBLAS(floorBLAS);
-
-		//sphere
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
-		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
-		Transform sphereTransform = Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-		sphereBLAS->SetObject(triangles, sphereTransform);
-		sphereBLAS->SetName("Sphere"); 
-		m_TLAS.AddBLAS(sphereBLAS);
+		LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1)));
+		LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1)));
 
 		// Setup Rendering
 		HZ_INFO("Initiating Renderer");
@@ -131,7 +84,7 @@ public:
 		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
 		if (m_MoveCamera)
-			m_Camera.position += glm::vec3(0.00015f * timestep, 0, 0);
+			m_Camera.position += glm::vec3(0.000075f * timestep, 0, 0);
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -264,9 +217,10 @@ public:
 
 			// Draw Scene
 			DrawImGUiTreeNodeEX(0, "Camera");
+			DrawImGUiTreeNodeEX(1, "Lights");
 			for (uint32_t i = 0; i < m_TLAS.GetObjectCount(); i++)
 			{
-				DrawImGUiTreeNodeEX(i + 1, m_TLAS.GetBLAS(i)->GetNameRef().c_str());
+				DrawImGUiTreeNodeEX(i + 2, m_TLAS.GetBLAS(i)->GetNameRef().c_str());
 			}
 
 			ImGui::End();
@@ -296,9 +250,30 @@ public:
 
 				ImGui::PopID();
 			}
-			else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 1)
+			else if (m_SelectedNode == 1)
 			{
-				uint32_t blasIndex = m_SelectedNode - 1;
+				ImGui::PushID("Properties_Lights");
+
+				ImGui::DragInt("Light Count", &m_LightCount, 1, 0, 1000);
+				ImGui::DragInt("Light Color Seed", &m_LightColor, 1, 0, 1000);
+				ImGui::DragInt("Light Location Seed", &m_LightLocation, 1, 0, 1000);
+
+				ImGui::DragFloat("Light Intensity", &m_LightStrength, 1.0f, 0.0f, 50.0f);
+
+				if (ImGui::Button("Generate"))
+				{
+					m_LightColorSeed = static_cast<uint32_t>(m_LightColor);
+					m_LightLocationSeed = static_cast<uint32_t>(m_LightLocation);
+
+					GenerateLights();
+					m_Renderer.InvalidateHistory();
+				}
+
+				ImGui::PopID();
+			}
+			else if (2 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 2)
+			{
+				uint32_t blasIndex = m_SelectedNode - 2;
 				std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);
 				bool transformUpdated = false;
 
@@ -348,6 +323,12 @@ private:
 	Camera m_Camera;
 	TLAS m_TLAS;
 	std::vector<PointLight> m_pointLights;
+	float m_LightStrength;
+	int m_LightCount;
+	int m_LightColor;
+	int m_LightLocation;
+	uint32_t m_LightColorSeed;
+	uint32_t m_LightLocationSeed;
 
 	// UI
 	int m_SelectedNode;
@@ -382,6 +363,43 @@ private:
 		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
 		ImGui::End();
+	}
+
+	void GenerateLights()
+	{
+		m_pointLights = std::vector<PointLight>();
+		m_pointLights.reserve(m_LightCount);
+
+		HZ_INFO("Generating {} Lights", m_LightCount);
+		for (int i = 0; i < m_LightCount; i++)
+		{
+			// Position
+			float x = Utils::RandomFloat(m_LightLocationSeed) * 50 - 25;
+			float y = Utils::RandomFloat(m_LightLocationSeed) * 7 + 1.0f;
+			float z = Utils::RandomFloat(m_LightLocationSeed) * 9 - 4;
+			glm::vec3 position = glm::vec3(x, y, z);
+
+			// Color
+			float r = std::max(0.2f, Utils::RandomFloat(m_LightColorSeed));
+			float g = std::max(0.2f, Utils::RandomFloat(m_LightColorSeed));
+			float b = std::max(0.2f, Utils::RandomFloat(m_LightColorSeed));
+			glm::vec3 emissiveColor = glm::vec3(r, g, b);
+
+			m_pointLights.emplace_back(position, emissiveColor, m_LightStrength);
+		}
+	}
+
+	void LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform) 
+	{
+		HZ_INFO("Loading Object {} from {}", objectName, fileName);
+		std::vector<Triangle> triangleBuffer;
+		GeometryLoader::LoadObj(fileName, triangleBuffer);
+
+		std::shared_ptr<BLAS_TYPE> BLAS = std::make_shared<BLAS_TYPE>();
+		BLAS->SetObject(triangleBuffer, transform);
+		BLAS->SetName(objectName);
+
+		m_TLAS.AddBLAS(BLAS);
 	}
 };
 

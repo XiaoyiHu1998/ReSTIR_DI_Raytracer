@@ -8,5 +8,5 @@
 
 namespace GeometryLoader
 {
-	bool LoadGeometryFromFile(const std::string& filepath, std::vector<Triangle>& triangles);
+	bool LoadObj(const std::string& filepath, std::vector<Triangle>& triangles);
 }

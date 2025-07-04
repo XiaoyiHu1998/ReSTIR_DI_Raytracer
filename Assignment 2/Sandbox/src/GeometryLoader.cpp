@@ -1,6 +1,6 @@
 #include "GeometryLoader.h"
 
-bool GeometryLoader::LoadGeometryFromFile(const std::string& filepath, std::vector<Triangle>& triangles)
+bool GeometryLoader::LoadObj(const std::string& filepath, std::vector<Triangle>& triangles)
 {
 	triangles.clear();
 	std::vector<Vertex> vertices;
