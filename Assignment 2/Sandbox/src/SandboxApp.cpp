@@ -254,11 +254,12 @@ public:
 			{
 				ImGui::PushID("Properties_Lights");
 
-				ImGui::DragInt("Light Count", &m_LightCount, 1, 0, 1000);
+				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
+				ImGui::DragInt("Light Count", &m_LightCount, 1, 0, 10000);
 				ImGui::DragInt("Light Color Seed", &m_LightColor, 1, 0, 1000);
 				ImGui::DragInt("Light Location Seed", &m_LightLocation, 1, 0, 1000);
 
-				ImGui::DragFloat("Light Intensity", &m_LightStrength, 1.0f, 0.0f, 50.0f);
+				ImGui::DragFloat("Light Intensity", &m_LightStrength, 0.010f, 0.0f, 30.0f);
 
 				if (ImGui::Button("Generate"))
 				{
@@ -293,7 +294,6 @@ public:
 			}
 			ImGui::End();
 		}
-
 
 		RenderCommand::ClearFrame();
 	}
