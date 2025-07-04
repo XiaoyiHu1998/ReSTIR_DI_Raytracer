@@ -337,7 +337,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample pixelSample = pixelResevoir.GetSample();
 
-	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPosition);
+	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPosition, seed);
 	bool withinFrame = prevPixel.x >= 0 && prevPixel.y >= 0 && prevPixel.x < resolution.x && prevPixel.y < resolution.y;
 	if (!withinFrame || !m_ValidHistory)
 		return;
