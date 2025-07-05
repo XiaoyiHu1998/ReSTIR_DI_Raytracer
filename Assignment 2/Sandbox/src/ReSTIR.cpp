@@ -81,7 +81,7 @@ Resevoir Resevoir::CombineBiased(const Resevoir& originalResevoir, const Resevoi
 	combinedResevoir.Update(newSample, newWeight, seed);
 
 	combinedResevoir.SetSampleCount(originalResevoir.GetSampleCount() + newResevoir.GetSampleCount());
-	combinedResevoir.WeightSampleOut = (1.0f / combinedResevoir.GetSampleRef().contribution) * (combinedResevoir.GetWeightTotal() / combinedResevoir.GetSampleCount());
+	combinedResevoir.WeightSampleOut = (1.0f / combinedResevoir.GetSampleRef().contribution) * (combinedResevoir.GetWeightTotal() / static_cast<float>(combinedResevoir.GetSampleCount()));
 
 	return combinedResevoir;
 }

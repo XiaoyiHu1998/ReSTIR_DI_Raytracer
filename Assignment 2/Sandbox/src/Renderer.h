@@ -150,6 +150,7 @@ private:
 	inline void GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
 	inline void VisibilityPass(uint32_t bufferIndex);
 	inline void TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline void CombineNeighbourPixel(Resevoir& resevoir, const glm::i32vec2 pixel, const glm::i32vec2& resolution, uint32_t& seed);
 	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
 	inline glm::vec4 RenderSample(uint32_t bufferIndex, uint32_t& seed);
 public:

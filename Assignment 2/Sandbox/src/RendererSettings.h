@@ -15,6 +15,7 @@ struct RendererSettings
 
 	RenderMode Mode = RenderMode::ReSTIR;
 
+	// General Settings
 	int ThreadCount = std::thread::hardware_concurrency();
 
 	uint32_t FrameWidth = 3840;
