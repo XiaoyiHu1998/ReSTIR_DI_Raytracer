@@ -84,7 +84,7 @@ public:
 		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
 		if (m_MoveCamera)
-			m_Camera.position += glm::vec3(0.000075f * timestep, 0, 0);
+			m_Camera.position += glm::vec3(0.00075f * timestep, 0, 0);
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));

@@ -353,7 +353,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 
 	float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
 	// Grow maxDistance with camera distance to make sure distance between pixels don't exceed maxDistance
-	float scaledMaxDistance = m_Settings.TemporalMaxDistance * (cameraDistance * m_Settings.TemporalMaxDistanceDepthScaling + 1.0f);
+	float scaledMaxDistance = m_Settings.TemporalMaxDistance + (cameraDistance * m_Settings.TemporalMaxDistanceDepthScaling);
 	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
 	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalMinNormalSimilarity;
 
@@ -384,7 +384,7 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 		const Resevoir& pixelResevoir = m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex];
 		Sample pixelSample = pixelResevoir.GetSample();
 
-		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution,  m_Settings.SpatialPixelRadius, seed);
+		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialPixelRadius, seed);
 		Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
 		const Sample& neighbourSample = neighbourResevoir.GetSampleRef();
 
@@ -393,7 +393,7 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 
 		float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
 		// Grow maxDistance with camera distance to make sure distance between pixels don't exceed maxDistance
-		float scaledMaxDistance = m_Settings.SpatialMaxDistance * (cameraDistance * m_Settings.SpatialMaxDistanceDepthScaling + 1.0f); 
+		float scaledMaxDistance = m_Settings.SpatialMaxDistance + (cameraDistance * m_Settings.SpatialMaxDistanceDepthScaling); 
 		bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
 		bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialMinNormalSimilarity;
 
