@@ -1,2 +1,0 @@
-#include "AccelerationStructure.h"
-

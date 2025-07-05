@@ -1,23 +1,18 @@
-# Assignment 1
-# Ignore content built with CMake
-Assignment 1/build/
-
-#Assignment 2
 # Directories
-*/.vs/
-Assignment 2/bin/
-Assignment 2/bin-intermediate/
-Assignment 2/Hazel/vendor/Glad/bin
-Assignment 2/Hazel/vendor/Glad/bin-int
-Assignment 2/Hazel/vendor/GLFW/bin
-Assignment 2/Hazel/vendor/GLFW/bin-int
+.vs/
+bin/
+bin-intermediate/
+Hazel/vendor/Glad/bin
+Hazel/vendor/Glad/bin-int
+Hazel/vendor/GLFW/bin
+Hazel/vendor/GLFW/bin-int
 
 # Files
-Assignment 2/.user
+.user
 */imgui.ini
-Assignment 2/*.sln
-Assignment 2/*/*.vcxproj
-Assignment 2/*/*.vcxproj.filters
-Assignment 2/*/*.vcxproj.user
-Assignment 2/*/.vs/
-Assignment 2/Sandbox/Intel® VTune™ Profiler Results/*
+*.sln
+*/*.vcxproj
+*/*.vcxproj.filters
+*/*.vcxproj.user
+*/.vs/
+Sandbox/Intel® VTune™ Profiler Results/*
