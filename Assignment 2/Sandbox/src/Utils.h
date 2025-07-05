@@ -13,10 +13,10 @@ namespace Utils
 	{
 		int pixelIndex = (x + y * width) * 4;
 
-		frameBuffer.get()[0][pixelIndex + 0] = static_cast<unsigned char>(Clamp(color.x * 255.0f, 255.0f, 0.0f));
-		frameBuffer.get()[0][pixelIndex + 1] = static_cast<unsigned char>(Clamp(color.y * 255.0f, 255.0f, 0.0f));
-		frameBuffer.get()[0][pixelIndex + 2] = static_cast<unsigned char>(Clamp(color.z * 255.0f, 255.0f, 0.0f));
-		frameBuffer.get()[0][pixelIndex + 3] = static_cast<unsigned char>(Clamp(color.w * 255.0f, 255.0f, 0.0f));
+        frameBuffer.get()[0][pixelIndex + 0] = static_cast<unsigned char>(Clamp(color.x * 255.0f, 255.0f, 0.0f));
+        frameBuffer.get()[0][pixelIndex + 1] = static_cast<unsigned char>(Clamp(color.y * 255.0f, 255.0f, 0.0f));
+        frameBuffer.get()[0][pixelIndex + 2] = static_cast<unsigned char>(Clamp(color.z * 255.0f, 255.0f, 0.0f));
+        frameBuffer.get()[0][pixelIndex + 3] = static_cast<unsigned char>(Clamp(color.w * 255.0f, 255.0f, 0.0f));
 	}
 
     static inline uint32_t PCGHash(uint32_t& seed)
@@ -32,8 +32,7 @@ namespace Utils
         seed *= 9;
         seed = seed ^ (seed >> 4);
         seed *= 0x27d4eb2d;
-        seed = seed ^ (seed >> 15);
-        return seed;
+        return seed ^ (seed >> 15);
     }
 
     static inline float RandomFloat(uint32_t& seed)
@@ -44,31 +43,30 @@ namespace Utils
 
     static inline int RandomInt(int minInclusive, int maxExclusive, uint32_t& seed)
     {
-        float randomFloat = RandomFloat(seed) * static_cast<float>(maxExclusive);
-        int randomInt = static_cast<int>(randomFloat);
-        randomInt = randomInt == maxExclusive ? maxExclusive - 1 : randomInt; // In case of issues
+        float delta = RandomFloat(seed) * static_cast<float>(maxExclusive - 1 - minInclusive);
+        int randomInt = minInclusive + static_cast<int>(delta);
 
-        return randomInt;
+        return std::max(minInclusive, randomInt);
     }
 
-    static inline float colorToContribution(const glm::vec3& color) 
-    {
-        // TODO: Replace with max channel value in rgb channels
-        return glm::length(color);
-    };
-
-    static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, float radius, uint32_t& seed)
+    static inline glm::i32vec2 GetNeighbourPixel(glm::i32vec2 pixel, glm::i32vec2 resolution, uint32_t radius, uint32_t& seed)
     {
         glm::i32vec2 neighbourPixel = glm::i32vec2(-1, -1);
+        uint32_t doubleRadius = radius << 2;
 
         // Check if neighour is within the frame and max radius
-        while (0 > neighbourPixel.x || neighbourPixel.x >= resolution.x || 0 > neighbourPixel.y || neighbourPixel.y >= resolution.y || (neighbourPixel - pixel).length() > radius)
+        while (0 > neighbourPixel.x || neighbourPixel.x >= resolution.x || 0 > neighbourPixel.y || neighbourPixel.y >= resolution.y || (neighbourPixel - pixel).length() >= radius)
         {
-            neighbourPixel.x = pixel.x + Utils::RandomInt(0, radius, seed);
-            neighbourPixel.y = pixel.y + Utils::RandomInt(0, radius, seed);
+            neighbourPixel.x = pixel.x + (Utils::RandomInt(0, doubleRadius, seed) - radius);
+            neighbourPixel.y = pixel.y + (Utils::RandomInt(0, doubleRadius, seed) - radius);
         }
 
         return neighbourPixel;
+    }
+
+    static inline glm::vec3 TriangleNormal(const glm::vec3& vertex0, const glm::vec3& vertex1, const glm::vec3& vertex2)
+    {
+        return glm::normalize(glm::cross(vertex1 - vertex0, vertex2 - vertex0));
     }
 
 }

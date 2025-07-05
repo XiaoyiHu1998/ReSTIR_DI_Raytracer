@@ -8,6 +8,10 @@ project(tiny_bvh LANGUAGES CXX)
 
 if (APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
+	find_library(OPENCL_LIBRARY OpenCL)
+	if (OPENCL_LIBRARY)
+		set(OPENCL_FRAMEWORK "-framework OpenCL")
+	endif()
 elseif (UNIX AND NOT EMSCRIPTEN)
 	find_package(X11)
 elseif (EMSCRIPTEN)
@@ -37,7 +41,7 @@ if (NOT EMSCRIPTEN) # EMSCRIPTEN doesn't render anything by default (you would n
 	add_executable(tiny_bvh_fenster tiny_bvh_fenster.cpp)
 endif()
 
-target_include_directories(tiny_bvh_speedtest PRIVATE ${CMAKE_CURRENT_LIST_DIR}/external/OpenCL/inc)
+target_include_directories(tiny_bvh_speedtest PRIVATE ${CMAKE_CURRENT_LIST_DIR}/external/OpenCL/inc;external/madmann91;external/embree/include)
 
 if (NOT MSVC)
 	# Produce debug symbols and set optimization level
@@ -118,6 +122,8 @@ if (NOT MSVC)
 				set(tiny_bvh_speedtest_link_flags ${tiny_bvh_speedtest_link_flags} -sPROXY_TO_PTHREAD=1)
 			endif()
 		endif()
+	elseif (APPLE)
+		target_link_libraries(tiny_bvh_speedtest ${COCOA_LIBRARY} ${OPENCL_FRAMEWORK})
 	endif()
 	target_compile_options(tiny_bvh_speedtest PRIVATE ${tiny_bvh_speedtest_cxx_flags})
 	target_link_options(tiny_bvh_speedtest PRIVATE ${tiny_bvh_speedtest_link_flags})

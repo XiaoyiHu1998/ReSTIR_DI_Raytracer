@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Include.h"
-#include "Material.h"
 
 struct HitInfo
 {
@@ -12,22 +11,18 @@ public:
 	glm::vec3 location;
 	glm::vec3 normal;
 
-	Material material;
-
 	// Debug info
 	int32_t traversalStepsHitBVH;
 	int32_t traversalStepsTotal;
 public:
 	HitInfo():
-		hit{ false }, distance{ std::numeric_limits<float>().max() }, location{ glm::vec3(0) },
+		hit{ false }, distance{ std::numeric_limits<float>().infinity() }, location{ glm::vec3(0) },
 		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
-		material { Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f), 1) },
 		normal { glm::vec3(0)}
 	{}
 
 	HitInfo(bool hit) : // Members should be set manually after initialization
-		hit{ hit },
-		material{ Material(Material::Type::Emissive, glm::vec3(0.8f, 0.2f, 0.2f), 1) }
+		hit{ hit }
 	{}
 };
 
@@ -40,7 +35,7 @@ public:
 public:
 	Ray() = default;
 
-	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().max()) :
+	Ray(glm::vec3 origin, glm::vec3 direction, float tNear = std::numeric_limits<float>().infinity()) :
 		origin{ origin }, direction{ direction }, hitInfo{ HitInfo() }
 	{
 		hitInfo.distance = tNear;

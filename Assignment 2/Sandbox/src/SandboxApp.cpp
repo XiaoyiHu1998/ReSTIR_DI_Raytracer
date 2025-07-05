@@ -1,6 +1,7 @@
 #include <Hazel.h>
 
 #include "imgui/imgui.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
 #include "glm/ext.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/string_cast.hpp"
@@ -11,7 +12,7 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "AccelerationStructures.h"
-#include "Mesh.h"
+#include "GeometryLoader.h"
 #include "Utils.h"
 
 using BLAS_TYPE = BVH_BLAS;
@@ -24,70 +25,37 @@ public:
 	{
 		// Create Scene
 		m_TLAS = TLAS();
-
-		// Pointlights
-		uint32_t lightCount = 10;
-		m_pointLights = std::vector<PointLight>();
-		m_pointLights.reserve(lightCount);
-		uint32_t sphereLocationSeed = 0;
-		uint32_t sphereColorSeed = 0;
-		for (int i = 0; i < lightCount; i++)
-		{
-			float x = Utils::RandomFloat(sphereLocationSeed) * 10;
-			float y = Utils::RandomFloat(sphereLocationSeed) * 0;
-			float z = Utils::RandomFloat(sphereLocationSeed) * 10 - 2;
-			glm::vec3 position = glm::vec3(x, y, z);
-
-			float radius = 1.0f;
-
-			//float uniformColor = 1.0f;
-			float r = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			float g = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			float b = std::max(0.2f, Utils::RandomFloat(sphereColorSeed));
-			glm::vec3 emissiveColor = glm::vec3(r, g, b);
-			float emissiveStrength = 3.0f;
-			Material material = Material(Material::Type::Emissive, emissiveColor, emissiveStrength);
-
-			m_pointLights.emplace_back(position, material);
-			std::cout << "PointLight " << i << " Pos:" << glm::to_string(position) << ", Radius: " << radius << ",Color: " << glm::to_string(emissiveColor) << ", intensity: " << emissiveStrength << std::endl;
-		}
+		
+		// Lights
+		m_LightLocationSeed = 0;
+		m_LightColorSeed = 0;
+		m_LightStrength = 0.65f;
+		m_LightCount = 100;
+		GenerateLights();
 
 		// Geometry
-		std::vector<Triangle> triangles;
-
-		//floor
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sponza_small.obj", triangles);
-		std::shared_ptr<BLAS_TYPE> floorBLAS = std::make_shared<BLAS_TYPE>();
-		floorBLAS->SetName("Sponza");
-		Transform floorTransform = Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1));
-		Material floorMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0) , 0.0f);
-		floorBLAS->SetObject(triangles, floorTransform, floorMaterial);
-		m_TLAS.AddBLAS(floorBLAS);
-
-		//sphere
-		GeometryLoader::LoadGeometryFromFile(".\\assets\\models\\sphere_high_res.obj", triangles);
-		std::shared_ptr<BLAS_TYPE> sphereBLAS = std::make_shared<BLAS_TYPE>();
-		sphereBLAS->SetName("Sphere");
-		Transform sphereTransform = Transform(glm::vec3(3.6f, -0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-		Material sphereMaterial = Material(Material::Type::Non_Emissive, glm::vec3(0.5, 0.5, 1.0), 0.0f);
-		sphereBLAS->SetObject(triangles, sphereTransform, sphereMaterial);
-		m_TLAS.AddBLAS(sphereBLAS);
+		LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1)));
+		LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1)));
 
 		// Setup Rendering
-		m_CurrentWidth = m_NextWidth = 640;
-		m_CurrentHeight = m_NextHeight = 480;
+		HZ_INFO("Initiating Renderer");
+		m_RendererSettingsUI;
+		m_CurrentWidth = m_NextWidth = m_RendererSettingsUI.FrameWidth;
+		m_CurrentHeight = m_NextHeight = m_RendererSettingsUI.FrameHeight;
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
-		m_Camera.GetTransformRef().translation = glm::vec3(-1.0f, 1.5f, -0.5f);
-		m_Camera.GetTransformRef().rotation = glm::vec3(0.0f, -111.0f, 0.0f);
+		m_Camera.position = glm::vec3(-1.0f, 1.5f, -0.5f);
+		m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
+		m_MoveCamera = false;
 
 		m_Renderer;
-		m_Renderer.Init(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
+		m_Renderer.Init(m_RendererSettingsUI, Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 	}
 
 	~PathTracingLayer()
@@ -101,7 +69,7 @@ public:
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
 
-		if (m_CurrentFrameResolution.x != m_PrevFrameResolution.x || m_CurrentFrameResolution.y != m_PrevFrameResolution.y)
+		if (m_CurrentFrameResolution != m_PrevFrameResolution)
 		{
 			RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
 			m_PrevFrameResolution = m_CurrentFrameResolution;
@@ -113,11 +81,11 @@ public:
 		m_CurrentWidth = m_NextWidth;
 		m_CurrentHeight = m_NextHeight;
 
-		m_RendererSettingsUI.RenderResolutionWidth = m_CurrentWidth;
-		m_RendererSettingsUI.RenderResolutionHeight = m_CurrentHeight;
+		m_RendererSettingsUI.FrameWidth = m_CurrentWidth;
+		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
-		m_Camera.SetResolution(m_CurrentWidth, m_CurrentHeight);
-		m_Camera.UpdateFrustrum();
+		if (m_MoveCamera)
+			m_Camera.position += glm::vec3(0.00075f * timestep, 0, 0);
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -154,31 +122,39 @@ public:
 		// Settings Window
 		{
 			ImGui::Begin("Settings");
+			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.35f);
 			ImGui::Text("Render Settings");
 			const char* RenderModes[] = { "Normals", "TraversalSteps", "Direct Illumination", "ReSTIR" };
 			int selectedMode = static_cast<int>(m_RendererSettingsUI.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
-			m_RendererSettingsUI.Mode = static_cast<Renderer::Settings::RenderMode>(selectedMode);
-			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
+			m_RendererSettingsUI.Mode = static_cast<RendererSettings::RenderMode>(selectedMode);
+
+			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.65f);
+			if (ImGui::InputInt("Thread Count", &m_RendererSettingsUI.ThreadCount, 1, 1))
+			{
+				m_RendererSettingsUI.ThreadCount = std::max(0, m_RendererSettingsUI.ThreadCount);
+				m_RendererSettingsUI.ThreadCount = std::min(static_cast<int>(std::thread::hardware_concurrency()), m_RendererSettingsUI.ThreadCount);
+			}
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
+			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::Separator();
 
-			if (m_RendererSettingsUI.Mode == Renderer::Settings::RenderMode::DI)
+			if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::DI)
 			{
 				ImGui::Text("DI Rendering");
 				ImGui::Checkbox("Sample all lights", &m_RendererSettingsUI.SampleAllLightsDI);
-				ImGui::Checkbox("Light Occlusion", &m_RendererSettingsUI.LightOcclusionCheckDI);
+				ImGui::Checkbox("Light Occlusion", &m_RendererSettingsUI.OcclusionCheckDI);
 				if (ImGui::InputInt("Light Candidates", &m_RendererSettingsUI.CandidateCountDI))
 				{
 					m_RendererSettingsUI.CandidateCountDI = m_RendererSettingsUI.CandidateCountDI < 1 ? 1 : m_RendererSettingsUI.CandidateCountDI;
 				}
 				ImGui::Separator();
 			}
-			else if (m_RendererSettingsUI.Mode == Renderer::Settings::RenderMode::ReSTIR)
+			else if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::ReSTIR)
 			{
 				// Streaming RIS
 				ImGui::Text("Streaming RIS");
-				if (ImGui::InputInt("Candidate Count RIS", &m_RendererSettingsUI.CandidateCountReSTIR))
+				if (ImGui::InputInt("Candidate Count", &m_RendererSettingsUI.CandidateCountReSTIR))
 				{
 					m_RendererSettingsUI.CandidateCountReSTIR = m_RendererSettingsUI.CandidateCountReSTIR < 1 ? 1 : m_RendererSettingsUI.CandidateCountReSTIR;
 				}
@@ -186,22 +162,36 @@ public:
 				ImGui::Separator();
 
 				// Spatial Reuse
+				ImGui::PushID("Spatial Reuse Options");
 				ImGui::Text("Spatial Reuse");
 				ImGui::Checkbox("Enable", &m_RendererSettingsUI.EnableSpatialReuse);
 				if (ImGui::InputInt("Neighbours", &m_RendererSettingsUI.SpatialReuseNeighbours))
 				{
 					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours < 1 ? 1 : m_RendererSettingsUI.SpatialReuseNeighbours;
+					int maxNeighbours = std::max(m_RendererSettingsUI.SpatialPixelRadius - 5, 1);
+					m_RendererSettingsUI.SpatialReuseNeighbours = m_RendererSettingsUI.SpatialReuseNeighbours > maxNeighbours ? maxNeighbours : m_RendererSettingsUI.SpatialReuseNeighbours;
 				}
-				if (ImGui::InputInt("Radius", &m_RendererSettingsUI.SpatialReuseRadius))
+				if (ImGui::InputInt("Pixel Radius", &m_RendererSettingsUI.SpatialPixelRadius))
 				{
-					m_RendererSettingsUI.SpatialReuseRadius = m_RendererSettingsUI.SpatialReuseRadius < 1 ? 1 : m_RendererSettingsUI.SpatialReuseRadius;
+					m_RendererSettingsUI.SpatialPixelRadius = m_RendererSettingsUI.SpatialPixelRadius < 3 ? 3 : m_RendererSettingsUI.SpatialPixelRadius;
 				}
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialReuseMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialReuseMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.SpatialMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
+				ImGui::PopID();
 
 				// Temporal Reuse
+				ImGui::PushID("Temporal Reuse Options");
 				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
+				if (ImGui::InputInt("Sample Count Ratio", &m_RendererSettingsUI.TemporalSampleCountRatio))
+				{
+					m_RendererSettingsUI.TemporalSampleCountRatio = m_RendererSettingsUI.TemporalSampleCountRatio < 1 ? 1 : m_RendererSettingsUI.TemporalSampleCountRatio;
+				}
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.TemporalMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::PopID();
 			}
 
 			ImGui::End();
@@ -213,9 +203,9 @@ public:
 
 			// Configurate TreeNodeEX
 			static ImGuiTreeNodeFlags baseNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow |
-				ImGuiTreeNodeFlags_OpenOnDoubleClick |
-				ImGuiTreeNodeFlags_SpanAvailWidth |
-				ImGuiTreeNodeFlags_SpanFullWidth;
+													  ImGuiTreeNodeFlags_OpenOnDoubleClick |
+													  ImGuiTreeNodeFlags_SpanAvailWidth |
+													  ImGuiTreeNodeFlags_SpanFullWidth;
 
 			// TreeNodeEX Drawing Lambda
 			auto DrawImGUiTreeNodeEX = [&](uint32_t index, const char* nodeName)
@@ -233,9 +223,10 @@ public:
 
 			// Draw Scene
 			DrawImGUiTreeNodeEX(0, "Camera");
+			DrawImGUiTreeNodeEX(1, "Lights");
 			for (uint32_t i = 0; i < m_TLAS.GetObjectCount(); i++)
 			{
-				DrawImGUiTreeNodeEX(i + 1, m_TLAS.GetBLAS(i)->GetName().c_str());
+				DrawImGUiTreeNodeEX(i + 2, m_TLAS.GetBLAS(i)->GetNameRef().c_str());
 			}
 
 			ImGui::End();
@@ -243,7 +234,6 @@ public:
 
 		// Properties Window
 		{
-
 			ImGui::Begin("Properties");
 			if (m_SelectedNode == 0)
 			{
@@ -255,76 +245,62 @@ public:
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
-				cameraUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.GetTransformRef().translation), 0.05f);
-				cameraUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.GetTransformRef().rotation), 0.05f);
+				ImGui::DragFloat3("Position", glm::value_ptr(m_Camera.position), 0.05f);
+				ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.rotation), 0.05f);
 				ImGui::Separator();
 
 				ImGui::Text("Camera Settings");
-				ImGui::DragFloat("Vertical FoV", &m_Camera.GetFOVRef(), 0.1f, 0.0f, 360.0f);
+				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
+				ImGui::DragFloat("Vertical FoV", &m_Camera.verticalFOV, 0.1f, 1.0f, 160.0f);
+				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
 
 				ImGui::PopID();
-
-				if (cameraUpdated)
-					m_Camera.UpdateCameraMatrix();
 			}
-			else if (1 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 1)
+			else if (m_SelectedNode == 1)
 			{
-				uint32_t blasIndex = m_SelectedNode - 1;
+				ImGui::PushID("Properties_Lights");
+
+				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
+				ImGui::DragInt("Light Count", &m_LightCount, 1, 0, 10000);
+				ImGui::DragInt("Light Color Seed", &m_LightColor, 1, 0, 1000);
+				ImGui::DragInt("Light Location Seed", &m_LightLocation, 1, 0, 1000);
+
+				ImGui::DragFloat("Light Intensity", &m_LightStrength, 0.010f, 0.0f, 30.0f);
+
+				if (ImGui::Button("Generate"))
+				{
+					m_LightColorSeed = static_cast<uint32_t>(m_LightColor);
+					m_LightLocationSeed = static_cast<uint32_t>(m_LightLocation);
+
+					GenerateLights();
+					m_Renderer.InvalidateHistory();
+				}
+
+				ImGui::PopID();
+			}
+			else if (2 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 2)
+			{
+				uint32_t blasIndex = m_SelectedNode - 2;
 				std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);
 				bool transformUpdated = false;
 
-				const char* materialTypes[] = { "Non_Emissive", "Emissive" };
-				int selectedMaterialType = 0;
-				switch (blas->GetMaterial().MaterialType)
-				{
-				case Material::Type::Non_Emissive:
-					selectedMaterialType = 0;
-					break;
-				case Material::Type::Emissive:
-					selectedMaterialType = 1;
-					break;
-				}
-
-				ImGui::PushID(blas->GetName().c_str());
-
-				ImGui::InputText("Name", &blas->GetNameRef()[0], blas->GetName().length());
+				ImGui::PushID(blas->GetNameRef().c_str());
+				ImGui::InputText("Name", &blas->GetNameRef());
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
 				transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
 				transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
-				// Not accessible until ray transform issues are fixed
-				//transformUpdated |= ImGui::DragFloat3("scale", glm::value_ptr(blas->GetTransformRef().scale), 0.05f); 
+				if (transformUpdated)
+					blas->UpdateTransform();
 				ImGui::Separator();
 
-				ImGui::Text("Material");
-				ImGui::Combo("Material Type", &selectedMaterialType, materialTypes, IM_ARRAYSIZE(materialTypes));
-				ImGui::Spacing();
-				ImGui::Spacing();
-				ImGui::Spacing();
-				ImGui::ColorEdit3("EmissiveColor", glm::value_ptr(blas->GetMaterialRef().EmissiveColor));
-				ImGui::DragFloat("EmmisiveIntensity", &blas->GetMaterialRef().EmissiveIntensity);
-
 				ImGui::PopID();
-
-				switch (selectedMaterialType)
-				{
-				case 0:
-					blas->GetMaterialRef().MaterialType = Material::Type::Non_Emissive;
-					break;
-				case 1:
-					blas->GetMaterialRef().MaterialType = Material::Type::Emissive;
-					break;
-				}
-
-				if (transformUpdated)
-					blas->SetTransform(blas->GetTransform());
 			}
 			ImGui::End();
 		}
 
-
-		RenderCommand::Clear();
+		RenderCommand::ClearFrame();
 	}
 
 	void OnEvent(Hazel::Event& event) override
@@ -337,8 +313,7 @@ public:
 		
 	}
 private:
-	// Output Configuration
-	FrameBufferRef m_FrameBuffer;
+	// Viewport and rendering
 	uint32_t m_FrameBufferID;
 	uint32_t m_PixelBufferObjectID;
 	uint32_t m_CurrentWidth, m_CurrentHeight;
@@ -347,17 +322,22 @@ private:
 
 	//Renderer
 	Renderer m_Renderer;
-	Renderer::Settings m_RendererSettingsUI;
+	RendererSettings m_RendererSettingsUI;
 
 	// World state
 	Camera m_Camera;
 	TLAS m_TLAS;
-	TLAS m_TLAS_EmmisiveOnly;
-	TLAS m_TLAS_NonEmmisiveOnly;
 	std::vector<PointLight> m_pointLights;
+	float m_LightStrength;
+	int m_LightCount;
+	int m_LightColor;
+	int m_LightLocation;
+	uint32_t m_LightColorSeed;
+	uint32_t m_LightLocationSeed;
 
 	// UI
 	int m_SelectedNode;
+	bool m_MoveCamera;
 private:
 	void DrawImGuiDockSpace()
 	{
@@ -387,17 +367,44 @@ private:
 		// Main dockspace, this is where all our windows are drawn
 		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-
-		if (ImGui::BeginMenuBar()) {
-			if (ImGui::BeginMenu("File")) {
-				if (ImGui::MenuItem("import obj")) {
-					//importFile = true;
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::EndMenuBar();
-		}
 		ImGui::End();
+	}
+
+	void GenerateLights()
+	{
+		m_pointLights = std::vector<PointLight>();
+		m_pointLights.reserve(m_LightCount);
+
+		HZ_INFO("Generating {} Lights", m_LightCount);
+		for (int i = 0; i < m_LightCount; i++)
+		{
+			// Position
+			float x = Utils::RandomFloat(m_LightLocationSeed) * 50 - 25;
+			float y = Utils::RandomFloat(m_LightLocationSeed) * 7 + 1.0f;
+			float z = Utils::RandomFloat(m_LightLocationSeed) * 9 - 4;
+			glm::vec3 position = glm::vec3(x, y, z);
+
+			// Color
+			float r = std::max(0.2f, Utils::RandomFloat(m_LightColorSeed));
+			float g = std::max(0.2f, Utils::RandomFloat(m_LightColorSeed));
+			float b = std::max(0.2f, Utils::RandomFloat(m_LightColorSeed));
+			glm::vec3 emissiveColor = glm::vec3(r, g, b);
+
+			m_pointLights.emplace_back(position, emissiveColor, m_LightStrength);
+		}
+	}
+
+	void LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform) 
+	{
+		HZ_INFO("Loading Object {} from {}", objectName, fileName);
+		std::vector<Triangle> triangleBuffer;
+		GeometryLoader::LoadObj(fileName, triangleBuffer);
+
+		std::shared_ptr<BLAS_TYPE> BLAS = std::make_shared<BLAS_TYPE>();
+		BLAS->SetObject(triangleBuffer, transform);
+		BLAS->SetName(objectName);
+
+		m_TLAS.AddBLAS(BLAS);
 	}
 };
 

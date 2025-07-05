@@ -7,6 +7,8 @@
 #include "TaskBatch.h"
 #include "RenderCommand.h"
 
+// ================= Normal Rendering mode =================
+
 namespace RenderModeNormal
 {
 	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, uint32_t& seed)
@@ -20,6 +22,8 @@ namespace RenderModeNormal
 		return glm::vec4(E, 1.0f);
 	}
 }
+
+// ================= TraversalSteps Rendering Mode =================
 
 namespace RenderModeTraversalSteps
 {
@@ -35,6 +39,7 @@ namespace RenderModeTraversalSteps
 	}
 }
 
+// ================= Next Event estimation DI rendering mode =================
 
 glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 {
@@ -54,11 +59,11 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 		{
 			Ray shadowRay = Ray(ray.hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2 * m_Settings.Eta);
 			bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
-			if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
+			if (!lightOccluded || !m_Settings.OcclusionCheckDI)
 			{
 				//glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
 				float BRDF = glm::dot(ray.hitInfo.normal, lightDirection);
-				return BRDF * pointLight.material.EmissiveIntensity * pointLight.material.EmissiveColor / (lightDistance * lightDistance);
+				return BRDF * pointLight.emmission / (lightDistance * lightDistance);
 			}
 		}
 
@@ -84,6 +89,153 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 	return glm::vec4(E, 1.0f);
 }
 
+// ================= ReSTIR rendering mode =================
+
+void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed)
+{
+	Resevoir resevoir;
+	Sample sample;
+
+	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
+	{
+		PointLight randomPointLight = m_Scene.pointLights[Utils::RandomInt(0, m_Scene.pointLights.size(), seed)];
+		Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
+		m_Scene.tlas.Traverse(ray);
+
+		sample = Sample(ray.hitInfo, m_Scene.camera.position, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
+		float weight = sample.contribution / sample.pdf;
+		resevoir.Update(sample, weight, seed);
+	}
+
+	resevoir.WeightSampleOut = (1.0f / resevoir.GetSampleRef().contribution) * (resevoir.GetWeightTotal() / resevoir.GetSampleCount());
+	m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = resevoir;
+}
+
+void Renderer::VisibilityPass(uint32_t bufferIndex)
+{
+	Resevoir& resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+	const Sample& sample = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex].GetSampleRef();
+
+	if (!sample.hit)
+	{
+		resevoir.WeightSampleOut = 0.001f;
+		return;
+	}
+
+	glm::vec3 rayOrigin = sample.hitPosition + m_Settings.Eta * sample.lightDirection;
+	Ray shadowRay = Ray(rayOrigin, sample.lightDirection, sample.lightDistance - 2.0f * m_Settings.Eta);
+
+	if (m_Scene.tlas.IsOccluded(shadowRay))
+		resevoir.WeightSampleOut = 0.0f;
+}
+
+void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed)
+{
+	const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+	Sample pixelSample = pixelResevoir.GetSample();
+
+	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPosition, seed);
+	bool withinFrame = prevPixel.x >= 0 && prevPixel.y >= 0 && prevPixel.x < resolution.x && prevPixel.y < resolution.y;
+	if (!withinFrame || !m_ValidHistory)
+		return;
+
+	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
+	const Sample& prevSample = prevResevoir.GetSample();
+
+	if (!prevSample.hit)
+		return;
+
+	float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
+	// Grow maxDistance with camera distance to make sure distant pixels don't always exceed maxDistance
+	float scaledMaxDistance = m_Settings.TemporalMaxDistance + (cameraDistance * m_Settings.TemporalMaxDistanceDepthScaling);
+	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
+	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalMinNormalSimilarity;
+
+	glm::vec3 shadowRayDirection = prevSample.light.position - pixelSample.hitPosition;
+	float shadowRayDistance = glm::length(shadowRayDirection);
+	shadowRayDirection = glm::normalize(shadowRayDirection);
+	glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
+	bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
+
+	if (withinMaxDistance && sameNormals && notOccluded && prevResevoir.WeightSampleOut > 0.01f)
+	{
+		// Limit Temporal propogation
+		prevResevoir.SetSampleCount(std::min(m_Settings.TemporalSampleCountRatio * pixelResevoir.GetSampleCount(), prevResevoir.GetSampleCount()));
+
+		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
+		pixelSample.ReplaceLight(temporalResevoir.GetSample().light);
+		temporalResevoir.SetSample(pixelSample);
+		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = temporalResevoir;
+	}
+}
+
+void Renderer::CombineNeighbourPixel(Resevoir& pixelResevoir, const glm::i32vec2 pixel, const glm::i32vec2& resolution, uint32_t& seed)
+{
+	Sample pixelSample = pixelResevoir.GetSample();
+
+	glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialPixelRadius, seed);
+	Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
+	const Sample& neighbourSample = neighbourResevoir.GetSampleRef();
+
+	if (!neighbourSample.hit)
+		return;
+
+	float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
+	// Grow maxDistance with camera distance to make sure distant pixels don't always exceed maxDistance
+	float scaledMaxDistance = m_Settings.SpatialMaxDistance + (cameraDistance * m_Settings.SpatialMaxDistanceDepthScaling);
+	bool withinMaxDistance = glm::length(neighbourSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
+	bool sameNormals = glm::dot(pixelSample.hitNormal, neighbourSample.hitNormal) >= m_Settings.SpatialMinNormalSimilarity;
+
+	glm::vec3 shadowRayDirection = neighbourSample.light.position - pixelSample.hitPosition;
+	float shadowRayDistance = glm::length(shadowRayDirection);
+	shadowRayDirection = glm::normalize(shadowRayDirection);
+	glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
+	bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
+
+	Resevoir spatialResevoir;
+	if (withinMaxDistance && sameNormals && notOccluded && neighbourResevoir.WeightSampleOut > 0.01f)
+	{
+		spatialResevoir = Resevoir::CombineBiased(pixelResevoir, neighbourResevoir, seed);
+		pixelSample.ReplaceLight(spatialResevoir.GetSample().light);
+		spatialResevoir.SetSample(pixelSample);
+		pixelResevoir = spatialResevoir;
+	}
+}
+
+void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
+{
+	m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex] = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+
+	CombineNeighbourPixel(m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex], pixel, resolution, seed);
+	for (int i = 1; i < m_Settings.SpatialReuseNeighbours; i++)
+	{
+		CombineNeighbourPixel(m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex], pixel, resolution, seed);
+	}
+}
+
+glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
+{
+	// Direct lighting calculation
+	glm::vec3 outputColor(0.0f);
+	Resevoir resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+	Sample sample = resevoir.GetSample();
+
+	if (sample.BRDF > 0.001f)
+	{
+		glm::vec3 shadowRayOrigin = sample.hitPosition + (m_Settings.Eta * sample.lightDirection);
+		Ray shadowRay = Ray(shadowRayOrigin, sample.lightDirection, sample.lightDistance - 2.0f * m_Settings.Eta);
+
+		if (!m_Scene.tlas.IsOccluded(shadowRay))
+		{
+			outputColor = sample.BRDF * sample.light.emmission / (sample.lightDistance * sample.lightDistance);
+		}
+	}
+
+	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
+}
+
+// ================= Render Loop =================
+
 void Renderer::RenderFrameBuffer()
 {
 	while (true)
@@ -97,6 +249,10 @@ void Renderer::RenderFrameBuffer()
 		if (SettingsUpdated)
 		{
 			m_SettingsLock.lock();
+
+			if (m_Settings != m_NewSettings)
+				m_ValidHistory = false;
+
 			m_Settings = m_NewSettings;
 			SettingsUpdated = false;
 			m_SettingsLock.unlock();
@@ -105,29 +261,28 @@ void Renderer::RenderFrameBuffer()
 		if (SceneUpdated)
 		{
 			m_SceneLock.lock();
+			m_PrevCamera = m_Scene.camera;
 			m_Scene = m_NewScene;
-			SceneUpdated = false;
 			m_SceneLock.unlock();
+
+			m_Scene.camera.SetResolution(m_Settings.FrameWidth, m_Settings.FrameHeight);
+			m_Scene.camera.UpdateState();
 		}
 
-		uint32_t width = m_Settings.RenderResolutionWidth;
-		uint32_t height = m_Settings.RenderResolutionHeight;
+		uint32_t width = m_Settings.FrameWidth;
+		uint32_t height = m_Settings.FrameHeight;
 
 		uint32_t bufferSize = width * height;
 		UpdateSampleBufferSize(bufferSize);
-		UpdateResevoirBufferSize(bufferSize);
+		m_FrameBuffers.ResizeRenderBuffer(bufferSize);
+		m_ResevoirBuffers.ResizeBuffers(bufferSize);
 
-		if (framebuffer->size() != width * height * 4)
-		{
-			framebuffer->resize(bufferSize * 4, 0);
-		}
-
-		if (m_Settings.Mode != Settings::RenderMode::ReSTIR)
+		if (m_Settings.Mode != RendererSettings::RenderMode::ReSTIR)
 		{
 			TaskBatch taskBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
+			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
 				{
 					uint32_t seed = x + y * width;
 					taskBatch.EnqueueTask([=]() {RenderKernelNonReSTIR(framebuffer, width, height, x, y, seed); });
@@ -137,82 +292,53 @@ void Renderer::RenderFrameBuffer()
 		}
 		else
 		{
-			m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
-			m_PrevBuffer = (m_PrevBuffer + 1) % 2;
-
-			TaskBatch risBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
-			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
+			auto ReSTIRRender = [&](ReSTIRPass restirPass, TaskBatch& taskBatch) {
+				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
 				{
-					risBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::RIS, x + y * width); });
+					int yOffset = y * width;
+					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
+					{
+						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + yOffset); });
+					}
 				}
-			}
-			risBatch.ExecuteTasks();
+				taskBatch.ExecuteTasks();
+			};
+
+			TaskBatch taskBatch(m_Settings.ThreadCount);
+			ReSTIRRender(ReSTIRPass::RIS, taskBatch);
 
 			if (m_Settings.EnableVisibilityPass)
-			{
-				TaskBatch visibilityBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
-				{
-					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
-					{
-						visibilityBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Visibility, x + y * width); });
-					}
-				}
-				visibilityBatch.ExecuteTasks();
-			}
+				ReSTIRRender(ReSTIRPass::Visibility, taskBatch);
 
-			if (m_Settings.EnableTemporalReuse)
-			{
-				TaskBatch TemporalBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
-				{
-					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
-					{
-						TemporalBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Temporal, x + y * width); });
-					}
-				}
-				TemporalBatch.ExecuteTasks();
-			}
+			if (m_Settings.EnableTemporalReuse && m_ValidHistory)
+				ReSTIRRender(ReSTIRPass::Temporal, taskBatch);
 
 			if (m_Settings.EnableSpatialReuse)
 			{
-				TaskBatch SpatialBatch(m_Settings.ThreadCount);
-				for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
-				{
-					for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
-					{
-						SpatialBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Spatial, x + y * width); });
-					}
-				}
-				SpatialBatch.ExecuteTasks();
+				ReSTIRRender(ReSTIRPass::Spatial, taskBatch);
+				m_ResevoirBuffers.SwapSpatialBuffers();
 			}
 
-			TaskBatch shadingBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.RenderingKernelSize)
-			{
-				for (uint32_t x = 0; x < width; x += m_Settings.RenderingKernelSize)
-				{
-					shadingBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, ReSTIRPass::Shading, x + y * width); });
-				}
-			}
-			shadingBatch.ExecuteTasks();
+			ReSTIRRender(ReSTIRPass::Shading, taskBatch);
 		}
 
 		auto timeEnd = std::chrono::system_clock::now();
 		m_LastFrameTime = std::chrono::duration<float, std::ratio<1, 1000>>(timeEnd - timeStart).count();
 
 		m_FrameBufferMutex.lock();
-		m_FrameBuffers.SwapFrameBuffers();
+		m_FrameBuffers.SwapBuffers();
+		m_ResevoirBuffers.SwapTemporalBuffers();
 		m_FrameBufferMutex.unlock();
+
+		m_ValidHistory = true && m_ValidHistoryNextFrame;
+		m_ValidHistoryNextFrame = true;
 	}
 }
 
 void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width);
-	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.KernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.KernelSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -222,34 +348,27 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 	}
 
 	glm::vec4 colorAccumulator;
+	auto renderKernel = [&](std::function<glm::vec4(Ray&, const TLAS&, uint32_t&)> renderFunction)
+	{
+		for (uint32_t y = yMin; y < yMax; y++)
+		{
+			for (uint32_t x = xMin; x < xMax; x++)
+			{
+				Ray ray = m_Scene.camera.GetRay(x, y);
+				Utils::FillFrameBufferPixel(x, y, renderFunction(ray, m_Scene.tlas, seed), width, frameBuffer);
+			}
+		}
+	};
 
 	switch (m_Settings.Mode)
 	{
-	case Settings::RenderMode::Normals:
-		for (uint32_t y = yMin; y < yMax; y++)
-		{
-			for (uint32_t x = xMin; x < xMax; x++)
-			{
-				Ray ray = m_Scene.camera.GetRay(x, y);
-				colorAccumulator = RenderModeNormal::RenderRay(ray, m_Scene.tlas, seed);
-
-				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
-			}
-		}
+	case RendererSettings::RenderMode::Normals:
+		renderKernel(RenderModeNormal::RenderRay);
 		break;
-	case Settings::RenderMode::TraversalSteps:
-		for (uint32_t y = yMin; y < yMax; y++)
-		{
-			for (uint32_t x = xMin; x < xMax; x++)
-			{
-				Ray ray = m_Scene.camera.GetRay(x, y);
-				colorAccumulator = RenderModeTraversalSteps::RenderRay(ray, m_Scene.tlas, seed);
-
-				Utils::FillFrameBufferPixel(x, y, colorAccumulator, width, frameBuffer);
-			}
-		}
+	case RendererSettings::RenderMode::TraversalSteps:
+		renderKernel(RenderModeTraversalSteps::RenderRay);
 		break;
-	case Settings::RenderMode::DI:
+	case RendererSettings::RenderMode::DI:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
 			for (uint32_t x = xMin; x < xMax; x++)
@@ -267,8 +386,8 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 
 void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.RenderingKernelSize, width - 1);
-	uint32_t yMax = std::min(yMin + m_Settings.RenderingKernelSize, height - 1);
+	uint32_t xMax = std::min(xMin + m_Settings.KernelSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.KernelSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -293,7 +412,7 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				VisibilityPass(m_ResevoirBuffers[m_CurrentBuffer][x + yOffset]);
+				VisibilityPass(x + yOffset);
 			}
 		}
 		break;
@@ -323,168 +442,9 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 			uint32_t yOffset = y * width;
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
-				Utils::FillFrameBufferPixel(x, y, RenderSample(m_ResevoirBuffers[m_CurrentBuffer][x + yOffset], seed), width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, RenderSample(x + yOffset, seed), width, frameBuffer);
 			}
 		}
 		break;
 	}
-}
-
-Sample Renderer::SamplePointLight(const glm::i32vec2& pixel, uint32_t& seed)
-{
-	Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
-	m_Scene.tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
-
-	PointLight randomPointLight = m_Scene.pointLights[Utils::RandomInt(0, m_Scene.pointLights.size(), seed)];
-	glm::vec3 lightDirection = randomPointLight.position - ray.hitInfo.location;
-	float lightDistance = glm::length(lightDirection);
-	lightDirection = lightDirection / lightDistance;
-
-	bool validDirectLighting = true;
-	Ray shadowRay;
-
-	// Construct Sample
-	Sample sample;
-	sample.valid = ray.hitInfo.hit && ray.hitInfo.material.MaterialType != Material::Type::Emissive;
-	sample.Path.CameraOrigin = m_Scene.camera.GetTransform().translation;
-	sample.Path.hitInfo = ray.hitInfo;
-	sample.Path.Light = randomPointLight;
-	sample.PDF = 1.0f / m_Scene.pointLights.size();
-	sample.Weight = m_Scene.pointLights.size(); //1.0f / sample.PDF; // 1 / PDF
-
-	return sample;
-}
-
-glm::vec3 Renderer::TargetDistribution(const PathDI& path)
-{
-	glm::vec3 lightDirection = path.Light.position - path.hitInfo.location;
-	float lightDistance = glm::length(lightDirection);
-	lightDirection = lightDirection / lightDistance;
-
-	//float BRDF = glm::dot(path.hitInfo.normal, lightDirection);
-	return glm::dot(path.hitInfo.normal, lightDirection) * path.Light.material.EmissiveIntensity * path.Light.material.EmissiveColor / (lightDistance * lightDistance);
-}
-
-void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed)
-{
-	Resevoir<Sample> resevoir;
-	Sample sample;
-
-	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
-	{
-		sample = SamplePointLight(pixel, seed);
-		//float weight = (1.0f / static_cast<float>(m_Settings.CandidateCountReSTIR)) * Utils::colorToContribution(TargetDistribution(sample.Path)) * sample.Weight;
-		float weight = Utils::colorToContribution(TargetDistribution(sample.Path)) / sample.PDF;
-		resevoir.Update(sample, weight, seed);
-	}
-
-	resevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(resevoir.GetSampleOutRef().Path))) * (resevoir.GetWeightTotal() / resevoir.GetSampleCount());
-	m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = resevoir;
-}
-
-void Renderer::VisibilityPass(Resevoir<Sample>& resevoir)
-{
-	const PathDI& path = resevoir.GetSampleOutRef().Path;
-	glm::vec3 rayDirection = path.Light.position - path.hitInfo.location;
-	float rayDistance = glm::length(rayDirection);
-	//rayDirection = rayDirection / rayDistance;
-	glm::vec3 rayOrigin = path.hitInfo.location + m_Settings.Eta * rayDirection;
-
-	Ray shadowRay = Ray(rayOrigin, rayDirection, rayDistance - 2.0f * m_Settings.Eta);
-	if (m_Scene.tlas.IsOccluded(shadowRay))
-		resevoir.WeightSampleOut = 0.0f;
-}
-
-void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
-{
-	for (int i = 0; i < m_Settings.SpatialReuseNeighbours; i++)
-	{
-		glm::i32vec2 neighbour = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialReuseRadius, seed);
-
-		Resevoir<Sample>& pixelResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
-		glm::vec3 pixelHitLocation = pixelResevoir.GetSampleOutRef().Path.hitInfo.location;
-		glm::vec3 pixelHitNormal = pixelResevoir.GetSampleOutRef().Path.hitInfo.normal;
-
-		Resevoir<Sample>& neighbourResevoir = m_ResevoirBuffers[m_CurrentBuffer][neighbour.x + neighbour.y * resolution.x];
-		glm::vec3 neighbourHitLocation = neighbourResevoir.GetSampleOutRef().Path.hitInfo.location;
-		glm::vec3 neighbourHitNormal = neighbourResevoir.GetSampleOutRef().Path.hitInfo.normal;
-
-		bool withinMaxDistance = glm::length(neighbourHitLocation - pixelHitLocation) < m_Settings.SpatialReuseMaxDistance;
-		bool similarNormals = glm::dot(neighbourHitNormal, pixelHitNormal) >= m_Settings.SpatialReuseMinNormalSimilarity;
-		// TODO: shadowray test against neighbour lightsource with pixelHitLocation
-		//bool notOccluded = !m_Scene.tlas.isOccluded();
-
-		if (withinMaxDistance && similarNormals) // && notOccluded
-		{
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(pixelResevoir, neighbourResevoir, seed);
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.hitInfo.location = pixelHitLocation;
-			m_ResevoirBuffers[m_CurrentBuffer][bufferIndex].GetSampleOutRef().Path.hitInfo = pixelResevoir.GetSampleOutRef().Path.hitInfo;
-		}
-	}
-}
-
-void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed)
-{
-	// Follows original paper pseudocode, does not seem to do much
-	Resevoir<Sample>& currentFrameResevoir = m_ResevoirBuffers[m_CurrentBuffer][bufferIndex];
-	glm::vec3 hitLocation = currentFrameResevoir.GetSampleOutRef().Path.hitInfo.location;
-
-	glm::i32vec2 prevFramePixel = m_Scene.camera.GetPrevFramePixelCoordinates(hitLocation);
-	Resevoir<Sample>& prevFrameResevoir = m_ResevoirBuffers[m_PrevBuffer][prevFramePixel.x + prevFramePixel.y * resolution.x];
-
-	bool withinBounds = prevFramePixel.x >= 0 && prevFramePixel.y >= 0 && prevFramePixel.x < resolution.x && prevFramePixel.y < resolution.y;
-	bool sameNormal = glm::dot(currentFrameResevoir.GetSampleOutRef().Path.hitInfo.normal, prevFrameResevoir.GetSampleOutRef().Path.hitInfo.normal) >= 0.99;
-	//TODO: Check for occlusion 
-	//bool notOccluded = !m_Scene.tlas.isOccluded();
-
-	if (withinBounds && sameNormal) // && notOccluded
-	{
-		m_ResevoirBuffers[m_CurrentBuffer][bufferIndex] = CombineResevoirBiased(currentFrameResevoir, prevFrameResevoir, seed);
-	}
-}
-
-glm::vec4 Renderer::RenderSample(const Resevoir<Sample>& resevoir, uint32_t& seed)
-{
-	// Direct lighting calculation
-	glm::vec3 outputColor(0.0f);
-	const Sample& sample = resevoir.GetSampleOut();
-	const HitInfo& hitInfo = sample.Path.hitInfo;
-	const PointLight& light = sample.Path.Light;
-
-	glm::vec3 lightDirection = sample.Path.Light.position - sample.Path.hitInfo.location;
-	float lightDistance = glm::length(lightDirection);
-	lightDirection = glm::normalize(lightDirection);
-
-	if (glm::dot(hitInfo.normal, lightDirection) > 0)
-	{
-		Ray shadowRay = Ray(hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2.0f * m_Settings.Eta);
-		bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
-		if (!lightOccluded || !m_Settings.LightOcclusionCheckDI)
-		{
-			//glm::vec3 BRDF =(hitInfo.material.Albedo / M_PI;
-			float BRDF = glm::dot(hitInfo.normal, lightDirection);
-			outputColor = BRDF * light.material.EmissiveIntensity * light.material.EmissiveColor / (lightDistance * lightDistance);
-		}
-	}
-
-	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
-}
-
-Resevoir<Sample> Renderer::CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed)
-{
-	Resevoir<Sample> combinedResevoir;
-
-	const Sample& originalSample = originalResevoir.GetSampleOut();
-	const Sample& newSample = newResevoir.GetSampleOut();
-
-	float originalWeight = Utils::colorToContribution(TargetDistribution(originalSample.Path)) * originalResevoir.WeightSampleOut * originalResevoir.GetSampleCount();
-	float newWeight = Utils::colorToContribution(TargetDistribution(newSample.Path)) * newResevoir.WeightSampleOut * newResevoir.GetSampleCount();
-
-	combinedResevoir.Update(originalSample, originalWeight, seed);
-	combinedResevoir.Update(newSample, newWeight, seed);
-
-	combinedResevoir.SetSampleCount(originalResevoir.GetSampleCount() + newResevoir.GetSampleCount());
-	combinedResevoir.WeightSampleOut = (1.0f / Utils::colorToContribution(TargetDistribution(combinedResevoir.GetSampleOutRef().Path))) * (combinedResevoir.GetWeightTotal() / combinedResevoir.GetSampleCount());
-
-	return combinedResevoir;
 }

@@ -10,91 +10,14 @@
 #include "Ray.h"
 #include "Primitives.h"
 #include "AccelerationStructures.h"
+#include "Utils.h"
+#include "ReSTIR.h"
+#include "RendererSettings.h"
 
-struct PathDI
-{
-	glm::vec3 CameraOrigin;
-	HitInfo hitInfo;
-	PointLight Light;
-
-	PathDI() = default;
-
-	PathDI(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation ) :
-		CameraOrigin{ cameraOrigin }, hitInfo{ HitInfo() }, Light{ PointLight() }
-	{}
-
-	PathDI(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const HitInfo& hitInfo, const PointLight& light) :
-		CameraOrigin{ cameraOrigin }, hitInfo{ hitInfo }, Light{ light }
-	{}
-};
-
-struct Sample
-{
-	bool valid;
-
-	PathDI Path;
-	float Weight;
-	float PDF;
-
-	Sample() :
-		valid{ false }
-	{}
-
-	Sample(const glm::vec3& cameraOrigin, const glm::vec3& hitLocation, const glm::vec3& lightLocation, float weight) :
-		valid{ false }, Path{ cameraOrigin, hitLocation}, Weight{weight}
-	{}
-
-	Sample(const Sample& sample, float weight) :
-		valid{ sample.valid }, Path{ sample.Path }, Weight{ weight }
-	{}
-};
-
-template <class T>
-class Resevoir
+class DoubleFrameBuffer
 {
 public:
-	float WeightSampleOut;
-private:
-	T m_SampleOut;
-	float m_WeightTotal;
-
-	int m_SampleCount;
-public:
-	Resevoir() :
-		m_SampleOut{ T() }, m_SampleCount{ 0 }, m_WeightTotal{ 0.0f }, WeightSampleOut{ 0.0f }
-	{}
-
-	Resevoir(const T& initialSample, float totalWeight, uint32_t totalSampleCount) :
-		m_SampleOut{ initialSample }, m_SampleCount{ 1 }, m_WeightTotal{ totalWeight }, m_SampleCount{ totalSampleCount }
-	{}
-
-	bool Update(const T& sample, float weight, uint32_t& seed)
-	{
-		m_SampleCount++;
-		m_WeightTotal += weight;
-
-		
-		if (Utils::RandomFloat(seed) < weight / m_WeightTotal)
-		{
-			m_SampleOut = sample;
-			return true;
-		}
-
-		return false;
-	}
-
-	void SetSampleCount(uint32_t sampleCount) { m_SampleCount = sampleCount; }
-
-	T GetSampleOut() const { return m_SampleOut; }
-	T& GetSampleOutRef() { return m_SampleOut; }
-	float GetWeightTotal() const { return m_WeightTotal; }
-	int GetSampleCount() const { return m_SampleCount; }
-};
-
-class FrameDoubleBuffer
-{
-public:
-	FrameDoubleBuffer()
+	DoubleFrameBuffer()
 	{
 		m_NextBuffer = 1;
 		m_CurrentBuffer = 0;
@@ -102,18 +25,70 @@ public:
 		m_FrameBuffers[1] = std::make_shared<std::vector<uint8_t>>();
 	}
 
-	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
-	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
-
-	void SwapFrameBuffers()
+	void SwapBuffers()
 	{
 		m_NextBuffer = (m_NextBuffer + 1) % 2;
 		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
+	}
+
+	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
+	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
+	void ResizeRenderBuffer(uint32_t bufferSize)
+	{
+		uint32_t subPixelCount = bufferSize << 2;
+		if (m_FrameBuffers[m_NextBuffer]->size() != subPixelCount)
+		{
+			m_FrameBuffers[m_NextBuffer]->resize(subPixelCount);
+		}
 	}
 private:
 	FrameBufferRef m_FrameBuffers[2];
 	uint32_t m_CurrentBuffer;
 	uint32_t m_NextBuffer;
+};
+
+class TripleResevoirBuffer
+{
+public:
+	TripleResevoirBuffer()
+	{
+		m_CurrentBuffer = 0;
+		m_PrevBuffer = 1;
+		m_SpatialReuseBuffer = 2;
+
+		m_ResevoirBuffers[0] = std::vector<Resevoir>();
+		m_ResevoirBuffers[1] = std::vector<Resevoir>();
+		m_ResevoirBuffers[2] = std::vector<Resevoir>();
+	}
+
+	void SwapTemporalBuffers()
+	{
+		std::swap(m_CurrentBuffer, m_PrevBuffer);
+	}
+
+	void SwapSpatialBuffers()
+	{
+		std::swap(m_CurrentBuffer, m_SpatialReuseBuffer);
+	}
+
+	std::vector<Resevoir>& GetCurrentBuffer() { return m_ResevoirBuffers[m_CurrentBuffer]; }
+	std::vector<Resevoir>& GetPrevBuffer() { return m_ResevoirBuffers[m_PrevBuffer]; }
+	std::vector<Resevoir>& GetSpatialReuseBuffer() { return m_ResevoirBuffers[m_SpatialReuseBuffer]; }
+
+	void ResizeBuffers(uint32_t bufferSize) 
+	{
+		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize || m_ResevoirBuffers[2].size() != bufferSize)
+		{
+			m_ResevoirBuffers[0].resize(bufferSize);
+			m_ResevoirBuffers[1].resize(bufferSize);
+			m_ResevoirBuffers[2].resize(bufferSize);
+		}
+	}
+private:
+	std::vector<Resevoir> m_ResevoirBuffers[3];
+	uint32_t m_CurrentBuffer;
+	uint32_t m_PrevBuffer;
+	uint32_t m_SpatialReuseBuffer;
 };
 
 class Renderer
@@ -126,48 +101,6 @@ public:
 		Temporal,
 		Spatial,
 		Shading
-	};
-
-	struct Settings
-	{
-		enum class RenderMode
-		{
-			Normals = 0,
-			TraversalSteps = 1,
-			DI = 2,
-			ReSTIR = 3
-		};
-
-		RenderMode Mode = RenderMode::ReSTIR;
-
-		uint32_t ThreadCount = std::thread::hardware_concurrency() - 1;
-
-		uint32_t RenderResolutionWidth = 640;
-		uint32_t RenderResolutionHeight = 480;
-		uint32_t RenderingKernelSize = 64;
-		uint32_t SamplesPerPixel = 1;
-
-		bool RandomSeed = true;
-		float Eta = 0.001f;
-
-		// DI Rendering
-		bool LightOcclusionCheckDI = true;
-		bool SampleAllLightsDI = false;
-
-		int CandidateCountDI = 1;
-
-		// ReSTIR Rendering
-		int CandidateCountReSTIR = 4;
-
-		bool EnableVisibilityPass = true;
-		bool EnableSpatialReuse = true;
-
-		int SpatialReuseNeighbours = 4;
-		int SpatialReuseRadius = 10;
-		float SpatialReuseMaxDistance = 0.06f;
-		float SpatialReuseMinNormalSimilarity = 0.90f;
-
-		bool EnableTemporalReuse = true;
 	};
 
 	struct Scene
@@ -183,11 +116,17 @@ public:
 		{}
 	};
 private:
-	FrameDoubleBuffer m_FrameBuffers;
-	Settings m_Settings;
-	Scene m_Scene;
+	std::vector<Sample> m_SampleBuffer;
+	DoubleFrameBuffer m_FrameBuffers;
+	TripleResevoirBuffer m_ResevoirBuffers;
+	bool m_ValidHistory;
+	bool m_ValidHistoryNextFrame;
 
-	Settings m_NewSettings;
+	RendererSettings m_Settings;
+	Scene m_Scene;
+	Camera m_PrevCamera;
+
+	RendererSettings m_NewSettings;
 	Scene m_NewScene;
 
 	std::thread m_RenderThread;
@@ -200,53 +139,49 @@ private:
 
 	float m_LastFrameTime;
 
-	std::vector<Sample> m_SampleBuffer;
-	std::vector<Resevoir<Sample>> m_ResevoirBuffers[2];
-	int m_CurrentBuffer;
-	int m_PrevBuffer;
 private:
 	void RenderFrameBuffer();
 	void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed);
 	void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed);
+	
 	glm::vec4 RenderDI(Ray& ray, uint32_t& seed);
-
-	// ReSTIR original paper
-	Sample SamplePointLight(const glm::i32vec2& pixel, uint32_t& seed);
-	glm::vec3 TargetDistribution(const PathDI& path);
-	Resevoir<Sample> CombineResevoirBiased(const Resevoir<Sample>& originalResevoir, const Resevoir<Sample>& newResevoir, uint32_t& seed);
 
 	// ResTIR passes
 	inline void GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
-	inline void VisibilityPass(Resevoir<Sample>& resevoir);
-	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline void VisibilityPass(uint32_t bufferIndex);
 	inline void TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
-	inline glm::vec4 RenderSample(const Resevoir<Sample>& resevoir, uint32_t& seed);
+	inline void CombineNeighbourPixel(Resevoir& resevoir, const glm::i32vec2 pixel, const glm::i32vec2& resolution, uint32_t& seed);
+	inline void SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed);
+	inline glm::vec4 RenderSample(uint32_t bufferIndex, uint32_t& seed);
 public:
 	Renderer() :
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
-		//m_SampleBuffer.reserve(m_Settings.RenderResolutionWidth* m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffers[0] = std::vector<Resevoir<Sample>>();
-		m_ResevoirBuffers[1] = std::vector<Resevoir<Sample>>();
-		m_ResevoirBuffers[0].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
-		m_ResevoirBuffers[1].resize(m_Settings.RenderResolutionWidth * m_Settings.RenderResolutionHeight);
-
-		m_CurrentBuffer = 0;
-		m_PrevBuffer = 1;
-
-		m_FrameBuffers = FrameDoubleBuffer();
+		m_FrameBuffers = DoubleFrameBuffer();
+		m_ResevoirBuffers = TripleResevoirBuffer();
 
 		SettingsUpdated = false;
 		SceneUpdated = false;
+		m_ValidHistory = false;
+		m_ValidHistoryNextFrame = true;
 	}
 
-	void Init(const Scene& scene)
+	void Init(const RendererSettings& settings, const Scene& scene)
 	{
+		m_Settings = settings;
 		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
+		m_PrevCamera = scene.camera;
+		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
+		m_FrameBuffers.SwapBuffers();
+		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
+
+		// Start rendering
 		m_RenderThread = std::thread(&Renderer::RenderFrameBuffer, this);
 	}
 
-	void SubmitRenderSettings(const Settings& newRenderSettings) 
+	void InvalidateHistory() { m_ValidHistoryNextFrame = false; }
+
+	void SubmitRenderSettings(const RendererSettings& newRenderSettings)
 	{ 
 		m_SettingsLock.lock();
 		m_NewSettings = newRenderSettings;
@@ -270,13 +205,12 @@ public:
 		}
 	}
 
-	//TODO: Need to make resize happen after flipping m_CurrentBuffer to support resizing during temporal reuse
 	void UpdateResevoirBufferSize(uint32_t bufferSize)
 	{
-		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize)
+		if (m_ResevoirBuffers.GetCurrentBuffer().size() != bufferSize || m_ResevoirBuffers.GetPrevBuffer().size() != bufferSize)
 		{
-			m_ResevoirBuffers[0].resize(bufferSize);
-			m_ResevoirBuffers[1].resize(bufferSize);
+			m_ResevoirBuffers.GetCurrentBuffer().resize(bufferSize);
+			m_ResevoirBuffers.GetPrevBuffer().resize(bufferSize);
 		}
 	}
 
@@ -284,9 +218,9 @@ public:
 
 	glm::i32vec2 GetRenderResolution()
 	{
-		m_SceneLock.lock();
-		glm::i32vec2 resolution = m_Scene.camera.GetResolution();
-		m_SceneLock.unlock();
+		m_SettingsLock.lock();
+		glm::i32vec2 resolution = glm::i32vec2(m_Settings.FrameWidth, m_Settings.FrameHeight);
+		m_SettingsLock.unlock();
 
 		return resolution;
 	}

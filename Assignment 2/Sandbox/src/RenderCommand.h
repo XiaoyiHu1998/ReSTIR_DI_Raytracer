@@ -12,12 +12,8 @@ public:
 	static void DeletePixelBufferObject(uint32_t& pixelBufferObjectID);
 	static void GenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
 	static void DeleteFrameBufferTexture(uint32_t& frameBufferID);
-	static void RegenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
+
 	static void InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
 	static void UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
-	static void Clear();
-
-	//TODO: Get this out of RenderCommand
-	static void UpdateSampleBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight);
-	static void UpdateResevoirBufferSize(Renderer& renderer, uint32_t currentWidth, uint32_t currentHeight);
+	static void ClearFrame();
 };

@@ -91,17 +91,10 @@ void Init()
 	noise = new Buffer( 128 * 128 * 8 * sizeof( uint32_t ), blueNoise );
 	noise->CopyToDevice();
 	// load raw vertex data
-	// AddMesh( "./testdata/cryteksponza.bin", 1, bvhvec3( 0 ), 0xffffff );
-	// AddMesh( "./testdata/lucy.bin", 1.1f, bvhvec3( -2, 4.1f, -3 ), 0x2ffff88 );
+	AddMesh( "./testdata/cryteksponza.bin", 1, bvhvec3( 0 ), 0xffffff );
 	AddQuad( bvhvec3( -22, 12, 2 ), 9, 5, 0x1ffffff ); // hard-coded light source
-	AddMesh( "./testdata/bistro_ext_part1.bin", 1, bvhvec3( 0 ) );
-	AddMesh( "./testdata/bistro_ext_part2.bin", 1, bvhvec3( 0 ) );
 	// build bvh (here: 'compressed wide bvh', for efficient GPU rendering)
-	if (!bvh.Load( "cwbvh.bin", triCount ))
-	{
-		bvh.Build( tris, triCount );
-		bvh.Save( "cwbvh.bin" ); // cache for next run.
-	}
+	bvh.Build( tris, triCount );
 	// create OpenCL buffers for BVH data
 	cwbvhNodes = new Buffer( bvh.usedBlocks * sizeof( bvhvec4 ), bvh.bvh8Data );
 	cwbvhTris = new Buffer( bvh.idxCount * 3 * sizeof( bvhvec4 ), bvh.bvh8Tris );
@@ -109,27 +102,23 @@ void Init()
 	cwbvhTris->CopyToDevice();
 	triData = new Buffer( triCount * 3 * sizeof( bvhvec4 ), tris );
 	triData->CopyToDevice();
-	// load camera position / direction from file
-	std::fstream t = std::fstream{ "camera_gpu.bin", t.binary | t.in };
-	if (!t.is_open()) return;
-	t.read( (char*)&rd, sizeof( rd ) );
 }
 
 // Keyboard handling
 bool UpdateCamera( float delta_time_s, fenster& f )
 {
-	bvhvec3 right = normalize( cross( bvhvec3( 0, 1, 0 ), rd.view ) ), up = 0.8f * cross( rd.view, right );
+	bvhvec3 right = tinybvh_normalize( tinybvh_cross( bvhvec3( 0, 1, 0 ), rd.view ) ), up = 0.8f * tinybvh_cross( rd.view, right );
 	// get camera controls.
 	float moved = 0, spd = 10.0f * delta_time_s;
 	if (f.keys['A'] || f.keys['D']) rd.eye += right * (f.keys['D'] ? spd : -spd), moved = 1;
 	if (f.keys['W'] || f.keys['S']) rd.eye += rd.view * (f.keys['W'] ? spd : -spd), moved = 1;
 	if (f.keys['R'] || f.keys['F']) rd.eye += up * 2.0f * (f.keys['R'] ? spd : -spd), moved = 1;
-	if (f.keys[20]) rd.view = normalize( rd.view + right * -0.1f * spd ), moved = 1;
-	if (f.keys[19]) rd.view = normalize( rd.view + right * 0.1f * spd ), moved = 1;
-	if (f.keys[17]) rd.view = normalize( rd.view + up * -0.1f * spd ), moved = 1;
-	if (f.keys[18]) rd.view = normalize( rd.view + up * 0.1f * spd ), moved = 1;
+	if (f.keys[20]) rd.view = tinybvh_normalize( rd.view + right * -0.1f * spd ), moved = 1;
+	if (f.keys[19]) rd.view = tinybvh_normalize( rd.view + right * 0.1f * spd ), moved = 1;
+	if (f.keys[17]) rd.view = tinybvh_normalize( rd.view + up * -0.1f * spd ), moved = 1;
+	if (f.keys[18]) rd.view = tinybvh_normalize( rd.view + up * 0.1f * spd ), moved = 1;
 	// recalculate right, up
-	right = normalize( cross( bvhvec3( 0, 1, 0 ), rd.view ) ), up = 0.8f * cross( rd.view, right );
+	right = tinybvh_normalize( tinybvh_cross( bvhvec3( 0, 1, 0 ), rd.view ) ), up = 0.8f * tinybvh_cross( rd.view, right );
 	bvhvec3 C = rd.eye + 1.2f * rd.view;
 	rd.p0 = C - right + up, rd.p1 = C + right + up, rd.p2 = C - right - up;
 	return moved > 0;
@@ -167,16 +156,17 @@ void Tick( float delta_time_s, fenster& f, uint32_t* buf )
 	finalize->Run2D( oclint2( SCRWIDTH, SCRHEIGHT ) );
 	pixels->CopyFromDevice();
 	memcpy( buf, pixels->GetHostPtr(), N * sizeof( uint32_t ) );
+	// trace a ray to the mouse to obtain the index of a primitive
+	float mousex = (float)f.x / SCRWIDTH, mousey = (float)f.y / SCRHEIGHT;
+	bvhvec3 P = rd.p0 + mousex * (rd.p1 - rd.p0) + mousey * (rd.p2 - rd.p0);
+	Ray r( rd.eye, tinybvh_normalize( P - bvhvec3( rd.eye ) ) );
+	bvh.bvh8.bvh.Intersect( r );
+	bvhvec3 I = r.O + r.hit.t * r.D;
 	// print frame time / rate in window title
-	char title[50];
-	sprintf( title, "tiny_bvh %.2f s %.2f Hz", delta_time_s, 1.0f / delta_time_s );
+	char title[512];
+	sprintf( title, "tiny_bvh - prim %i - [%.2f,%.2f,%.2f] - %.1fms (%.2fHz)", r.hit.prim, I.x, I.y, I.z, delta_time_s * 1000, 1.0f / delta_time_s );
 	fenster_update_title( &f, title );
 }
 
 // Application Shutdown
-void Shutdown()
-{
-	// save camera position / direction to file
-	std::fstream s = std::fstream{ "camera_gpu.bin", s.binary | s.out };
-	s.write( (char*)&rd, sizeof( rd ) );
-}
+void Shutdown() { /* nothing here */ }
