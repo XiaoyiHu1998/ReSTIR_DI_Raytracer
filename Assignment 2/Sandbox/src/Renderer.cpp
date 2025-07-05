@@ -162,7 +162,10 @@ void Renderer::RenderFrameBuffer()
 				ReSTIRRender(ReSTIRPass::Temporal, taskBatch);
 
 			if (m_Settings.EnableSpatialReuse)
+			{
 				ReSTIRRender(ReSTIRPass::Spatial, taskBatch);
+				m_ResevoirBuffers.SwapSpatialBuffers();
+			}
 
 			ReSTIRRender(ReSTIRPass::Shading, taskBatch);
 		}
@@ -172,7 +175,7 @@ void Renderer::RenderFrameBuffer()
 
 		m_FrameBufferMutex.lock();
 		m_FrameBuffers.SwapBuffers();
-		m_ResevoirBuffers.SwapBuffers();
+		m_ResevoirBuffers.SwapTemporalBuffers();
 		m_FrameBufferMutex.unlock();
 
 		m_ValidHistory = true && m_ValidHistoryNextFrame;
@@ -374,9 +377,11 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 
 void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resolution, uint32_t bufferIndex, uint32_t& seed)
 {
+	m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex] = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+
 	for (int i = 0; i < m_Settings.SpatialReuseNeighbours; i++)
 	{
-		const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
+		const Resevoir& pixelResevoir = m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex];
 		Sample pixelSample = pixelResevoir.GetSample();
 
 		glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution,  m_Settings.SpatialPixelRadius, seed);
@@ -403,7 +408,7 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 			Resevoir spatialResevoir = Resevoir::CombineBiased(pixelResevoir, neighbourResevoir, seed);
 			pixelSample.ReplaceLight(spatialResevoir.GetSample().light);
 			spatialResevoir.SetSample(pixelSample);
-			m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = spatialResevoir;
+			m_ResevoirBuffers.GetSpatialReuseBuffer()[bufferIndex] = spatialResevoir;
 		}
 	}
 }

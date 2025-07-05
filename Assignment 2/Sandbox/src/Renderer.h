@@ -47,36 +47,48 @@ private:
 	uint32_t m_NextBuffer;
 };
 
-class DoubleResevoirBuffer
+class TripleResevoirBuffer
 {
 public:
-	DoubleResevoirBuffer()
+	TripleResevoirBuffer()
 	{
-		m_PrevBuffer = 1;
 		m_CurrentBuffer = 0;
+		m_PrevBuffer = 1;
+		m_SpatialReuseBuffer = 2;
+
 		m_ResevoirBuffers[0] = std::vector<Resevoir>();
 		m_ResevoirBuffers[1] = std::vector<Resevoir>();
+		m_ResevoirBuffers[2] = std::vector<Resevoir>();
 	}
 
-	void SwapBuffers()
+	void SwapTemporalBuffers()
 	{
-		m_PrevBuffer = (m_PrevBuffer + 1) % 2;
-		m_CurrentBuffer = (m_CurrentBuffer + 1) % 2;
+		std::swap(m_CurrentBuffer, m_PrevBuffer);
+	}
+
+	void SwapSpatialBuffers()
+	{
+		std::swap(m_CurrentBuffer, m_SpatialReuseBuffer);
 	}
 
 	std::vector<Resevoir>& GetCurrentBuffer() { return m_ResevoirBuffers[m_CurrentBuffer]; }
 	std::vector<Resevoir>& GetPrevBuffer() { return m_ResevoirBuffers[m_PrevBuffer]; }
+	std::vector<Resevoir>& GetSpatialReuseBuffer() { return m_ResevoirBuffers[m_SpatialReuseBuffer]; }
+
 	void ResizeBuffers(uint32_t bufferSize) 
 	{
-		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize)
+		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize || m_ResevoirBuffers[2].size() != bufferSize)
 		{
-			m_ResevoirBuffers[0].resize(bufferSize); m_ResevoirBuffers[1].resize(bufferSize);
+			m_ResevoirBuffers[0].resize(bufferSize);
+			m_ResevoirBuffers[1].resize(bufferSize);
+			m_ResevoirBuffers[2].resize(bufferSize);
 		}
 	}
 private:
-	std::vector<Resevoir> m_ResevoirBuffers[2];
+	std::vector<Resevoir> m_ResevoirBuffers[3];
 	uint32_t m_CurrentBuffer;
 	uint32_t m_PrevBuffer;
+	uint32_t m_SpatialReuseBuffer;
 };
 
 class Renderer
@@ -106,7 +118,7 @@ public:
 private:
 	std::vector<Sample> m_SampleBuffer;
 	DoubleFrameBuffer m_FrameBuffers;
-	DoubleResevoirBuffer m_ResevoirBuffers;
+	TripleResevoirBuffer m_ResevoirBuffers;
 	bool m_ValidHistory;
 	bool m_ValidHistoryNextFrame;
 
@@ -145,7 +157,7 @@ public:
 		m_LastFrameTime{ 0.0f }, m_SampleBuffer{ std::vector<Sample>() }
 	{
 		m_FrameBuffers = DoubleFrameBuffer();
-		m_ResevoirBuffers = DoubleResevoirBuffer();
+		m_ResevoirBuffers = TripleResevoirBuffer();
 
 		SettingsUpdated = false;
 		SceneUpdated = false;
