@@ -15,7 +15,7 @@ struct RendererSettings
 
 	RenderMode Mode = RenderMode::ReSTIR;
 
-	uint32_t ThreadCount = std::thread::hardware_concurrency();
+	int ThreadCount = std::thread::hardware_concurrency();
 
 	uint32_t FrameWidth = 3840;
 	uint32_t FrameHeight = 2160;
@@ -37,7 +37,7 @@ struct RendererSettings
 
 	// Temporal Reuse
 	bool EnableTemporalReuse = true;
-	int TemporalSampleCountRatio = 25;
+	int TemporalSampleCountRatio = 15;
 	float TemporalMaxDistance = 0.1f;
 	float TemporalMaxDistanceDepthScaling = 0.18f;
 	float TemporalMinNormalSimilarity = 0.93f;
@@ -45,7 +45,7 @@ struct RendererSettings
 	// Spatial Reuse
 	bool EnableSpatialReuse = true;
 	int SpatialReuseNeighbours = 3;
-	int SpatialPixelRadius = 15;
+	int SpatialPixelRadius = 10;
 	float SpatialMaxDistance = 0.06f;
 	float SpatialMaxDistanceDepthScaling = 0.005f;
 	float SpatialMinNormalSimilarity = 0.90f;

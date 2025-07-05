@@ -129,8 +129,13 @@ public:
 			m_RendererSettingsUI.Mode = static_cast<RendererSettings::RenderMode>(selectedMode);
 
 			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.65f);
-			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
+			if (ImGui::InputInt("Thread Count", &m_RendererSettingsUI.ThreadCount, 1, 1))
+			{
+				m_RendererSettingsUI.ThreadCount = std::max(0, m_RendererSettingsUI.ThreadCount);
+				m_RendererSettingsUI.ThreadCount = std::min(static_cast<int>(std::thread::hardware_concurrency()), m_RendererSettingsUI.ThreadCount);
+			}
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
+			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::Separator();
 
 			if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::DI)
