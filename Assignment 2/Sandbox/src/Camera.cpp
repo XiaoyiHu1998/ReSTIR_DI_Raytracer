@@ -14,13 +14,13 @@ glm::i32vec2 Camera::WorldSpaceToScreenSpace(const glm::vec3& worldPosition, uin
 	float leftDistance = glm::dot(cameraToPosition, m_Frustrum.leftNormal);
 	float rightDistance = glm::dot(cameraToPosition, m_Frustrum.rightNormal);
 
-	float u = leftDistance / (leftDistance + rightDistance);
-	float v = topDistance / (topDistance + bottomDistance);
+	float x = m_Width * leftDistance / (leftDistance + rightDistance);
+	float y = m_Height * topDistance / (topDistance + bottomDistance);
 
 	float xOffset = Utils::RandomFloat(seed) - 0.5f;
 	float yOffset = Utils::RandomFloat(seed) - 0.5f;
 
-	return glm::i32vec2(u * m_Width + xOffset, v * m_Height + yOffset);
+	return glm::i32vec2(x + xOffset, y + yOffset);
 }
 
 void Camera::SetResolution(uint32_t width, uint32_t height)

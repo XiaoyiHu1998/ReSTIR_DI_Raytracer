@@ -21,10 +21,13 @@ void TLAS::Traverse(Ray& ray) const
 
 bool TLAS::IsOccluded(const Ray& ray) const
 {
+	int i = 0;
 	bool occluded = false;
-	for (int i = 0; i < m_BLASList.size(); i++)
+	while (!occluded && i < m_BLASList.size())
 	{
 		occluded |= m_BLASList[i]->IsOccluded(ray);
+
+		i++;
 	}
 
 	return occluded;

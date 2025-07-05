@@ -285,19 +285,17 @@ public:
 				bool transformUpdated = false;
 
 				ImGui::PushID(blas->GetNameRef().c_str());
-				if (ImGui::InputText("Name", &blas->GetNameRef()))
-					ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
+				ImGui::InputText("Name", &blas->GetNameRef());
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
 				transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
 				transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
+				if (transformUpdated)
+					blas->UpdateTransform();
 				ImGui::Separator();
 
 				ImGui::PopID();
-
-				if (transformUpdated)
-					blas->UpdateTransform();
 			}
 			ImGui::End();
 		}

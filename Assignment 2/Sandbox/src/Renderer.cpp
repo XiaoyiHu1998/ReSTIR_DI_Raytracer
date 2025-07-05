@@ -100,7 +100,7 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 	{
 		PointLight randomPointLight = m_Scene.pointLights[Utils::RandomInt(0, m_Scene.pointLights.size(), seed)];
 		Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
-		m_Scene.tlas.Traverse(ray); // Edge case: hitting emmisive on first vertex
+		m_Scene.tlas.Traverse(ray);
 
 		sample = Sample(ray.hitInfo, m_Scene.camera.position, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
 		float weight = sample.contribution / sample.pdf;
@@ -225,8 +225,7 @@ glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 		glm::vec3 shadowRayOrigin = sample.hitPosition + (m_Settings.Eta * sample.lightDirection);
 		Ray shadowRay = Ray(shadowRayOrigin, sample.lightDirection, sample.lightDistance - 2.0f * m_Settings.Eta);
 
-		bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
-		if (!lightOccluded || !m_Settings.OcclusionCheckDI)
+		if (!m_Scene.tlas.IsOccluded(shadowRay))
 		{
 			outputColor = sample.BRDF * sample.light.emmission / (sample.lightDistance * sample.lightDistance);
 		}
