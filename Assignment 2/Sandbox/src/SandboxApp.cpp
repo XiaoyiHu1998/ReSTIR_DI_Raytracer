@@ -1,6 +1,7 @@
 #include <Hazel.h>
 
 #include "imgui/imgui.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
 #include "glm/ext.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/string_cast.hpp"
@@ -284,7 +285,8 @@ public:
 				bool transformUpdated = false;
 
 				ImGui::PushID(blas->GetNameRef().c_str());
-				ImGui::InputText("Name", &blas->GetNameRef()[0], blas->GetNameRef().size() + 1);
+				if (ImGui::InputText("Name", &blas->GetNameRef()))
+					ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
