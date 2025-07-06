@@ -50,7 +50,7 @@ struct RendererSettings
 	int SpatialPixelRadius = 10;
 	float SpatialMaxDistance = 0.160f;
 	float SpatialMaxDistanceDepthScaling = 0.020f;
-	float SpatialMinNormalSimilarity = 0.985f;
+	float SpatialMinNormalSimilarity = 0.75f;
 
 	bool operator==(const RendererSettings& otherSettings)
 	{

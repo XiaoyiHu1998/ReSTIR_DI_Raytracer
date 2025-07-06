@@ -16,6 +16,7 @@
 #include "Utils.h"
 
 using BLAS_TYPE = BVH_BLAS;
+
 class PathTracingLayer : public Hazel::Layer
 {
 public:
@@ -35,7 +36,7 @@ public:
 		// Geometry
 		LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)));
 		LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1)));
-		LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)));
+		m_ArmadilloIndex = LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)));
 
 		// Setup Rendering
 		HZ_INFO("Initiating Renderer");
@@ -44,7 +45,7 @@ public:
 		m_CurrentHeight = m_NextHeight = m_RendererSettingsUI.FrameHeight;
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
-		m_Camera.position = glm::vec3(-1.0f, 1.5f, -0.5f);
+		m_Camera.position = glm::vec3(-0.195f, 1.5f, -0.195f);
 		m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
 		m_MoveCamera = false;
 
@@ -91,6 +92,8 @@ public:
 
 		if (m_MoveCamera)
 			m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
+
+		m_TLAS.GetBLAS(m_ArmadilloIndex)->GetTransformRef().rotation += glm::vec3(0, 2, 0) * timestep.GetTimeSeconds();
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -347,6 +350,9 @@ private:
 	uint32_t m_LightColorSeed;
 	uint32_t m_LightLocationSeed;
 
+	// Animated Objects
+	uint32_t m_ArmadilloIndex;
+		
 	// UI
 	int m_SelectedNode;
 	bool m_MoveCamera;
@@ -406,7 +412,7 @@ private:
 		}
 	}
 
-	void LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform) 
+	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform) 
 	{
 		HZ_INFO("Loading Object {} from {}", objectName, fileName);
 		std::vector<Triangle> triangleBuffer;
@@ -416,7 +422,7 @@ private:
 		BLAS->SetObject(triangleBuffer, transform);
 		BLAS->SetName(objectName);
 
-		m_TLAS.AddBLAS(BLAS);
+		return m_TLAS.AddBLAS(BLAS);
 	}
 
 	void HandleCameraControls(Hazel::Timestep ts)

@@ -282,9 +282,9 @@ void Renderer::RenderFrameBuffer()
 		if (m_Settings.Mode != RendererSettings::RenderMode::ReSTIR)
 		{
 			TaskBatch taskBatch(m_Settings.ThreadCount);
-			for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
+			for (uint32_t y = 0; y < height; y += m_Settings.TileSize)
 			{
-				for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
+				for (uint32_t x = 0; x < width; x += m_Settings.TileSize)
 				{
 					uint32_t seed = x + y * width;
 					taskBatch.EnqueueTask([=]() {RenderKernelNonReSTIR(framebuffer, width, height, x, y, seed); });
@@ -295,10 +295,10 @@ void Renderer::RenderFrameBuffer()
 		else
 		{
 			auto ReSTIRRender = [&](ReSTIRPass restirPass, TaskBatch& taskBatch) {
-				for (uint32_t y = 0; y < height; y += m_Settings.KernelSize)
+				for (uint32_t y = 0; y < height; y += m_Settings.TileSize)
 				{
 					int yOffset = y * width;
-					for (uint32_t x = 0; x < width; x += m_Settings.KernelSize)
+					for (uint32_t x = 0; x < width; x += m_Settings.TileSize)
 					{
 						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + yOffset); });
 					}
@@ -339,8 +339,8 @@ void Renderer::RenderFrameBuffer()
 
 void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.KernelSize, width);
-	uint32_t yMax = std::min(yMin + m_Settings.KernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.TileSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.TileSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
@@ -388,8 +388,8 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 
 void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed)
 {
-	uint32_t xMax = std::min(xMin + m_Settings.KernelSize, width);
-	uint32_t yMax = std::min(yMin + m_Settings.KernelSize, height);
+	uint32_t xMax = std::min(xMin + m_Settings.TileSize, width);
+	uint32_t yMax = std::min(yMin + m_Settings.TileSize, height);
 
 	if (m_Settings.RandomSeed)
 	{
