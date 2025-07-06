@@ -1,5 +1,5 @@
 # ReSTIR Raytracer
-A Simple CPU based ReSTIR DI raytracer built in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) using Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).
+A Simple CPU based ReSTIR DI raytracer based on [Bitterli et. al.](https://benedikt-bitterli.me/restir/bitterli20restir.pdf) built in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) using Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).
 
 ![GIF of ReSTIR Raytracer](./Images/ReSTIR_Engine.gif)
 
