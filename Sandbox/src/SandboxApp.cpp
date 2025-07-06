@@ -60,6 +60,9 @@ public:
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
+
+		// UI
+		m_SelectedNode = 0;
 	}
 
 	~PathTracingLayer()
@@ -125,6 +128,23 @@ public:
 			ImGui::SetCursorPos(ImVec2(8, 32));
 			ImGui::Text("%.3f ms", m_Renderer.GetLastFrameTime());
 			ImGui::End();
+
+			// Controls Subwindow
+			ImGui::SetNextWindowBgAlpha(0.35f);
+			ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 16, viewportPosition.y + nextFrameResolution.y - 60));
+			ImGui::SetNextWindowSize(ImVec2(140, 80));
+			ImGui::Begin("Movement Controls", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+			ImGui::SetCursorPos(ImVec2(8, 8));
+			ImGui::Text("Q/E: Down/Up");
+			ImGui::SetCursorPos(ImVec2(8, 20));
+			ImGui::Text("WASD: Movement");
+			ImGui::SetCursorPos(ImVec2(8, 32));
+			ImGui::Text("R: Reset camera");
+			ImGui::SetCursorPos(ImVec2(8, 44));
+			ImGui::Text("Left Alt: Rotate");
+			ImGui::SetCursorPos(ImVec2(8, 56));
+			ImGui::Text("Left Shift: Sprint");
+			ImGui::End();
 		}
 
 		// Settings Window
@@ -170,8 +190,24 @@ public:
 				{
 					m_RendererSettingsUI.CandidateCountReSTIR = m_RendererSettingsUI.CandidateCountReSTIR < 1 ? 1 : m_RendererSettingsUI.CandidateCountReSTIR;
 				}
-				ImGui::Checkbox("Visibility Pass", &m_RendererSettingsUI.EnableVisibilityPass);
 				ImGui::Separator();
+				ImGui::Text("Visibility Pass");
+				ImGui::Checkbox("Enable", &m_RendererSettingsUI.EnableVisibilityPass);
+				ImGui::Separator();
+
+				// Temporal Reuse
+				ImGui::PushID("Temporal Reuse Options");
+				ImGui::Text("Temporal Reuse");
+				ImGui::Checkbox("Enable", &m_RendererSettingsUI.EnableTemporalReuse);
+				if (ImGui::InputInt("Sample Count Ratio", &m_RendererSettingsUI.TemporalSampleCountRatio))
+				{
+					m_RendererSettingsUI.TemporalSampleCountRatio = m_RendererSettingsUI.TemporalSampleCountRatio < 1 ? 1 : m_RendererSettingsUI.TemporalSampleCountRatio;
+				}
+				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.TemporalMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
+				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
+				ImGui::Separator();
+				ImGui::PopID();
 
 				// Spatial Reuse
 				ImGui::PushID("Spatial Reuse Options");
@@ -191,18 +227,6 @@ public:
 				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.SpatialMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
 				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
-				ImGui::PopID();
-
-				// Temporal Reuse
-				ImGui::PushID("Temporal Reuse Options");
-				ImGui::Checkbox("Temporal Reuse", &m_RendererSettingsUI.EnableTemporalReuse);
-				if (ImGui::InputInt("Sample Count Ratio", &m_RendererSettingsUI.TemporalSampleCountRatio))
-				{
-					m_RendererSettingsUI.TemporalSampleCountRatio = m_RendererSettingsUI.TemporalSampleCountRatio < 1 ? 1 : m_RendererSettingsUI.TemporalSampleCountRatio;
-				}
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.TemporalMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
-				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::PopID();
 			}
 
@@ -478,7 +502,7 @@ private:
 
 		if (Hazel::Input::IsKeyPressed(HZ_KEY_R))
 		{
-			m_Camera.position = glm::vec3(-1.0f, 1.5f, -0.05f);
+			m_Camera.position = glm::vec3(-0.195f, 1.5f, -0.195f);
 			m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
 		}
 	}

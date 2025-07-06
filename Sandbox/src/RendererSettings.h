@@ -42,7 +42,7 @@ struct RendererSettings
 	int TemporalSampleCountRatio = 15;
 	float TemporalMaxDistance = 0.100f;
 	float TemporalMaxDistanceDepthScaling = 0.015f;
-	float TemporalMinNormalSimilarity = 0.96f;
+	float TemporalMinNormalSimilarity = 0.75f;
 
 	// Spatial Reuse
 	bool EnableSpatialReuse = true;
@@ -50,7 +50,7 @@ struct RendererSettings
 	int SpatialPixelRadius = 10;
 	float SpatialMaxDistance = 0.160f;
 	float SpatialMaxDistanceDepthScaling = 0.020f;
-	float SpatialMinNormalSimilarity = 0.75f;
+	float SpatialMinNormalSimilarity = 0.96f;
 
 	bool operator==(const RendererSettings& otherSettings)
 	{
