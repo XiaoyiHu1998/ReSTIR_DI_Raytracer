@@ -16,7 +16,6 @@
 #include "Utils.h"
 
 using BLAS_TYPE = BVH_BLAS;
-
 class PathTracingLayer : public Hazel::Layer
 {
 public:
@@ -90,7 +89,7 @@ public:
 		HandleCameraControls(timestep);
 
 		if (m_MoveCamera)
-			m_Camera.position += glm::vec3(0.00075f * timestep, 0, 0);
+			m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -300,10 +299,8 @@ public:
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
-				transformUpdated |= ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
-				transformUpdated |= ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
-				if (transformUpdated)
-					blas->UpdateTransform();
+				ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
+				ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
 				ImGui::Separator();
 
 				ImGui::PopID();

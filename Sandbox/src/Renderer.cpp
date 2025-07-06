@@ -267,6 +267,8 @@ void Renderer::RenderFrameBuffer()
 
 			m_Scene.camera.SetResolution(m_Settings.FrameWidth, m_Settings.FrameHeight);
 			m_Scene.camera.UpdateState();
+
+			m_Scene.tlas.UpdateTransform();
 		}
 
 		uint32_t width = m_Settings.FrameWidth;

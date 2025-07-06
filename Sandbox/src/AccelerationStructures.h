@@ -34,6 +34,7 @@ public:
 	~TLAS() = default;
 
 	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS);
+	void UpdateTransform();
 
 	void Traverse(Ray& ray) const;
 	bool IsOccluded(const Ray& ray) const;
