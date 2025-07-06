@@ -10,8 +10,10 @@ struct Sample
 	// Sample path
 	bool hit;
 	float hitDistance;
-	glm::vec3 hitNormal;
 	glm::vec3 hitPosition;
+	glm::vec3 hitNormal;
+	glm::vec3 hitPrevPosition;
+	glm::vec3 hitPrevNormal;
 	
 	float lightDistance;
 	glm::vec3 lightDirection;

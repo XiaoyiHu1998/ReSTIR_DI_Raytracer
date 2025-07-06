@@ -51,13 +51,13 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 		return glm::vec4(0.8f, 0.2f, 0.8f, 1.0f);
 
 	auto CalcLightContribution = [=](const Ray& ray, const PointLight& pointLight) {
-		glm::vec3 lightDirection = pointLight.position - ray.hitInfo.location;
+		glm::vec3 lightDirection = pointLight.position - ray.hitInfo.position;
 		float lightDistance = glm::length(lightDirection);
 		lightDirection = glm::normalize(lightDirection);
 
 		if (glm::dot(ray.hitInfo.normal, lightDirection) > 0)
 		{
-			Ray shadowRay = Ray(ray.hitInfo.location + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2 * m_Settings.Eta);
+			Ray shadowRay = Ray(ray.hitInfo.position + (m_Settings.Eta * lightDirection), lightDirection, lightDistance - 2 * m_Settings.Eta);
 			bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
 			if (!lightOccluded || !m_Settings.OcclusionCheckDI)
 			{
@@ -116,9 +116,9 @@ void Renderer::VisibilityPass(uint32_t bufferIndex)
 	Resevoir& resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	const Sample& sample = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex].GetSampleRef();
 
-	if (!sample.hit)
+	if (!sample.hit || glm::dot(glm::normalize(sample.lightDirection), sample.hitNormal) < 0.001f)
 	{
-		resevoir.WeightSampleOut = 0.001f;
+		resevoir.WeightSampleOut = 0.0f;
 		return;
 	}
 
@@ -134,7 +134,7 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample pixelSample = pixelResevoir.GetSample();
 
-	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPosition, seed);
+	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPrevPosition, seed);
 	bool withinFrame = prevPixel.x >= 0 && prevPixel.y >= 0 && prevPixel.x < resolution.x && prevPixel.y < resolution.y;
 	if (!withinFrame || !m_ValidHistory)
 		return;
@@ -148,8 +148,8 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
 	// Grow maxDistance with camera distance to make sure distant pixels don't always exceed maxDistance
 	float scaledMaxDistance = m_Settings.TemporalMaxDistance + (cameraDistance * m_Settings.TemporalMaxDistanceDepthScaling);
-	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPosition) <= scaledMaxDistance;
-	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitNormal) >= m_Settings.TemporalMinNormalSimilarity;
+	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPrevPosition) <= scaledMaxDistance;
+	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitPrevNormal) >= m_Settings.TemporalMinNormalSimilarity;
 
 	glm::vec3 shadowRayDirection = prevSample.light.position - pixelSample.hitPosition;
 	float shadowRayDistance = glm::length(shadowRayDirection);

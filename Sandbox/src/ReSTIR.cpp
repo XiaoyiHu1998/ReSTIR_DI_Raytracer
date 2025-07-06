@@ -5,8 +5,10 @@ Sample::Sample(const HitInfo& hitInfo, const glm::vec3& cameraOrigin, const Poin
 {
 	hit = hitInfo.hit;
 	hitDistance = hitInfo.distance;
-	hitPosition = hitInfo.location;
+	hitPosition = hitInfo.position;
+	hitPrevPosition = hitInfo.prevPosition;
 	hitNormal = hitInfo.normal;
+	hitPrevNormal = hitInfo.prevNormal;
 	cameraPosition = cameraOrigin;
 	light = pointLight;
 	this->weight = weight;
@@ -25,7 +27,9 @@ Sample::Sample(const Sample& sample, float weight)
 	hit = sample.hit;
 	hitDistance = sample.hitDistance;
 	hitPosition = sample.hitPosition;
+	hitPrevPosition = sample.hitPrevPosition;
 	hitNormal = sample.hitNormal;
+	hitPrevNormal = sample.hitPrevNormal;
 	cameraPosition = sample.cameraPosition;
 	light = sample.light;
 	this->weight = weight;

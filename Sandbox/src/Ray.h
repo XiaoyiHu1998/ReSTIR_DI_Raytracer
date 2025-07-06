@@ -8,17 +8,19 @@ public:
 	bool hit;
 	float distance;
 
-	glm::vec3 location;
+	glm::vec3 position;
+	glm::vec3 prevPosition;
 	glm::vec3 normal;
+	glm::vec3 prevNormal;
 
 	// Debug info
 	int32_t traversalStepsHitBVH;
 	int32_t traversalStepsTotal;
 public:
 	HitInfo():
-		hit{ false }, distance{ std::numeric_limits<float>().infinity() }, location{ glm::vec3(0) },
-		traversalStepsHitBVH { 0 }, traversalStepsTotal { 0 },
-		normal { glm::vec3(0)}
+		hit{ false }, distance{ std::numeric_limits<float>().infinity() }, position{ glm::vec3(0) },
+		prevPosition{glm::vec3(0)}, traversalStepsHitBVH{ 0 }, traversalStepsTotal{ 0 },
+		normal{ glm::vec3(0) }, prevNormal{ glm::vec3(0) }
 	{}
 
 	HitInfo(bool hit) : // Members should be set manually after initialization

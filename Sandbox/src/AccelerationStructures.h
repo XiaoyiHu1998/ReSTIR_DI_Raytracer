@@ -54,11 +54,16 @@ private:
 #else
 	tinybvh::BVH4_CPU m_BVH;
 #endif
-	std::vector<tinybvh::bvhvec4> m_Positions;
 
+	std::vector<tinybvh::bvhvec4> m_Positions;
 	std::string m_Name;
+
 	Transform m_Transform;
+	Transform m_PrevTransform;
 	glm::mat4 m_InverseTransformMatrix;
+	glm::mat4 m_ToPreviousPositionMatrix;
+
+	bool m_HasTransformed;
 public:
 	BVH_BLAS() :
 		m_Name{ "" }, m_BVH{
@@ -81,7 +86,7 @@ public:
 	virtual bool IsOccluded(const Ray& ray) override;
 
 	virtual void SetName(const std::string& name) override { m_Name = name; }
-	virtual void UpdateTransform() override { m_InverseTransformMatrix = m_Transform.GetInverseTransformMatrix(); }
+	virtual void UpdateTransform() override;
 
 	virtual std::string& GetNameRef() override { return m_Name; }
 	virtual Transform& GetTransformRef() override { return m_Transform; }

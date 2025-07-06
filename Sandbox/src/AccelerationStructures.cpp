@@ -98,11 +98,12 @@ void BVH_BLAS::Traverse(Ray& ray)
 
 		// HitInfo Data
 		hitInfo.distance = tinybvhRay.hit.t;
-		hitInfo.location = ray.origin + ray.direction * tinybvhRay.hit.t;
+		hitInfo.position = ray.origin + ray.direction * tinybvhRay.hit.t;
+		hitInfo.prevPosition = m_ToPreviousPositionMatrix * glm::vec4(hitInfo.position, 1.0f);
 		hitInfo.normal = glm::normalize(glm::cross(position1 - position0, position2 - position0));
-		//hitInfo.material = m_Material;
+		hitInfo.prevNormal = m_ToPreviousPositionMatrix * glm::vec4(hitInfo.normal, 0.0f);
 		hitInfo.traversalStepsHitBVH = traversalSteps;
-		hitInfo.traversalStepsTotal = ray.hitInfo.traversalStepsTotal + traversalSteps;
+		hitInfo.traversalStepsTotal += ray.hitInfo.traversalStepsTotal + traversalSteps;
 
 		// Set new HitInfo
 		ray.hitInfo = hitInfo;
@@ -119,4 +120,36 @@ bool BVH_BLAS::IsOccluded(const Ray& ray)
 	float maxDistance = ray.hitInfo.distance;
 
 	return m_BVH.IsOccluded(tinybvh::Ray(origin, direction, maxDistance));
+}
+
+void BVH_BLAS::UpdateTransform()
+{
+	m_HasTransformed = m_PrevTransform != m_Transform;
+
+	// Going world and object space conversion
+	glm::mat4 transformMatrix = m_Transform.GetTransformMatrix(); // Object space to world space
+	m_InverseTransformMatrix = glm::inverse(transformMatrix); // World to object space
+
+	if (m_HasTransformed)
+	{
+		// Current position to prev position in object space
+		glm::vec3 translationDelta = m_PrevTransform.translation - m_Transform.translation;
+		glm::vec3 rotationDelta = m_PrevTransform.rotation - m_Transform.rotation;
+		glm::vec3 scaleDelta = glm::vec3(1);
+
+		glm::mat4 deltaMatrix = glm::translate(glm::mat4(1), translationDelta);
+		deltaMatrix = glm::rotate(deltaMatrix, glm::radians(rotationDelta.z), glm::vec3(0, 0, 1));
+		deltaMatrix = glm::rotate(deltaMatrix, glm::radians(rotationDelta.y), glm::vec3(0, 1, 0));
+		deltaMatrix = glm::rotate(deltaMatrix, glm::radians(rotationDelta.x), glm::vec3(1, 0, 0));
+		deltaMatrix = glm::scale(deltaMatrix, scaleDelta);
+
+		// World space position -> Object Space position -> Prev object space position -> Prev world space position
+		m_ToPreviousPositionMatrix = transformMatrix * deltaMatrix * m_InverseTransformMatrix;
+	}
+	else
+	{
+		m_ToPreviousPositionMatrix = glm::mat4(1);
+	}
+
+	m_PrevTransform = m_Transform;
 }

@@ -30,4 +30,14 @@ struct Transform
 	{
 		return glm::inverse(GetTransformMatrix());
 	}
+
+	bool operator==(const Transform& otherTransform)
+	{
+		return translation == otherTransform.translation && rotation == otherTransform.rotation && scale == otherTransform.scale;
+	}
+
+	bool operator!=(const Transform& otherTransform)
+	{
+		return !operator==(otherTransform);
+	}
 };
