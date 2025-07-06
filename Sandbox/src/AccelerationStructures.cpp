@@ -100,7 +100,7 @@ void BVH_BLAS::Traverse(Ray& ray)
 		hitInfo.distance = tinybvhRay.hit.t;
 		hitInfo.position = ray.origin + ray.direction * tinybvhRay.hit.t;
 		hitInfo.prevPosition = m_ToPreviousPositionMatrix * glm::vec4(hitInfo.position, 1.0f);
-		hitInfo.normal = glm::normalize(glm::cross(position1 - position0, position2 - position0));
+		hitInfo.normal = m_TransformMatrix * glm::vec4(glm::normalize(glm::cross(position1 - position0, position2 - position0)), 0.0f);
 		hitInfo.prevNormal = m_ToPreviousPositionMatrix * glm::vec4(hitInfo.normal, 0.0f);
 		hitInfo.traversalStepsHitBVH = traversalSteps;
 		hitInfo.traversalStepsTotal += ray.hitInfo.traversalStepsTotal + traversalSteps;
@@ -127,15 +127,15 @@ void BVH_BLAS::UpdateTransform()
 	m_HasTransformed = m_PrevTransform != m_Transform;
 
 	// Going world and object space conversion
-	glm::mat4 transformMatrix = m_Transform.GetTransformMatrix(); // Object space to world space
-	m_InverseTransformMatrix = glm::inverse(transformMatrix); // World to object space
+	m_TransformMatrix = m_Transform.GetTransformMatrix(); // Object space to world space
+	m_InverseTransformMatrix = glm::inverse(m_TransformMatrix); // World to object space
 
 	if (m_HasTransformed)
 	{
 		// Current position to prev position in object space
 		glm::vec3 translationDelta = m_PrevTransform.translation - m_Transform.translation;
 		glm::vec3 rotationDelta = m_PrevTransform.rotation - m_Transform.rotation;
-		glm::vec3 scaleDelta = glm::vec3(1);
+		glm::vec3 scaleDelta = (m_PrevTransform.scale - m_Transform.scale) + 1.0f;
 
 		glm::mat4 deltaMatrix = glm::translate(glm::mat4(1), translationDelta);
 		deltaMatrix = glm::rotate(deltaMatrix, glm::radians(rotationDelta.z), glm::vec3(0, 0, 1));
@@ -144,7 +144,7 @@ void BVH_BLAS::UpdateTransform()
 		deltaMatrix = glm::scale(deltaMatrix, scaleDelta);
 
 		// World space position -> Object Space position -> Prev object space position -> Prev world space position
-		m_ToPreviousPositionMatrix = transformMatrix * deltaMatrix * m_InverseTransformMatrix;
+		m_ToPreviousPositionMatrix = m_TransformMatrix * deltaMatrix * m_InverseTransformMatrix;
 	}
 	else
 	{

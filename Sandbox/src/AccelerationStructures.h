@@ -60,6 +60,8 @@ private:
 
 	Transform m_Transform;
 	Transform m_PrevTransform;
+
+	glm::mat4 m_TransformMatrix;
 	glm::mat4 m_InverseTransformMatrix;
 	glm::mat4 m_ToPreviousPositionMatrix;
 

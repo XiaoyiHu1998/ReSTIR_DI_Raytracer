@@ -32,18 +32,26 @@ bool GeometryLoader::LoadObj(const std::string& filepath, std::vector<Triangle>&
 				attributes.vertices[tinyObjIndex.vertex_index * 3 + 2]
 			};
 
-			glm::vec3 normal =
+			glm::vec3 normal = glm::vec3(0.0f);
+			if (attributes.normals.size() > 0)
 			{
-				attributes.normals[tinyObjIndex.normal_index * 3 + 0],
-				attributes.normals[tinyObjIndex.normal_index * 3 + 1],
-				attributes.normals[tinyObjIndex.normal_index * 3 + 2]
-			};
-
-			glm::vec2 texCoord =
+				normal =
+				{
+					attributes.normals[tinyObjIndex.normal_index * 3 + 0],
+					attributes.normals[tinyObjIndex.normal_index * 3 + 1],
+					attributes.normals[tinyObjIndex.normal_index * 3 + 2]
+				};
+			}
+			
+			glm::vec2 texCoord = glm::vec2(0.0f);
+			if (attributes.texcoords.size() > 0)
 			{
-				attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 0],
-				attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 1]
-			};
+				texCoord =
+				{
+					attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 0],
+					attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 1]
+				};
+			}
 
 			vertices.emplace_back(position, normal, texCoord);
 		}

@@ -33,8 +33,9 @@ public:
 		GenerateLights();
 
 		// Geometry
-		LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1)));
-		LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1, 1, 1)));
+		LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)));
+		LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1)));
+		LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)));
 
 		// Setup Rendering
 		HZ_INFO("Initiating Renderer");
