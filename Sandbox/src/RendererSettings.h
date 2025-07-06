@@ -20,7 +20,8 @@ struct RendererSettings
 
 	uint32_t FrameWidth = 3840;
 	uint32_t FrameHeight = 2160;
-	uint32_t KernelSize = 32;
+	int TileSize = 32;
+
 	uint32_t SamplesPerPixel = 1;
 
 	bool RandomSeed = true;
@@ -60,7 +61,7 @@ struct RendererSettings
 
 		sameSettings &= FrameWidth == otherSettings.FrameWidth;
 		sameSettings &= FrameHeight == otherSettings.FrameHeight;
-		sameSettings &= KernelSize == otherSettings.KernelSize;
+		sameSettings &= TileSize == otherSettings.TileSize;
 		sameSettings &= SamplesPerPixel == otherSettings.SamplesPerPixel;
 
 		sameSettings &= RandomSeed == otherSettings.RandomSeed;

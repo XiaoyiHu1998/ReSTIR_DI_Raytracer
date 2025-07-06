@@ -140,6 +140,10 @@ public:
 				m_RendererSettingsUI.ThreadCount = std::max(0, m_RendererSettingsUI.ThreadCount);
 				m_RendererSettingsUI.ThreadCount = std::min(static_cast<int>(std::thread::hardware_concurrency()), m_RendererSettingsUI.ThreadCount);
 			}
+			if (ImGui::InputInt("Tile size", &m_RendererSettingsUI.TileSize))
+			{
+				m_RendererSettingsUI.TileSize = std::min(std::max(4, m_RendererSettingsUI.TileSize), 256);
+			}
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::Separator();
