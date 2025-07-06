@@ -51,6 +51,8 @@ void Camera::UpdateCameraMatrix()
 
 	m_TransformMatrix = glm::lookAt(position, m_Forward, m_Up);
 	m_CameraPlaneZ = -m_HalfHeight / (glm::tan(glm::radians(verticalFOV) * 0.5f));
+
+	m_Forward = -m_Back;
 }
 
 void Camera::UpdateFrustrum()

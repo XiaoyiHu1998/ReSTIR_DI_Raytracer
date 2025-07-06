@@ -48,6 +48,9 @@ public:
 		m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
 		m_MoveCamera = false;
 
+		m_CameraMoveSpeed = 0.0075f;
+		m_CameraRotationSpeed = 0.2f;
+
 		m_Renderer;
 		m_Renderer.Init(m_RendererSettingsUI, Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 
@@ -83,6 +86,8 @@ public:
 
 		m_RendererSettingsUI.FrameWidth = m_CurrentWidth;
 		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
+
+		HandleCameraControls(timestep);
 
 		if (m_MoveCamera)
 			m_Camera.position += glm::vec3(0.00075f * timestep, 0, 0);
@@ -249,10 +254,16 @@ public:
 				ImGui::DragFloat3("Rotation", glm::value_ptr(m_Camera.rotation), 0.05f);
 				ImGui::Separator();
 
-				ImGui::Text("Camera Settings");
+				ImGui::Text("View");
 				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
 				ImGui::DragFloat("Vertical FoV", &m_Camera.verticalFOV, 0.1f, 1.0f, 160.0f);
+				ImGui::Separator();
+
+				ImGui::Text("Movement");
+				ImGui::DragFloat("Movement Speed", &m_CameraMoveSpeed, 0.1f, 0.001f, 5.0f);
+				ImGui::DragFloat("Rotation Speed", &m_CameraRotationSpeed, 0.1f, 0.001f, 5.0f);
 				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
+				ImGui::Separator();
 
 				ImGui::PopID();
 			}
@@ -261,11 +272,11 @@ public:
 				ImGui::PushID("Properties_Lights");
 
 				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
-				ImGui::DragInt("Light Count", &m_LightCount, 1, 0, 10000);
-				ImGui::DragInt("Light Color Seed", &m_LightColor, 1, 0, 1000);
-				ImGui::DragInt("Light Location Seed", &m_LightLocation, 1, 0, 1000);
+				ImGui::DragInt("Count", &m_LightCount, 1, 0, 10000);
+				ImGui::DragInt("Color Seed", &m_LightColor, 1, 0, 1000);
+				ImGui::DragInt("Location Seed", &m_LightLocation, 1, 0, 1000);
 
-				ImGui::DragFloat("Light Intensity", &m_LightStrength, 0.010f, 0.0f, 30.0f);
+				ImGui::DragFloat("Intensity", &m_LightStrength, 0.010f, 0.0f, 30.0f);
 
 				if (ImGui::Button("Generate"))
 				{
@@ -307,11 +318,6 @@ public:
 	{
 
 	}
-
-	void HandleInput(Hazel::Timestep ts) 
-	{
-		
-	}
 private:
 	// Viewport and rendering
 	uint32_t m_FrameBufferID;
@@ -324,8 +330,12 @@ private:
 	Renderer m_Renderer;
 	RendererSettings m_RendererSettingsUI;
 
-	// World state
+	// Camera
 	Camera m_Camera;
+	float m_CameraMoveSpeed;
+	float m_CameraRotationSpeed;
+
+	// World state
 	TLAS m_TLAS;
 	std::vector<PointLight> m_pointLights;
 	float m_LightStrength;
@@ -405,6 +415,64 @@ private:
 		BLAS->SetName(objectName);
 
 		m_TLAS.AddBLAS(BLAS);
+	}
+
+	void HandleCameraControls(Hazel::Timestep ts)
+	{
+		m_Camera.UpdateCameraMatrix();
+
+		float moveSpeed = m_CameraMoveSpeed * ts;
+		float turnSpeed = m_CameraRotationSpeed * ts;
+
+		if (Hazel::Input::IsKeyPressed(HZ_KEY_LEFT_SHIFT))
+		{
+			moveSpeed *= 1.5f;
+			turnSpeed *= 1.5f;
+		}
+
+		if (Hazel::Input::IsKeyPressed(HZ_KEY_LEFT_ALT))
+		{
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_W))
+				m_Camera.rotation -= glm::vec3(1.0f, 0.0f, 0.0f) * turnSpeed;
+
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_S))
+				m_Camera.rotation += glm::vec3(1.0f, 0.0f, 0.0f) * turnSpeed;
+
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_A))
+				m_Camera.rotation -= glm::vec3(0.0f, 1.0f, 0.0f) * turnSpeed;
+
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_D))
+				m_Camera.rotation += glm::vec3(0.0f, 1.0f, 0.0f) * turnSpeed;
+		}
+		else 
+		{
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_W))
+				m_Camera.position += m_Camera.Forward() * moveSpeed;
+
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_S))
+				m_Camera.position += m_Camera.Back() * moveSpeed;
+
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_A))
+				m_Camera.position += m_Camera.Left() * moveSpeed;
+
+			if (Hazel::Input::IsKeyPressed(HZ_KEY_D))
+				m_Camera.position += m_Camera.Right() * moveSpeed;
+		}
+
+		if (Hazel::Input::IsKeyPressed(HZ_KEY_Q))
+		{
+			m_Camera.position -= m_Camera.Up() * moveSpeed;
+		}
+		else if (Hazel::Input::IsKeyPressed(HZ_KEY_E))
+		{
+			m_Camera.position += m_Camera.Up() * moveSpeed;
+		}
+
+		if (Hazel::Input::IsKeyPressed(HZ_KEY_R))
+		{
+			m_Camera.position = glm::vec3(-1.0f, 1.5f, -0.05f);
+			m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
+		}
 	}
 };
 
