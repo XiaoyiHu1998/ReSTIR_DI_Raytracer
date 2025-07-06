@@ -129,8 +129,10 @@ private:
 	RendererSettings m_NewSettings;
 	Scene m_NewScene;
 
-	std::thread m_RenderThread;
-	std::mutex m_FrameBufferMutex;
+	std::thread m_RenderThread; 
+	std::atomic<bool> m_Terminate;
+
+	std::mutex m_FrameBufferLock;
 	std::mutex m_SettingsLock;
 	std::mutex m_SceneLock;
 
@@ -164,6 +166,8 @@ public:
 		SceneUpdated = false;
 		m_ValidHistory = false;
 		m_ValidHistoryNextFrame = true;
+
+		m_Terminate = false;
 	}
 
 	void Init(const RendererSettings& settings, const Scene& scene)
@@ -227,10 +231,16 @@ public:
 
 	FrameBufferRef GetFrameBuffer()
 	{
-		m_FrameBufferMutex.lock();
+		m_FrameBufferLock.lock();
 		FrameBufferRef frameBuffer = m_FrameBuffers.GetFrameBuffer();
-		m_FrameBufferMutex.unlock();
+		m_FrameBufferLock.unlock();
 
 		return frameBuffer;
+	}
+
+	void Terminate()
+	{
+		m_Terminate = true;
+		m_RenderThread.join();
 	}
 };

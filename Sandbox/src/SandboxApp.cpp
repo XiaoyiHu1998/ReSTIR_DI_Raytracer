@@ -67,6 +67,7 @@ public:
 
 	~PathTracingLayer()
 	{
+		m_Renderer.Terminate();
 		RenderCommand::DeleteFrameBufferTexture(m_FrameBufferID);
 	}
 

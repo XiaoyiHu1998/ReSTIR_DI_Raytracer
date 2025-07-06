@@ -238,13 +238,13 @@ glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 
 void Renderer::RenderFrameBuffer()
 {
-	while (true)
+	while (!m_Terminate)
 	{
 		auto timeStart = std::chrono::system_clock::now();
 
-		m_FrameBufferMutex.lock();
+		m_FrameBufferLock.lock();
 		FrameBufferRef framebuffer = m_FrameBuffers.GetRenderBuffer();
-		m_FrameBufferMutex.unlock();
+		m_FrameBufferLock.unlock();
 
 		if (SettingsUpdated)
 		{
@@ -327,10 +327,10 @@ void Renderer::RenderFrameBuffer()
 		auto timeEnd = std::chrono::system_clock::now();
 		m_LastFrameTime = std::chrono::duration<float, std::ratio<1, 1000>>(timeEnd - timeStart).count();
 
-		m_FrameBufferMutex.lock();
+		m_FrameBufferLock.lock();
 		m_FrameBuffers.SwapBuffers();
 		m_ResevoirBuffers.SwapTemporalBuffers();
-		m_FrameBufferMutex.unlock();
+		m_FrameBufferLock.unlock();
 
 		m_ValidHistory = true && m_ValidHistoryNextFrame;
 		m_ValidHistoryNextFrame = true;
