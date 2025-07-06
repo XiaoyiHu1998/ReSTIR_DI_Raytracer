@@ -303,7 +303,9 @@ public:
 			{
 				ImGui::PushID("Properties_Lights");
 
-				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.5f);
+				ImGui::Text("Light Generation");
+				ImGui::Separator();
+				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.75f);
 				ImGui::DragInt("Count", &m_LightCount, 1, 0, 10000);
 				ImGui::DragInt("Color Seed", &m_LightColor, 1, 0, 1000);
 				ImGui::DragInt("Location Seed", &m_LightLocation, 1, 0, 1000);
