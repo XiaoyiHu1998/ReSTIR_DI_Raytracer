@@ -9,7 +9,6 @@ Hazel/vendor/GLFW/bin-int
 
 # Files
 .user
-*/imgui.ini
 *.sln
 */*.vcxproj
 */*.vcxproj.filters
