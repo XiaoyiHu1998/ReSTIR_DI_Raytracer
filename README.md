@@ -1,5 +1,7 @@
 # ReSTIR Raytracer
-A Simple CPU based ReSTIR DI raytracer based on [Bitterli et. al.](https://benedikt-bitterli.me/restir/bitterli20restir.pdf) built in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) using Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).
+A Simple CPU based ReSTIR DI raytracer based on the paper by [Bitterli et. al.](https://benedikt-bitterli.me/restir/bitterli20restir.pdf)
+
+The program is built in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) using Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).
 
 ![GIF of ReSTIR Raytracer](./Images/ReSTIR_Engine.gif)
 
@@ -8,6 +10,7 @@ Build Instructions:
 2. Edit GenerateProject.bat to your version of Visual Studio (VS 2022 reccomended)
 3. Run GenerateProject.bat
 4. Open Solution and run program
+
 
 Requirements:
 - Windows 10 or higher
