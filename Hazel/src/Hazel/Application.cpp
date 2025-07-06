@@ -57,12 +57,13 @@ namespace Hazel
 	}
 
 	void Application::Run() {
-		float time = glfwGetTime();
-		Timestep ts = time - m_LastFrameTime;
-		m_LastFrameTime = time;
 		
 		while (m_Running)
 		{
+			float time = glfwGetTime();
+			Timestep ts = time - m_LastFrameTime;
+			m_LastFrameTime = time;
+
 			for (Layer* layer : m_layerStack)
 				layer->OnUpdate(ts);
 
