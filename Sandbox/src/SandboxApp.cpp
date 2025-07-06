@@ -27,8 +27,8 @@ public:
 		m_TLAS = TLAS();
 		
 		// Lights
-		m_LightLocationSeed = 0;
-		m_LightColorSeed = 0;
+		m_LightLocation = m_LightLocationSeed = 0;
+		m_LightColor = m_LightColorSeed = 0;
 		m_LightStrength = 0.65f;
 		m_LightCount = 100;
 		GenerateLights();
@@ -48,8 +48,8 @@ public:
 		m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
 		m_MoveCamera = false;
 
-		m_CameraMoveSpeed = 0.0075f;
-		m_CameraRotationSpeed = 0.2f;
+		m_CameraMoveSpeed = 0.25f;
+		m_CameraRotationSpeed = 11.25f;
 
 		m_Renderer;
 		m_Renderer.Init(m_RendererSettingsUI, Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -426,8 +426,8 @@ private:
 
 		if (Hazel::Input::IsKeyPressed(HZ_KEY_LEFT_SHIFT))
 		{
-			moveSpeed *= 1.5f;
-			turnSpeed *= 1.5f;
+			moveSpeed *= 4.0f;
+			turnSpeed *= 3.0f;
 		}
 
 		if (Hazel::Input::IsKeyPressed(HZ_KEY_LEFT_ALT))
