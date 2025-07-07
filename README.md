@@ -7,16 +7,16 @@ The program is built in C++ in an early version of TheCherno's [Hazel Engine](ht
 
 Features:
 - ReSTIR DI
-- Reprojection for camera and object animations
-<!---- OBJ mesh loading-->
+- Rigid Animations
+- OBJ Mesh Loading
 
 Build Instructions:
-1. Clone Repository
-2. Set ```GenerateProject.bat``` to your version of Visual Studio (```vs2022``` or ```vs2019``` reccomended)
-3. Run ```GenerateProject.bat```
-4. Open ```hazel.sln``` and run program
+1. Clone Repository.
+2. Set ```GenerateProject.bat``` to your version of Visual Studio (```vs2022``` or ```vs2019```).
+3. Run ```GenerateProject.bat```.
+4. Open ```hazel.sln``` and run program.
 
 Requirements:
-- Windows 10 or higher
-- Visual Studio 2019 or higher
+- Windows 10 or higher.
+- Visual Studio 2019 or higher.
 - C++17
