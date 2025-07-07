@@ -8,7 +8,8 @@ The program is built in C++ in an early version of TheCherno's [Hazel Engine](ht
 Features:
 - ReSTIR DI
 - Rigid Animations
-- OBJ Mesh Loading
+- OBJ Mesh Importing
+- Scalable, runs at 4fps on an R5 5600X in a scene with 32 million vertices with animations
 
 **Warning:** The build system uses the ```.\vendor\bin\premake\premake5.exe``` executable included in the repository to build a visual studio solution.  
 Download the executable from the [official site](https://premake.github.io/download) if you want to be sure its safe!
