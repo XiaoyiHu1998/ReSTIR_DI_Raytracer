@@ -343,6 +343,7 @@ public:
 				ImGui::Text("Transform");
 				ImGui::DragFloat3("Position", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).translation), 0.05f);
 				ImGui::DragFloat3("Rotation", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).rotation), 0.05f);
+				ImGui::DragFloat3("Scale", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).scale), 0.05f);
 				ImGui::Separator();
 
 				ImGui::PopID();

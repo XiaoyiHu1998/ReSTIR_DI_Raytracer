@@ -142,8 +142,8 @@ void TLAS::Traverse(Ray& ray) const
 		hitInfo.distance = tinybvhRay.hit.t;
 		hitInfo.position = ray.origin + ray.direction * tinybvhRay.hit.t;
 		hitInfo.prevPosition = toPreviousPosition * glm::vec4(hitInfo.position, 1.0f);
-		hitInfo.normal = m_TransformMatrices[blasIndex] * glm::vec4(Utils::TriangleNormal(position0, position1, position2), 0.0f);
-		hitInfo.prevNormal = toPreviousPosition * glm::vec4(hitInfo.normal, 0.0f);
+		hitInfo.normal = glm::normalize(m_TransformMatrices[blasIndex] * glm::vec4(Utils::TriangleNormal(position0, position1, position2), 0.0f));
+		hitInfo.prevNormal = glm::normalize(toPreviousPosition * glm::vec4(hitInfo.normal, 0.0f));
 		hitInfo.traversalStepsHitBVH = traversalSteps;
 		hitInfo.traversalStepsTotal += ray.hitInfo.traversalStepsTotal + traversalSteps;
 
