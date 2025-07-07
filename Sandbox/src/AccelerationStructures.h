@@ -51,6 +51,8 @@ private:
 	std::vector<std::shared_ptr<BLAS>> m_BLASList;
 	std::vector<tinybvh::BLASInstance> m_BLASInstances;
 	std::vector<tinybvh::BVHBase*> m_BVHPointers;
+	
+	uint32_t m_VertexCount;
 
 	// UI
 	std::vector<std::string> m_Names;
@@ -64,19 +66,21 @@ private:
 	std::vector<glm::mat4> m_ToPreviousPositionMatrices;
 public:
 	TLAS() :
-		m_TLAS{ std::make_shared<tinybvh::BVH>() }, m_PrevTransforms{ std::make_shared<std::vector<Transform>>() }
+		m_TLAS{ std::make_shared<tinybvh::BVH>() }, m_PrevTransforms{ std::make_shared<std::vector<Transform>>() },
+		m_VertexCount{ 0 }
 	{}
 
 	~TLAS() = default;
 
 	void Build();
-	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS, const std::string& name, const Transform& transform);
+	uint32_t AddBLAS(const std::shared_ptr<BLAS>& blas, const std::string& name, const Transform& transform);
 
 	void Traverse(Ray& ray) const;
 	bool IsOccluded(const Ray& ray) const;
 
 	void UpdateTransform();
 
+	uint32_t GetVertexCount() { return m_VertexCount; }
 	uint32_t GetObjectCount() const { return m_BLASList.size(); }
 	std::string& GetNameRef(uint32_t index) { return m_Names[index]; }
 	Transform& GetTransformRef(uint32_t index) { return m_Transforms[index]; }
