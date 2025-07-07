@@ -29,14 +29,16 @@ public:
 		GenerateLights();
 
 		// Geometry
+		m_EnableRotation;
+		m_RotationSpeed;
 		m_TLAS = TLAS();
 		uint32_t sponzaIndex = LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)));
 		uint32_t sphereIndex = LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1)));
-		m_ArmadilloIndex = LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)));
+		uint32_t armadilloIndex = LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)), true);
 
 		m_TLAS.GetTransformRef(sponzaIndex) = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1));
 		m_TLAS.GetTransformRef(sphereIndex) = Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1));
-		m_TLAS.GetTransformRef(m_ArmadilloIndex) = Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1));
+		m_TLAS.GetTransformRef(armadilloIndex) = Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1));
 		m_TLAS.UpdateTransform();
 		m_TLAS.Build();
 
@@ -99,7 +101,11 @@ public:
 		if (m_MoveCamera)
 			m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
 
-		m_TLAS.GetTransformRef(m_ArmadilloIndex).rotation += glm::vec3(0, 2, 0) * timestep.GetTimeSeconds();
+		for (int i = 0; i < m_TLAS.GetObjectCount(); i++)
+		{
+			if (m_EnableRotation[i])
+				m_TLAS.GetTransformRef(i).rotation += m_RotationSpeed[i] * timestep.GetTimeSeconds();
+		}
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -345,10 +351,15 @@ public:
 				ImGui::DragFloat3("Rotation", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).rotation), 0.05f);
 				if (ImGui::DragFloat3("Scale", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).scale), 0.05f))
 				{
+					// Prevent crashing due to NaN rays
 					m_TLAS.GetTransformRef(blasIndex).scale.x = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.x);
 					m_TLAS.GetTransformRef(blasIndex).scale.y = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.y);
 					m_TLAS.GetTransformRef(blasIndex).scale.z = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.z);
 				}
+				ImGui::Separator();
+				ImGui::Text("Auto rotation");
+				ImGui::Checkbox("Enable Rotation", (bool*)(&(m_EnableRotation[blasIndex])));
+				ImGui::DragFloat3("Rotation Speed", glm::value_ptr(m_RotationSpeed[blasIndex]), 0.05f);
 				ImGui::Separator();
 
 				ImGui::PopID();
@@ -390,8 +401,9 @@ private:
 	uint32_t m_LightColorSeed;
 	uint32_t m_LightLocationSeed;
 
-	// Animated Objects
-	uint32_t m_ArmadilloIndex;
+	// Object Animation
+	std::vector<uint32_t> m_EnableRotation;
+	std::vector<glm::vec3> m_RotationSpeed;
 		
 	// UI
 	int m_SelectedNode;
@@ -467,7 +479,7 @@ private:
 		}
 	}
 
-	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform)
+	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform, bool autoRotate = false)
 	{
 		HZ_INFO("Loading Object {} from {}", objectName, fileName);
 		std::vector<Triangle> triangleBuffer;
@@ -476,10 +488,12 @@ private:
 		std::shared_ptr<BLAS> blas = std::make_shared<BLAS>();
 		blas->SetObject(triangleBuffer);
 
+		AddObjectToRotationList(autoRotate);
+
 		return m_TLAS.AddBLAS(blas, objectName, transform);
 	}
 
-	uint32_t LoadObject(const std::string& fileName)
+	uint32_t LoadObject(const std::string& fileName, bool autoRotate = false)
 	{
 		// Get objectName from fileName
 		std::string objectName = fileName;
@@ -503,7 +517,16 @@ private:
 		objectTransform.translation = m_Camera.position + m_Camera.Forward() * 3.5f;
 		blas->SetObject(triangleBuffer);
 
+		AddObjectToRotationList(autoRotate);
+
 		return m_TLAS.AddBLAS(blas, objectName, objectTransform);
+	}
+
+	void AddObjectToRotationList(bool autoRotate)
+	{
+		uint32_t rotate = autoRotate ? 255 : 0;
+		m_EnableRotation.push_back(rotate);
+		m_RotationSpeed.push_back(glm::vec3(0.0f, 2.0f, 0.0f));
 	}
 
 	void HandleCameraControls(Hazel::Timestep ts)
