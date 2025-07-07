@@ -10,9 +10,12 @@ Features:
 - Rigid Animations
 - OBJ Mesh Loading
 
+**Warning:** The build system uses the ```.\vendor\bin\premake\premake5.exe``` executable included in the repository to build a visual studio solution.  
+Download the executable from the [official site](https://premake.github.io/download) if you want to be sure its safe!
+
 Build Instructions:
 1. Clone Repository.
-2. Set ```GenerateProject.bat``` to your version of Visual Studio (```vs2022``` or ```vs2019```).
+2. Edit ```GenerateProject.bat``` to your version of Visual Studio (```vs2022``` or ```vs2019```).
 3. Run ```GenerateProject.bat```.
 4. Open ```hazel.sln``` and run program.
 
