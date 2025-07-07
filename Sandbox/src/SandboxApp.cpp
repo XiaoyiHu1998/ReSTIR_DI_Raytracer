@@ -343,7 +343,12 @@ public:
 				ImGui::Text("Transform");
 				ImGui::DragFloat3("Position", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).translation), 0.05f);
 				ImGui::DragFloat3("Rotation", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).rotation), 0.05f);
-				ImGui::DragFloat3("Scale", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).scale), 0.05f);
+				if (ImGui::DragFloat3("Scale", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).scale), 0.05f))
+				{
+					m_TLAS.GetTransformRef(blasIndex).scale.x = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.x);
+					m_TLAS.GetTransformRef(blasIndex).scale.y = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.y);
+					m_TLAS.GetTransformRef(blasIndex).scale.z = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.z);
+				}
 				ImGui::Separator();
 
 				ImGui::PopID();
