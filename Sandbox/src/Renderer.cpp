@@ -36,7 +36,7 @@ namespace RenderModeTraversalSteps
 
 		tlas.Traverse(ray);
 		if (ray.hitInfo.hit)
-			E = 0.5f * (1.0f / 100.0f) * glm::vec3(ray.hitInfo.traversalStepsHitBVH) + 0.5f;
+			E = glm::vec3(static_cast<float>(ray.hitInfo.traversalStepsHitBVH) * 0.025f) + 0.1f;
 
 		return glm::vec4(E, 1.0f);
 	}
