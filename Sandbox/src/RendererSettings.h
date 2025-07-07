@@ -27,6 +27,9 @@ struct RendererSettings
 	bool RandomSeed = true;
 	float Eta = 0.001f;
 
+	// Normal Rendering
+	bool RenderPrevNormals = false;
+
 	// DI Rendering
 	bool OcclusionCheckDI = true;
 	bool SampleAllLightsDI = false;
@@ -66,6 +69,9 @@ struct RendererSettings
 
 		sameSettings &= RandomSeed == otherSettings.RandomSeed;
 		sameSettings &= Eta == otherSettings.Eta;
+
+		// Normal Rendering
+		RenderPrevNormals = otherSettings.RenderPrevNormals;
 
 		// DI Rendering
 		sameSettings &= OcclusionCheckDI == otherSettings.OcclusionCheckDI;

@@ -15,17 +15,12 @@
 #include "GeometryLoader.h"
 #include "Utils.h"
 
-using BLAS_TYPE = BVH_BLAS;
-
-class PathTracingLayer : public Hazel::Layer
+class RaytracerLayer : public Hazel::Layer
 {
 public:
-	PathTracingLayer() :
+	RaytracerLayer() :
 		Layer("PathTracing")
 	{
-		// Create Scene
-		m_TLAS = TLAS();
-		
 		// Lights
 		m_LightLocation = m_LightLocationSeed = 0;
 		m_LightColor = m_LightColorSeed = 0;
@@ -34,9 +29,16 @@ public:
 		GenerateLights();
 
 		// Geometry
-		LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)));
-		LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1)));
+		m_TLAS = TLAS();
+		uint32_t sponzaIndex = LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)));
+		uint32_t sphereIndex = LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1)));
 		m_ArmadilloIndex = LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)));
+
+		m_TLAS.GetTransformRef(sponzaIndex) = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1));
+		m_TLAS.GetTransformRef(sphereIndex) = Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1));
+		m_TLAS.GetTransformRef(m_ArmadilloIndex) = Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1));
+		m_TLAS.UpdateTransform();
+		m_TLAS.Build();
 
 		// Setup Rendering
 		HZ_INFO("Initiating Renderer");
@@ -65,7 +67,7 @@ public:
 		m_SelectedNode = 0;
 	}
 
-	~PathTracingLayer()
+	~RaytracerLayer()
 	{
 		m_Renderer.Terminate();
 		RenderCommand::DeleteFrameBufferTexture(m_FrameBufferID);
@@ -97,7 +99,7 @@ public:
 		if (m_MoveCamera)
 			m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
 
-		m_TLAS.GetBLAS(m_ArmadilloIndex)->GetTransformRef().rotation += glm::vec3(0, 2, 0) * timestep.GetTimeSeconds();
+		m_TLAS.GetTransformRef(m_ArmadilloIndex).rotation += glm::vec3(0, 2, 0) * timestep.GetTimeSeconds();
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
@@ -172,10 +174,16 @@ public:
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::Separator();
 
-			if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::DI)
+			if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::Normals)
+			{
+				ImGui::Text("Normal Rendering");
+				ImGui::Checkbox("Render Previous Normals", &m_RendererSettingsUI.RenderPrevNormals);
+				ImGui::Separator();
+			}
+			else if (m_RendererSettingsUI.Mode == RendererSettings::RenderMode::DI)
 			{
 				ImGui::Text("DI Rendering");
-				ImGui::Checkbox("Sample all lights", &m_RendererSettingsUI.SampleAllLightsDI);
+				ImGui::Checkbox("Sample All Lights", &m_RendererSettingsUI.SampleAllLightsDI);
 				ImGui::Checkbox("Light Occlusion", &m_RendererSettingsUI.OcclusionCheckDI);
 				if (ImGui::InputInt("Light Candidates", &m_RendererSettingsUI.CandidateCountDI))
 				{
@@ -204,8 +212,8 @@ public:
 				{
 					m_RendererSettingsUI.TemporalSampleCountRatio = m_RendererSettingsUI.TemporalSampleCountRatio < 1 ? 1 : m_RendererSettingsUI.TemporalSampleCountRatio;
 				}
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.TemporalMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
+				ImGui::DragFloat("Max Distance", &m_RendererSettingsUI.TemporalMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max Distance Depth Scaling", &m_RendererSettingsUI.TemporalMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
 				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.TemporalMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 				ImGui::PopID();
@@ -224,8 +232,8 @@ public:
 				{
 					m_RendererSettingsUI.SpatialPixelRadius = m_RendererSettingsUI.SpatialPixelRadius < 3 ? 3 : m_RendererSettingsUI.SpatialPixelRadius;
 				}
-				ImGui::DragFloat("Max distance", &m_RendererSettingsUI.SpatialMaxDistance, 0.001f, 0.0f, 1.0f);
-				ImGui::DragFloat("Max distance depth scaling", &m_RendererSettingsUI.SpatialMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
+				ImGui::DragFloat("Max Distance", &m_RendererSettingsUI.SpatialMaxDistance, 0.001f, 0.0f, 1.0f);
+				ImGui::DragFloat("Max Distance Depth Scaling", &m_RendererSettingsUI.SpatialMaxDistanceDepthScaling, 0.001f, 0.0f, 5.0f);
 				ImGui::DragFloat("Min Normal Similarity", &m_RendererSettingsUI.SpatialMinNormalSimilarity, 0.001f, 0.0f, 1.0f);
 				ImGui::Separator();
 				ImGui::PopID();
@@ -263,7 +271,7 @@ public:
 			DrawImGUiTreeNodeEX(1, "Lights");
 			for (uint32_t i = 0; i < m_TLAS.GetObjectCount(); i++)
 			{
-				DrawImGUiTreeNodeEX(i + 2, m_TLAS.GetBLAS(i)->GetNameRef().c_str());
+				DrawImGUiTreeNodeEX(i + 2, m_TLAS.GetNameRef(i).c_str());
 			}
 
 			ImGui::End();
@@ -326,16 +334,15 @@ public:
 			else if (2 <= m_SelectedNode && m_SelectedNode < m_TLAS.GetObjectCount() + 2)
 			{
 				uint32_t blasIndex = m_SelectedNode - 2;
-				std::shared_ptr<BLAS> blas = m_TLAS.GetBLAS(blasIndex);
 				bool transformUpdated = false;
 
-				ImGui::PushID(blas->GetNameRef().c_str());
-				ImGui::InputText("Name", &blas->GetNameRef());
+				ImGui::PushID(m_TLAS.GetNameRef(blasIndex).c_str());
+				ImGui::InputText("Name", &m_TLAS.GetNameRef(blasIndex));
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
-				ImGui::DragFloat3("position", glm::value_ptr(blas->GetTransformRef().translation), 0.05f);
-				ImGui::DragFloat3("rotation", glm::value_ptr(blas->GetTransformRef().rotation), 0.05f);
+				ImGui::DragFloat3("Position", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).translation), 0.05f);
+				ImGui::DragFloat3("Rotation", glm::value_ptr(m_TLAS.GetTransformRef(blasIndex).rotation), 0.05f);
 				ImGui::Separator();
 
 				ImGui::PopID();
@@ -421,10 +428,7 @@ private:
 				{
 					std::string objFilePath;
 					if (GetObjFilePath(objFilePath))
-					{
-						HZ_TRACE(objFilePath);
 						LoadObject(objFilePath);
-					}
 				}
 				ImGui::EndMenu();
 			}
@@ -463,11 +467,10 @@ private:
 		std::vector<Triangle> triangleBuffer;
 		GeometryLoader::LoadObj(fileName, triangleBuffer);
 
-		std::shared_ptr<BLAS_TYPE> BLAS = std::make_shared<BLAS_TYPE>();
-		BLAS->SetObject(triangleBuffer, transform);
-		BLAS->SetName(objectName);
+		std::shared_ptr<BLAS> blas = std::make_shared<BLAS>();
+		blas->SetObject(triangleBuffer);
 
-		return m_TLAS.AddBLAS(BLAS);
+		return m_TLAS.AddBLAS(blas, objectName, transform);
 	}
 
 	uint32_t LoadObject(const std::string& fileName)
@@ -489,13 +492,12 @@ private:
 		std::vector<Triangle> triangleBuffer;
 		GeometryLoader::LoadObj(fileName, triangleBuffer);
 
-		std::shared_ptr<BLAS_TYPE> BLAS = std::make_shared<BLAS_TYPE>();
+		std::shared_ptr<BLAS> blas = std::make_shared<BLAS>();
 		Transform objectTransform;
 		objectTransform.translation = m_Camera.position + m_Camera.Forward() * 3.5f;
-		BLAS->SetObject(triangleBuffer, objectTransform);
-		BLAS->SetName(objectName);
+		blas->SetObject(triangleBuffer);
 
-		return m_TLAS.AddBLAS(BLAS);
+		return m_TLAS.AddBLAS(blas, objectName, objectTransform);
 	}
 
 	void HandleCameraControls(Hazel::Timestep ts)
@@ -576,7 +578,7 @@ private:
 			return true;
 		}
 
-		HZ_WARN("Failed to open OBJ file.");
+		HZ_WARN("Failed to open OBJ file or User cancelled OBJ file selection.");
 		return false;
 	}
 };
@@ -586,7 +588,7 @@ class Sandbox : public Hazel::Application
 public:
 	Sandbox() 
 	{
-		PushLayer(new PathTracingLayer());
+		PushLayer(new RaytracerLayer());
 	}
 
 	~Sandbox() 

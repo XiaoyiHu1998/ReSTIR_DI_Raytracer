@@ -11,13 +11,16 @@
 
 namespace RenderModeNormal
 {
-	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, uint32_t& seed)
+	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const RendererSettings& settings, uint32_t& seed)
 	{
 		glm::vec3 E(0.1f);
 
 		tlas.Traverse(ray);
 		if (ray.hitInfo.hit)
-			E = 0.5f * ray.hitInfo.normal + 0.5f;
+		{
+			glm::vec3 normal = settings.RenderPrevNormals ? ray.hitInfo.prevNormal : ray.hitInfo.normal;
+			E = 0.5f * normal + 0.5f;
+		}
 
 		return glm::vec4(E, 1.0f);
 	}
@@ -27,7 +30,7 @@ namespace RenderModeNormal
 
 namespace RenderModeTraversalSteps
 {
-	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, uint32_t& seed)
+	glm::vec4 RenderRay(Ray& ray, const TLAS& tlas, const RendererSettings& settings, uint32_t& seed)
 	{
 		glm::vec3 E(0.1f);
 
@@ -269,6 +272,7 @@ void Renderer::RenderFrameBuffer()
 			m_Scene.camera.UpdateState();
 
 			m_Scene.tlas.UpdateTransform();
+			m_Scene.tlas.Build();
 		}
 
 		uint32_t width = m_Settings.FrameWidth;
@@ -350,14 +354,14 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 	}
 
 	glm::vec4 colorAccumulator;
-	auto renderKernel = [&](std::function<glm::vec4(Ray&, const TLAS&, uint32_t&)> renderFunction)
+	auto renderKernel = [&](std::function<glm::vec4(Ray&, const TLAS&, const RendererSettings&, uint32_t&)> renderFunction)
 	{
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
 			for (uint32_t x = xMin; x < xMax; x++)
 			{
 				Ray ray = m_Scene.camera.GetRay(x, y);
-				Utils::FillFrameBufferPixel(x, y, renderFunction(ray, m_Scene.tlas, seed), width, frameBuffer);
+				Utils::FillFrameBufferPixel(x, y, renderFunction(ray, m_Scene.tlas, m_Settings, seed), width, frameBuffer);
 			}
 		}
 	};

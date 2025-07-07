@@ -9,43 +9,6 @@
 
 class BLAS
 {
-public:
-	~BLAS() = default;
-
-	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform) = 0;
-	virtual void Refit() = 0;
-	virtual void Traverse(Ray& ray) = 0;
-	virtual bool IsOccluded(const Ray& ray) = 0;
-
-	virtual void SetName(const std::string& name) = 0;
-	virtual void UpdateTransform() = 0;
-
-	virtual std::string& GetNameRef() = 0;
-	virtual Transform& GetTransformRef() = 0;
-};
-
-
-class TLAS
-{
-private:
-	std::vector<std::shared_ptr<BLAS>> m_BLASList;
-public:
-	TLAS() = default;
-	~TLAS() = default;
-
-	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS);
-	void UpdateTransform();
-
-	void Traverse(Ray& ray) const;
-	bool IsOccluded(const Ray& ray) const;
-
-	uint32_t GetObjectCount() const { return m_BLASList.size(); }
-	std::shared_ptr<BLAS> GetBLAS(uint32_t index) const { return m_BLASList[index]; }
-};
-
-
-class BVH_BLAS : public BLAS
-{
 private:
 #if defined(__AVX2__)
 	tinybvh::BVH8_CPU m_BVH;
@@ -54,21 +17,10 @@ private:
 #else
 	tinybvh::BVH4_CPU m_BVH;
 #endif
-
-	std::vector<tinybvh::bvhvec4> m_Positions;
-	std::string m_Name;
-
-	Transform m_Transform;
-	Transform m_PrevTransform;
-
-	glm::mat4 m_TransformMatrix;
-	glm::mat4 m_InverseTransformMatrix;
-	glm::mat4 m_ToPreviousPositionMatrix;
-
-	bool m_HasTransformed;
+	std::vector<tinybvh::bvhvec4> m_Vertices;
 public:
-	BVH_BLAS() :
-		m_Name{ "" }, m_BVH{
+	BLAS() :
+		m_BVH{
 #if defined(__AVX2__)
 			tinybvh::BVH8_CPU()
 #elif defined(__AVX__) && defined(USE_EXPERIMENTAL_BVH)
@@ -76,20 +28,57 @@ public:
 #else
 			tinybvh::BVH4_CPU()
 #endif
-		}, m_Positions{ std::vector<tinybvh::bvhvec4>() },
-		m_InverseTransformMatrix{ glm::mat4(1) }
+		}, 
+		m_Vertices{ std::vector<tinybvh::bvhvec4>() }
 	{}
 
-	~BVH_BLAS() = default;
+	~BLAS() = default;
 
-	virtual void SetObject(const std::vector<Triangle>& triangles, const Transform& transform) override;
-	virtual void Refit() override { m_BVH.Refit(); }
-	virtual void Traverse(Ray& ray) override;
-	virtual bool IsOccluded(const Ray& ray) override;
+	void SetObject(const std::vector<Triangle>& triangles);
+	void Refit() { m_BVH.Refit(); }
 
-	virtual void SetName(const std::string& name) override { m_Name = name; }
-	virtual void UpdateTransform() override;
+	tinybvh::BVHBase* GetBVHPointer() { return &m_BVH; }
+protected:
+	friend class TLAS;
+	const std::vector<tinybvh::bvhvec4>& GetVertices() { return m_Vertices; }
+};
 
-	virtual std::string& GetNameRef() override { return m_Name; }
-	virtual Transform& GetTransformRef() override { return m_Transform; }
+class TLAS
+{
+private:
+	// BVHs
+	std::shared_ptr<tinybvh::BVH> m_TLAS;
+	std::vector<std::shared_ptr<BLAS>> m_BLASList;
+	std::vector<tinybvh::BLASInstance> m_BLASInstances;
+	std::vector<tinybvh::BVHBase*> m_BVHPointers;
+
+	// UI
+	std::vector<std::string> m_Names;
+	std::vector<Transform> m_Transforms;
+
+	// Transforms & Reprojection
+	// m_PrevTransforms is shared pointer to prevent loss of information of prev frames on copy
+	std::shared_ptr<std::vector<Transform>> m_PrevTransforms; 
+	std::vector<glm::mat4> m_TransformMatrices;
+	std::vector<glm::mat4> m_InverseTransformMatrices;
+	std::vector<glm::mat4> m_ToPreviousPositionMatrices;
+public:
+	TLAS() :
+		m_TLAS{ std::make_shared<tinybvh::BVH>() }, m_PrevTransforms{ std::make_shared<std::vector<Transform>>() }
+	{}
+
+	~TLAS() = default;
+
+	void Build();
+	uint32_t AddBLAS(const std::shared_ptr<BLAS>& BLAS, const std::string& name, const Transform& transform);
+
+	void Traverse(Ray& ray) const;
+	bool IsOccluded(const Ray& ray) const;
+
+	void UpdateTransform();
+
+	uint32_t GetObjectCount() const { return m_BLASList.size(); }
+	std::string& GetNameRef(uint32_t index) { return m_Names[index]; }
+	Transform& GetTransformRef(uint32_t index) { return m_Transforms[index]; }
+	std::shared_ptr<BLAS> GetBLAS(uint32_t index) const { return m_BLASList[index]; }
 };
