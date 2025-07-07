@@ -412,6 +412,24 @@ private:
 		// Main dockspace, this is where all our windows are drawn
 		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+
+		if (ImGui::BeginMenuBar())
+		{
+			if (ImGui::BeginMenu("Files"))
+			{
+				if (ImGui::MenuItem("Import OBJ"))
+				{
+					std::string objFilePath;
+					if (GetObjFilePath(objFilePath))
+					{
+						HZ_TRACE(objFilePath);
+						LoadObject(objFilePath);
+					}
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
+		}
 		ImGui::End();
 	}
 
@@ -439,7 +457,7 @@ private:
 		}
 	}
 
-	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform) 
+	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform)
 	{
 		HZ_INFO("Loading Object {} from {}", objectName, fileName);
 		std::vector<Triangle> triangleBuffer;
@@ -447,6 +465,34 @@ private:
 
 		std::shared_ptr<BLAS_TYPE> BLAS = std::make_shared<BLAS_TYPE>();
 		BLAS->SetObject(triangleBuffer, transform);
+		BLAS->SetName(objectName);
+
+		return m_TLAS.AddBLAS(BLAS);
+	}
+
+	uint32_t LoadObject(const std::string& fileName)
+	{
+		// Get objectName from fileName
+		std::string objectName = fileName;
+		std::string delimiter = "\\";
+		auto position = fileName.find(delimiter);
+		while (position != std::string::npos) 
+		{
+			objectName.erase(0, position + delimiter.length());
+			position = objectName.find(delimiter);
+		}
+		position = objectName.find(".");
+		objectName = objectName.substr(0, position);
+
+		// Load object
+		HZ_INFO("Loading Object {} from {}", objectName, fileName);
+		std::vector<Triangle> triangleBuffer;
+		GeometryLoader::LoadObj(fileName, triangleBuffer);
+
+		std::shared_ptr<BLAS_TYPE> BLAS = std::make_shared<BLAS_TYPE>();
+		Transform objectTransform;
+		objectTransform.translation = m_Camera.position + m_Camera.Forward() * 3.5f;
+		BLAS->SetObject(triangleBuffer, objectTransform);
 		BLAS->SetName(objectName);
 
 		return m_TLAS.AddBLAS(BLAS);
@@ -508,6 +554,30 @@ private:
 			m_Camera.position = glm::vec3(-0.195f, 1.5f, -0.195f);
 			m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
 		}
+	}
+
+	bool GetObjFilePath(std::string& filepath)
+	{
+		char filepath_charArray[MAX_PATH];
+		OPENFILENAMEA toOpenFileName;
+		ZeroMemory(&filepath_charArray, sizeof(filepath_charArray));
+		ZeroMemory(&toOpenFileName, sizeof(toOpenFileName));
+		toOpenFileName.lStructSize = sizeof(toOpenFileName);
+		toOpenFileName.lpstrFile = filepath_charArray;
+		toOpenFileName.nMaxFile = MAX_PATH;
+		toOpenFileName.hwndOwner = NULL;
+		toOpenFileName.lpstrTitle = "Select obj file.";
+		toOpenFileName.lpstrFilter = ".obj\0*.obj\0";
+		toOpenFileName.Flags = OFN_FILEMUSTEXIST | OFN_DONTADDTORECENT;
+
+		if (GetOpenFileNameA(&toOpenFileName))
+		{
+			filepath = std::string(filepath_charArray);
+			return true;
+		}
+
+		HZ_WARN("Failed to open OBJ file.");
+		return false;
 	}
 };
 

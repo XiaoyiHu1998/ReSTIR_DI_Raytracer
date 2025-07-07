@@ -15,6 +15,9 @@
 #include "Hazel/Log.h"
 
 #ifdef HZ_PLATFORM_WINDOWS
+	#define NOMINMAX
 	#include <Windows.h>
+	#include <commdlg.h>
+	#undef NOMINMAX
 #endif
 
