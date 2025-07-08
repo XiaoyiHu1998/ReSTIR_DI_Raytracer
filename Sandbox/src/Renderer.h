@@ -6,13 +6,16 @@
 #include "Glad/include/glad/glad.h"
 
 #include "Include.h"
+
+#include "AccelerationStructures.h"
 #include "Camera.h"
 #include "Ray.h"
-#include "Primitives.h"
-#include "AccelerationStructures.h"
-#include "Utils.h"
+#include "PointLight.h"
+
 #include "ReSTIR.h"
 #include "RendererSettings.h"
+
+#include "Utils.h"
 
 class DoubleFrameBuffer
 {

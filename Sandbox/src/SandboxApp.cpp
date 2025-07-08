@@ -502,11 +502,11 @@ private:
 	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform, bool autoRotate = false)
 	{
 		HZ_INFO("Loading Object {} from {}", objectName, fileName);
-		std::vector<Triangle> triangleBuffer;
-		GeometryLoader::LoadObj(fileName, triangleBuffer);
+		std::vector<tinybvh::bvhvec4> vertexBuffer;
+		GeometryLoader::LoadObj(fileName, vertexBuffer);
 
 		std::shared_ptr<BLAS> blas = std::make_shared<BLAS>();
-		blas->SetObject(triangleBuffer);
+		blas->SetObject(vertexBuffer);
 
 		AddObjectToRotationList(autoRotate);
 
@@ -529,13 +529,13 @@ private:
 
 		// Load object
 		HZ_INFO("Loading Object {} from {}", objectName, fileName);
-		std::vector<Triangle> triangleBuffer;
-		GeometryLoader::LoadObj(fileName, triangleBuffer);
+		std::vector<tinybvh::bvhvec4> vertexBuffer;
+		GeometryLoader::LoadObj(fileName, vertexBuffer);
 
 		std::shared_ptr<BLAS> blas = std::make_shared<BLAS>();
 		Transform objectTransform;
 		objectTransform.translation = m_Camera.position + m_Camera.Forward() * 3.5f;
-		blas->SetObject(triangleBuffer);
+		blas->SetObject(vertexBuffer);
 
 		AddObjectToRotationList(autoRotate);
 

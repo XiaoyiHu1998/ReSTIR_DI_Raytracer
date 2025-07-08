@@ -1,9 +1,8 @@
 #include "GeometryLoader.h"
 
-bool GeometryLoader::LoadObj(const std::string& filepath, std::vector<Triangle>& triangles)
+bool GeometryLoader::LoadObj(const std::string& filepath, std::vector<tinybvh::bvhvec4>& vertices)
 {
-	triangles.clear();
-	std::vector<Vertex> vertices;
+	vertices.clear();
 	tinyobj::ObjReader objReader;
 
 	objReader.ParseFromFile(filepath);
@@ -25,42 +24,12 @@ bool GeometryLoader::LoadObj(const std::string& filepath, std::vector<Triangle>&
 		{
 			tinyobj::index_t tinyObjIndex = mesh.indices[meshIndex];
 
-			glm::vec3 position =
-			{
-				attributes.vertices[tinyObjIndex.vertex_index * 3 + 0],
-				attributes.vertices[tinyObjIndex.vertex_index * 3 + 1],
-				attributes.vertices[tinyObjIndex.vertex_index * 3 + 2]
-			};
+			float x = attributes.vertices[tinyObjIndex.vertex_index * 3 + 0];
+			float y = attributes.vertices[tinyObjIndex.vertex_index * 3 + 1];
+			float z = attributes.vertices[tinyObjIndex.vertex_index * 3 + 2];
 
-			glm::vec3 normal = glm::vec3(0.0f);
-			if (attributes.normals.size() > 0)
-			{
-				normal =
-				{
-					attributes.normals[tinyObjIndex.normal_index * 3 + 0],
-					attributes.normals[tinyObjIndex.normal_index * 3 + 1],
-					attributes.normals[tinyObjIndex.normal_index * 3 + 2]
-				};
-			}
-			
-			glm::vec2 texCoord = glm::vec2(0.0f);
-			if (attributes.texcoords.size() > 0)
-			{
-				texCoord =
-				{
-					attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 0],
-					attributes.texcoords[tinyObjIndex.texcoord_index * 2 + 1]
-				};
-			}
-
-			vertices.emplace_back(position, normal, texCoord);
+			vertices.emplace_back(x, y, z, 0.0f);
 		}
-	}
-
-	triangles.reserve(vertices.size() / 3);
-	for (int i = 0; i < vertices.size(); i += 3)
-	{
-		triangles.emplace_back(vertices[i + 0], vertices[i + 1], vertices[i + 2]);
 	}
 
 	return true;

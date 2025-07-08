@@ -3,7 +3,6 @@
 #include "Include.h"
 #include "Ray.h"
 #include "Transform.h"
-#include "Primitives.h"
 #include "Utils.h"
 
 // Used for temporal reprojection

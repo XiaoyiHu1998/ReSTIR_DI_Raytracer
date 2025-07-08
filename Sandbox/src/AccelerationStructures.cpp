@@ -4,7 +4,7 @@
 
 //=================== BLAS =====================
 
-void BLAS::SetObject(const std::vector<Triangle>& triangles)
+void BLAS::SetObject(std::vector<tinybvh::bvhvec4>& vertices)
 {
 #if defined(__AVX2__)
 	m_BVH = tinybvh::BVH8_CPU();
@@ -13,18 +13,9 @@ void BLAS::SetObject(const std::vector<Triangle>& triangles)
 #else
 	m_BVH = tinybvh::BVH4_CPU();
 #endif
-	m_Vertices.reserve(triangles.size() * 3);
-
-	for (int i = 0; i < triangles.size(); i++)
-	{
-		Vertex vertex0 = triangles[i].GetVertex0();
-		Vertex vertex1 = triangles[i].GetVertex1();
-		Vertex vertex2 = triangles[i].GetVertex2();
-
-		m_Vertices.emplace_back(vertex0.position.x, vertex0.position.y, vertex0.position.z, 0.0f);
-		m_Vertices.emplace_back(vertex1.position.x, vertex1.position.y, vertex1.position.z, 0.0f);
-		m_Vertices.emplace_back(vertex2.position.x, vertex2.position.y, vertex2.position.z, 0.0f);
-	}
+	m_Vertices = std::vector<tinybvh::bvhvec4>();
+	m_Vertices.insert(m_Vertices.end(), std::make_move_iterator(vertices.begin()), std::make_move_iterator(vertices.end()));
+	vertices.clear();
 
 	m_BVH.BuildHQ(m_Vertices.data(), m_Vertices.size() / 3);
 }

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Include.h"
-#include "Primitives.h"
+
+#include "PointLight.h"
 #include "Ray.h"
 #include "Utils.h"
 

@@ -4,7 +4,6 @@
 
 #include "Include.h"
 #include "Ray.h"
-#include "Primitives.h"
 #include "Transform.h"
 
 class BLAS
@@ -28,13 +27,12 @@ public:
 #else
 			tinybvh::BVH4_CPU()
 #endif
-		}, 
-		m_Vertices{ std::vector<tinybvh::bvhvec4>() }
+		}
 	{}
 
 	~BLAS() = default;
 
-	void SetObject(const std::vector<Triangle>& triangles);
+	void SetObject(std::vector<tinybvh::bvhvec4>& vertices);
 	void Refit() { m_BVH.Refit(); }
 
 	tinybvh::BVHBase* GetBVHPointer() { return &m_BVH; }
