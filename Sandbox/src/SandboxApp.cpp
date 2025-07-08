@@ -32,18 +32,25 @@ public:
 		GenerateLights();
 
 		// Geometry
-		m_EnableRotation;
-		m_RotationSpeed;
-		m_TLAS = TLAS();
-		uint32_t sponzaIndex = LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza", Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)));
-		uint32_t sphereIndex = LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere", Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1)));
-		uint32_t armadilloIndex = LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo", Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1)), true);
+		m_TLAS;
+		m_ObjectNames;
+		m_AutoTransform;
+		m_EnableAutoTransform;
+
+		uint32_t sponzaIndex = LoadObject(".\\assets\\models\\sponza_small.obj", "Sponza");
+		uint32_t sphereIndex = LoadObject(".\\assets\\models\\sphere_high_res.obj", "Sphere");
+		uint32_t dragonIndex = LoadObject(".\\assets\\models\\dragon_460k.obj", "Dragon");
+		uint32_t armadilloIndex = LoadObject(".\\assets\\models\\armadillo_small.obj", "Armadillo");
 
 		m_TLAS.GetTransformRef(sponzaIndex) = Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1));
-		m_TLAS.GetTransformRef(sphereIndex) = Transform(glm::vec3(5.7f, 0.3f, -0.95f), glm::vec3(0, 0, 0), glm::vec3(1));
+		m_TLAS.GetTransformRef(sphereIndex) = Transform(glm::vec3(3.850f, 0.3f, 0.400f), glm::vec3(0, 0, 0), glm::vec3(1));
+		m_TLAS.GetTransformRef(dragonIndex) = Transform(glm::vec3(12.350f, 0.850f, 0.650f), glm::vec3(0, 31.765f, 0), glm::vec3(1.5f));
 		m_TLAS.GetTransformRef(armadilloIndex) = Transform(glm::vec3(5.550f, 0.0f, 2.650f), glm::vec3(0, 60.0f, 0), glm::vec3(1));
 		m_TLAS.UpdateTransform();
 		m_TLAS.Build();
+
+		SetObjectAutoTransform(armadilloIndex, true, Transform(glm::vec3(0), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0)));
+		SetObjectAutoTransform(dragonIndex, true, Transform(glm::vec3(0), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0)));
 
 		// Setup Rendering
 		HZ_INFO("Initiating Renderer");
@@ -52,8 +59,8 @@ public:
 		m_CurrentHeight = m_NextHeight = m_RendererSettingsUI.FrameHeight;
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
-		m_Camera.position = glm::vec3(-0.195f, 1.5f, -0.195f);
-		m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
+		m_Camera.position = glm::vec3(-0.195f, 2.07f, -0.195f);
+		m_Camera.rotation = glm::vec3(8.144f, 111.0f, 0.0f);
 		m_MoveCamera = false;
 
 		m_CameraMoveSpeed = 0.25f;
@@ -106,8 +113,12 @@ public:
 
 		for (int i = 0; i < m_TLAS.GetObjectCount(); i++)
 		{
-			if (m_EnableRotation[i])
-				m_TLAS.GetTransformRef(i).rotation += m_RotationSpeed[i] * timestep.GetTimeSeconds();
+			if (m_EnableAutoTransform[i])
+			{
+				m_TLAS.GetTransformRef(i).translation += m_AutoTransform[i].translation * timestep.GetTimeSeconds();
+				m_TLAS.GetTransformRef(i).rotation += m_AutoTransform[i].rotation * timestep.GetTimeSeconds();
+				m_TLAS.GetTransformRef(i).scale += m_AutoTransform[i].scale * timestep.GetTimeSeconds();
+			}
 		}
 
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
@@ -289,7 +300,7 @@ public:
 			DrawImGUiTreeNodeEX(1, "Lights");
 			for (uint32_t i = 0; i < m_TLAS.GetObjectCount(); i++)
 			{
-				DrawImGUiTreeNodeEX(i + 2, m_TLAS.GetNameRef(i).c_str());
+				DrawImGUiTreeNodeEX(i + 2, m_ObjectNames[i].c_str());
 			}
 
 			ImGui::End();
@@ -359,8 +370,8 @@ public:
 				uint32_t blasIndex = m_SelectedNode - 2;
 				bool transformUpdated = false;
 
-				ImGui::PushID(m_TLAS.GetNameRef(blasIndex).c_str());
-				ImGui::InputText("Name", &m_TLAS.GetNameRef(blasIndex));
+				ImGui::PushID(char(blasIndex));
+				ImGui::InputText("Name", &m_ObjectNames[blasIndex]);
 				ImGui::Separator();
 
 				ImGui::Text("Transform");
@@ -374,9 +385,11 @@ public:
 					m_TLAS.GetTransformRef(blasIndex).scale.z = std::max(0.00000001f, m_TLAS.GetTransformRef(blasIndex).scale.z);
 				}
 				ImGui::Separator();
-				ImGui::Text("Auto rotation");
-				ImGui::Checkbox("Enable Rotation", (bool*)(&(m_EnableRotation[blasIndex])));
-				ImGui::DragFloat3("Rotation Speed", glm::value_ptr(m_RotationSpeed[blasIndex]), 0.05f);
+				ImGui::Text("Animation");
+				ImGui::Checkbox("Enable", (bool*)(&(m_EnableAutoTransform[blasIndex])));
+				ImGui::DragFloat3("Translation Speed", glm::value_ptr(m_AutoTransform[blasIndex].translation), 0.05f);
+				ImGui::DragFloat3("Rotation Speed", glm::value_ptr(m_AutoTransform[blasIndex].rotation), 0.05f);
+				ImGui::DragFloat3("Scale Speed", glm::value_ptr(m_AutoTransform[blasIndex].scale), 0.05f);
 				ImGui::Separator();
 
 				ImGui::PopID();
@@ -422,12 +435,13 @@ private:
 	glm::vec3 m_LightBoxPosition;
 
 	// Object Animation
-	std::vector<uint32_t> m_EnableRotation;
-	std::vector<glm::vec3> m_RotationSpeed;
+	std::vector<uint32_t> m_EnableAutoTransform;
+	std::vector<Transform> m_AutoTransform;
 		
 	// UI
 	int m_SelectedNode;
 	bool m_MoveCamera;
+	std::vector<std::string> m_ObjectNames;
 private:
 	void DrawImGuiDockSpace()
 	{
@@ -499,27 +513,31 @@ private:
 		}
 	}
 
-	uint32_t LoadObject(const std::string& fileName, const std::string& objectName, const Transform& transform, bool autoRotate = false)
+	uint32_t LoadObject(const std::string& fileName, const std::string& objectName)
 	{
+		// Load object
 		HZ_INFO("Loading Object {} from {}", objectName, fileName);
 		std::vector<tinybvh::bvhvec4> vertexBuffer;
 		GeometryLoader::LoadObj(fileName, vertexBuffer);
 
 		std::shared_ptr<BLAS> blas = std::make_shared<BLAS>();
+		Transform objectTransform;
+		objectTransform.translation = m_Camera.position + m_Camera.Forward() * 3.5f;
 		blas->SetObject(vertexBuffer);
 
-		AddObjectToRotationList(autoRotate);
+		AddObjectToRotationList();
+		m_ObjectNames.push_back(objectName);
 
-		return m_TLAS.AddBLAS(blas, objectName, transform);
+		return m_TLAS.AddBLAS(blas, objectTransform);
 	}
 
-	uint32_t LoadObject(const std::string& fileName, bool autoRotate = false)
+	uint32_t LoadObject(const std::string& fileName)
 	{
 		// Get objectName from fileName
 		std::string objectName = fileName;
 		std::string delimiter = "\\";
 		auto position = fileName.find(delimiter);
-		while (position != std::string::npos) 
+		while (position != std::string::npos)
 		{
 			objectName.erase(0, position + delimiter.length());
 			position = objectName.find(delimiter);
@@ -537,16 +555,24 @@ private:
 		objectTransform.translation = m_Camera.position + m_Camera.Forward() * 3.5f;
 		blas->SetObject(vertexBuffer);
 
-		AddObjectToRotationList(autoRotate);
+		AddObjectToRotationList();
+		m_ObjectNames.push_back(objectName);
 
-		return m_TLAS.AddBLAS(blas, objectName, objectTransform);
+		return m_TLAS.AddBLAS(blas, objectTransform);
 	}
 
-	void AddObjectToRotationList(bool autoRotate)
+	void SetObjectAutoTransform(uint32_t index, bool enable, const Transform& transform = Transform())
 	{
-		uint32_t rotate = autoRotate ? 255 : 0;
-		m_EnableRotation.push_back(rotate);
-		m_RotationSpeed.push_back(glm::vec3(0.0f, 2.0f, 0.0f));
+		m_EnableAutoTransform[index] = enable ? 1 : 0;
+
+		if (enable)
+			m_AutoTransform[index] = transform;
+	}
+
+	void AddObjectToRotationList()
+	{
+		m_EnableAutoTransform.push_back(0);
+		m_AutoTransform.emplace_back();
 	}
 
 	void HandleCameraControls(Hazel::Timestep ts)

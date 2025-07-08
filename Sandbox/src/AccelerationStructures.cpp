@@ -28,12 +28,11 @@ void TLAS::Build()
 	m_TLAS->Build(m_BLASInstances.data(), m_BLASInstances.size(), m_BVHPointers.data(), m_BLASList.size());
 }
 
-uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& blas, const std::string& name, const Transform& transform)
+uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& blas, const Transform& transform)
 {
 	uint32_t index = m_BLASList.size();
 
 	m_BLASList.push_back(blas);
-	m_Names.push_back(name);
 	m_Transforms.push_back(transform);
 	m_PrevTransforms->push_back(transform);
 

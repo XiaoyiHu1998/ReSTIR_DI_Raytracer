@@ -49,15 +49,13 @@ private:
 	std::vector<std::shared_ptr<BLAS>> m_BLASList;
 	std::vector<tinybvh::BLASInstance> m_BLASInstances;
 	std::vector<tinybvh::BVHBase*> m_BVHPointers;
-
-	uint32_t m_TriangleCount;
-
+	
 	// UI
-	std::vector<std::string> m_Names;
-	std::vector<Transform> m_Transforms;
+	uint32_t m_TriangleCount;
 
 	// Transforms & Reprojection
 	// m_PrevTransforms is shared pointer to prevent loss of information of prev frames on copy
+	std::vector<Transform> m_Transforms;
 	std::shared_ptr<std::vector<Transform>> m_PrevTransforms; 
 	std::vector<glm::mat4> m_TransformMatrices;
 	std::vector<glm::mat4> m_InverseTransformMatrices;
@@ -65,13 +63,13 @@ private:
 public:
 	TLAS() :
 		m_TLAS{ std::make_shared<tinybvh::BVH>() }, m_PrevTransforms{ std::make_shared<std::vector<Transform>>() },
-		m_TriangleCount{ 0 }
+		m_Transforms{ std::vector<Transform>() }, m_TriangleCount{ 0 }
 	{}
 
 	~TLAS() = default;
 
 	void Build();
-	uint32_t AddBLAS(const std::shared_ptr<BLAS>& blas, const std::string& name, const Transform& transform);
+	uint32_t AddBLAS(const std::shared_ptr<BLAS>& blas, const Transform& transform);
 
 	void Traverse(Ray& ray) const;
 	bool IsOccluded(const Ray& ray) const;
@@ -80,7 +78,6 @@ public:
 
 	uint32_t GetTriangleCount() { return m_TriangleCount; }
 	uint32_t GetObjectCount() const { return m_BLASList.size(); }
-	std::string& GetNameRef(uint32_t index) { return m_Names[index]; }
 	Transform& GetTransformRef(uint32_t index) { return m_Transforms[index]; }
 	std::shared_ptr<BLAS> GetBLAS(uint32_t index) const { return m_BLASList[index]; }
 };
