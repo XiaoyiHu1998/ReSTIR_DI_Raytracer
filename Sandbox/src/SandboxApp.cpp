@@ -26,6 +26,9 @@ public:
 		m_LightColor = m_LightColorSeed = 0;
 		m_LightStrength = 0.65f;
 		m_LightCount = 100;
+
+		m_LightBoxSize = glm::vec3(50.0f, 7.0f, 9.0f);
+		m_LightBoxPosition = glm::vec3(0.0f, 4.5f, 0.5f);
 		GenerateLights();
 
 		// Geometry
@@ -324,9 +327,14 @@ public:
 			}
 			else if (m_SelectedNode == 1)
 			{
-				ImGui::PushID("Properties_Lights");
-
+				ImGui::PushID("Properties_Generation");
 				ImGui::Text("Light Generation");
+				ImGui::Separator();
+				ImGui::Text("Light Bounding Box");
+				ImGui::DragFloat3("Size", glm::value_ptr(m_LightBoxSize), 0.05f);
+				ImGui::DragFloat3("Position", glm::value_ptr(m_LightBoxPosition), 0.05f);
+				ImGui::Separator();
+				ImGui::Text("Light Properties");
 				ImGui::Separator();
 				ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.75f);
 				ImGui::DragInt("Count", &m_LightCount, 1, 0, 10000);
@@ -410,6 +418,9 @@ private:
 	uint32_t m_LightColorSeed;
 	uint32_t m_LightLocationSeed;
 
+	glm::vec3 m_LightBoxSize;
+	glm::vec3 m_LightBoxPosition;
+
 	// Object Animation
 	std::vector<uint32_t> m_EnableRotation;
 	std::vector<glm::vec3> m_RotationSpeed;
@@ -473,9 +484,9 @@ private:
 		for (int i = 0; i < m_LightCount; i++)
 		{
 			// Position
-			float x = Utils::RandomFloat(m_LightLocationSeed) * 50 - 25;
-			float y = Utils::RandomFloat(m_LightLocationSeed) * 7 + 1.0f;
-			float z = Utils::RandomFloat(m_LightLocationSeed) * 9 - 4;
+			float x = (Utils::RandomFloat(m_LightLocationSeed) - 0.5f) * m_LightBoxSize.x + m_LightBoxPosition.x;
+			float y = (Utils::RandomFloat(m_LightLocationSeed) - 0.5f) * m_LightBoxSize.y + m_LightBoxPosition.y;
+			float z = (Utils::RandomFloat(m_LightLocationSeed) - 0.5f) * m_LightBoxSize.z + m_LightBoxPosition.z;
 			glm::vec3 position = glm::vec3(x, y, z);
 
 			// Color
