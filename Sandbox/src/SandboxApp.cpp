@@ -149,7 +149,7 @@ public:
 			ImGui::End();
 
 			// Performance Metrics Subwindow
-			ImGui::SetNextWindowBgAlpha(0.35f);
+			ImGui::SetNextWindowBgAlpha(0.45f);
 			ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 16, viewportPosition.y + 36));
 			ImGui::SetNextWindowSize(ImVec2(110, 55));
 			ImGui::Begin("Performance Metrics", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
@@ -162,7 +162,7 @@ public:
 			ImGui::End();
 
 			// Controls Subwindow
-			ImGui::SetNextWindowBgAlpha(0.35f);
+			ImGui::SetNextWindowBgAlpha(0.45f);
 			ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 16, viewportPosition.y + nextFrameResolution.y - 60));
 			ImGui::SetNextWindowSize(ImVec2(140, 80));
 			ImGui::Begin("Movement Controls", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
@@ -179,8 +179,8 @@ public:
 			ImGui::End();
 
 			// Triangle Count Window
-			ImGui::SetNextWindowBgAlpha(0.35f);
-			ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 160, viewportPosition.y + nextFrameResolution.y - 12));
+			ImGui::SetNextWindowBgAlpha(0.45f);
+			ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 130, viewportPosition.y + 36));
 			ImGui::SetNextWindowSize(ImVec2(160, 16));
 			ImGui::Begin("Triangle Count", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 			ImGui::SetCursorPos(ImVec2(8, 8));
