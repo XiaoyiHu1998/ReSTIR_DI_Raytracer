@@ -118,6 +118,15 @@ public:
 				m_TLAS.GetTransformRef(i).translation += m_AutoTransform[i].translation * timestep.GetTimeSeconds();
 				m_TLAS.GetTransformRef(i).rotation += m_AutoTransform[i].rotation * timestep.GetTimeSeconds();
 				m_TLAS.GetTransformRef(i).scale += m_AutoTransform[i].scale * timestep.GetTimeSeconds();
+
+				if (m_TLAS.GetTransformRef(i).scale.x == 0.0f)
+					m_TLAS.GetTransformRef(i).scale.x = 0.0000001f;
+
+				if (m_TLAS.GetTransformRef(i).scale.y == 0.0f)
+					m_TLAS.GetTransformRef(i).scale.y = 0.0000001f;
+
+				if (m_TLAS.GetTransformRef(i).scale.z == 0.0f)
+					m_TLAS.GetTransformRef(i).scale.z = 0.0000001f;
 			}
 		}
 

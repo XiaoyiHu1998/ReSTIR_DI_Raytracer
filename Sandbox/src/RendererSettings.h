@@ -18,8 +18,8 @@ struct RendererSettings
 	// General Settings
 	int ThreadCount = std::thread::hardware_concurrency();
 
-	uint32_t FrameWidth = 3840;
-	uint32_t FrameHeight = 2160;
+	uint32_t FrameWidth = 1920;
+	uint32_t FrameHeight = 1080;
 	int TileSize = 32;
 
 	uint32_t SamplesPerPixel = 1;
