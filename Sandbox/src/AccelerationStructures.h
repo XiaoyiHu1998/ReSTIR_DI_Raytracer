@@ -51,8 +51,8 @@ private:
 	std::vector<std::shared_ptr<BLAS>> m_BLASList;
 	std::vector<tinybvh::BLASInstance> m_BLASInstances;
 	std::vector<tinybvh::BVHBase*> m_BVHPointers;
-	
-	uint32_t m_VertexCount;
+
+	uint32_t m_TriangleCount;
 
 	// UI
 	std::vector<std::string> m_Names;
@@ -67,7 +67,7 @@ private:
 public:
 	TLAS() :
 		m_TLAS{ std::make_shared<tinybvh::BVH>() }, m_PrevTransforms{ std::make_shared<std::vector<Transform>>() },
-		m_VertexCount{ 0 }
+		m_TriangleCount{ 0 }
 	{}
 
 	~TLAS() = default;
@@ -80,7 +80,7 @@ public:
 
 	void UpdateTransform();
 
-	uint32_t GetVertexCount() { return m_VertexCount; }
+	uint32_t GetTriangleCount() { return m_TriangleCount; }
 	uint32_t GetObjectCount() const { return m_BLASList.size(); }
 	std::string& GetNameRef(uint32_t index) { return m_Names[index]; }
 	Transform& GetTransformRef(uint32_t index) { return m_Transforms[index]; }

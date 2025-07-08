@@ -155,13 +155,13 @@ public:
 			ImGui::Text("Left Shift: Sprint");
 			ImGui::End();
 
-			// Vertex Count Window
+			// Triangle Count Window
 			ImGui::SetNextWindowBgAlpha(0.35f);
 			ImGui::SetNextWindowPos(ImVec2(viewportPosition.x + 160, viewportPosition.y + nextFrameResolution.y - 12));
 			ImGui::SetNextWindowSize(ImVec2(160, 16));
-			ImGui::Begin("Vertex Count", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+			ImGui::Begin("Triangle Count", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 			ImGui::SetCursorPos(ImVec2(8, 8));
-			ImGui::Text("Vertices:%d", m_TLAS.GetVertexCount());
+			ImGui::Text("Triangles:%d", m_TLAS.GetTriangleCount());
 			ImGui::End();
 		}
 

@@ -53,7 +53,7 @@ uint32_t TLAS::AddBLAS(const std::shared_ptr<BLAS>& blas, const std::string& nam
 	m_BVHPointers.push_back(m_BLASList[index]->GetBVHPointer());
 	m_BLASInstances.emplace_back(index);
 
-	m_VertexCount += blas->GetVertices().size() / 3;
+	m_TriangleCount += blas->GetVertices().size() / 3;
 
 	return index;
 }
