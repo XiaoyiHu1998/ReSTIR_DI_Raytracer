@@ -34,14 +34,14 @@ void RenderCommand::DeleteFrameBufferTexture(uint32_t& frameBufferID)
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void RenderCommand::InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
+void RenderCommand::InitFrameBuffer(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID)
 {
 	// Bind PBO
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixelBufferObjectID); //TODO replace with a raw TGexImage2D upload in case of issues
 
 	// Update Texture
 	glBindTexture(GL_TEXTURE_2D, frameBufferID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4096, 4096, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 }
 
 void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height)
@@ -52,7 +52,7 @@ void RenderCommand::UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBuff
 
 	// Update Texture
 	glBindTexture(GL_TEXTURE_2D, frameBufferID);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	// Unbind PBO to prevent interference with ImGui rendering

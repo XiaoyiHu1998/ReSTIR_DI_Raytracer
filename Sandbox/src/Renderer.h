@@ -43,6 +43,10 @@ public:
 		{
 			m_FrameBuffers[m_NextBuffer]->resize(subPixelCount);
 		}
+		if (m_FrameBuffers[m_CurrentBuffer]->size() != subPixelCount)
+		{
+			m_FrameBuffers[m_CurrentBuffer]->resize(subPixelCount);
+		}
 	}
 private:
 	FrameBufferRef m_FrameBuffers[2];

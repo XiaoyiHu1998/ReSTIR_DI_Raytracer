@@ -72,7 +72,7 @@ public:
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
 		RenderCommand::GeneratePixelBufferObject(m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 		RenderCommand::GenerateFrameBufferTexture(m_FrameBufferID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
-		RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
+		RenderCommand::InitFrameBuffer(m_FrameBufferID, m_PixelBufferObjectID);
 		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentWidth, m_CurrentHeight);
 
 		// UI
@@ -89,15 +89,8 @@ public:
 	{
 		// Display rendererd frame
 		FrameBufferRef frameBuffer = m_Renderer.GetFrameBuffer();
-		glm::i32vec2 m_CurrentFrameResolution = m_Renderer.GetRenderResolution();
-
-		if (m_CurrentFrameResolution != m_PrevFrameResolution)
-		{
-			RenderCommand::InitFrame(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
-			m_PrevFrameResolution = m_CurrentFrameResolution;
-		}
-
-		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_CurrentFrameResolution.x, m_CurrentFrameResolution.y);
+		glm::i32vec2 m_ViewportResolution = m_Renderer.GetRenderResolution();
+		RenderCommand::UploadFrameData(m_FrameBufferID, m_PixelBufferObjectID, frameBuffer, m_ViewportResolution.x, m_ViewportResolution.y);
 
 		// Setup next frame to be rendered
 		m_CurrentWidth = m_NextWidth;
@@ -106,11 +99,14 @@ public:
 		m_RendererSettingsUI.FrameWidth = m_CurrentWidth;
 		m_RendererSettingsUI.FrameHeight = m_CurrentHeight;
 
+		// Camera Input
 		HandleCameraControls(timestep);
 
+		// Auto move camera
 		if (m_MoveCamera)
 			m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
 
+		// Rigid object animations
 		for (int i = 0; i < m_TLAS.GetObjectCount(); i++)
 		{
 			if (m_EnableAutoTransform[i])
@@ -130,6 +126,7 @@ public:
 			}
 		}
 
+		// Submit new scene
 		m_Renderer.SubmitRenderSettings(m_RendererSettingsUI);
 		m_Renderer.SubmitScene(Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 	}
@@ -140,11 +137,14 @@ public:
 
 		// Viewport Window
 		{
+			// Draw Viewport Texture
 			ImGui::Begin("Viewport");
 			ImVec2 nextFrameResolution = ImGui::GetContentRegionAvail();
 			ImVec2 viewportPosition = ImGui::GetWindowPos();
+
 			m_NextWidth = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.x));
 			m_NextHeight = std::max((uint32_t)2, static_cast<uint32_t>(nextFrameResolution.y));
+
 			ImGui::Image((void*)(intptr_t)m_FrameBufferID, ImVec2(m_CurrentWidth, m_CurrentHeight));
 			ImGui::End();
 

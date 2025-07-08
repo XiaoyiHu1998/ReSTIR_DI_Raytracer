@@ -13,7 +13,7 @@ public:
 	static void GenerateFrameBufferTexture(uint32_t& frameBufferID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
 	static void DeleteFrameBufferTexture(uint32_t& frameBufferID);
 
-	static void InitFrame(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
+	static void InitFrameBuffer(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID);
 	static void UploadFrameData(uint32_t& frameBufferID, uint32_t& pixelBufferObjectID, FrameBufferRef frameBuffer, uint32_t width, uint32_t height);
 	static void ClearFrame();
 };
