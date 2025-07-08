@@ -89,6 +89,8 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 		}
 	}
 
+	E *= m_Scene.pointLights.size() / m_Settings.CandidateCountDI;
+
 	return glm::vec4(E, 1.0f);
 }
 
