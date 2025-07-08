@@ -193,7 +193,7 @@ public:
 			ImGui::Begin("Settings");
 			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.35f);
 			ImGui::Text("Render Settings");
-			const char* RenderModes[] = { "Normals", "TraversalSteps", "Direct Illumination", "ReSTIR" };
+			const char* RenderModes[] = { "Normals", "TraversalSteps", "Next Event Estimation DI", "ReSTIR DI" };
 			int selectedMode = static_cast<int>(m_RendererSettingsUI.Mode);
 			ImGui::Combo("Render Mode", &selectedMode, RenderModes, IM_ARRAYSIZE(RenderModes));
 			m_RendererSettingsUI.Mode = static_cast<RendererSettings::RenderMode>(selectedMode);
