@@ -87,9 +87,9 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 			PointLight randomPointLight = m_Scene.pointLights[index];
 			E += CalcLightContribution(ray, randomPointLight);
 		}
-	}
 
-	E *= m_Scene.pointLights.size() / m_Settings.CandidateCountDI;
+		E *= m_Scene.pointLights.size() / m_Settings.CandidateCountDI;
+	}
 
 	return glm::vec4(E, 1.0f);
 }
