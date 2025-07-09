@@ -3,7 +3,8 @@ A simple CPU ReSTIR DI raytracer application based on the paper by [Bitterli et.
 
 The program is built in C++ in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) and uses Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).
 
-![GIF of ReSTIR Raytracer](./Images/ReSTIR_Engine.gif)
+<img src="./Images/ReSTIR_Engine_Zoom.gif" width="320" height="155">
+<img src="./Images/ReSTIR_Engine_Static.gif" width="320" height="155">
 
 Features:
 - ReSTIR DI
