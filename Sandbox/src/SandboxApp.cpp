@@ -66,6 +66,9 @@ public:
 		m_CameraMoveSpeed = 0.25f;
 		m_CameraRotationSpeed = 11.25f;
 
+		m_CameraFlyMoveSpeed = glm::vec3(0.125f, 0.0f, 0.0f);
+		m_CameraFlyRotationSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
+
 		m_Renderer;
 		m_Renderer.Init(m_RendererSettingsUI, Renderer::Scene(m_Camera, m_TLAS, m_pointLights));
 
@@ -104,7 +107,11 @@ public:
 
 		// Auto move camera
 		if (m_MoveCamera)
-			m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
+		{
+			m_Camera.position += m_CameraFlyMoveSpeed * timestep.GetTimeSeconds();
+			m_Camera.rotation += m_CameraFlyRotationSpeed * timestep.GetTimeSeconds();
+			//m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
+		}
 
 		// Rigid object animations
 		for (int i = 0; i < m_TLAS.GetObjectCount(); i++)
@@ -337,10 +344,15 @@ public:
 				ImGui::DragFloat("Vertical FoV", &m_Camera.verticalFOV, 0.1f, 1.0f, 160.0f);
 				ImGui::Separator();
 
-				ImGui::Text("Movement");
+				ImGui::Text("Auto Fly");
+				ImGui::Checkbox("Enable", &m_MoveCamera);
+				ImGui::DragFloat3("Movement Speed", glm::value_ptr(m_CameraFlyMoveSpeed), 0.05f);
+				ImGui::DragFloat3("Rotation Speed", glm::value_ptr(m_CameraFlyRotationSpeed), 0.05f);
+				ImGui::Separator();
+
+				ImGui::Text("Controls");
 				ImGui::DragFloat("Movement Speed", &m_CameraMoveSpeed, 0.1f, 0.001f, 5.0f);
 				ImGui::DragFloat("Rotation Speed", &m_CameraRotationSpeed, 0.1f, 0.001f, 5.0f);
-				ImGui::Checkbox("Auto Move Camera", &m_MoveCamera);
 				ImGui::Separator();
 
 				ImGui::PopID();
@@ -429,6 +441,9 @@ private:
 	Camera m_Camera;
 	float m_CameraMoveSpeed;
 	float m_CameraRotationSpeed;
+
+	glm::vec3 m_CameraFlyMoveSpeed;
+	glm::vec3 m_CameraFlyRotationSpeed;
 
 	// World state
 	TLAS m_TLAS;
