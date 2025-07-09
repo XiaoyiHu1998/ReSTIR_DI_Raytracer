@@ -110,7 +110,6 @@ public:
 		{
 			m_Camera.position += m_CameraFlyMoveSpeed * timestep.GetTimeSeconds();
 			m_Camera.rotation += m_CameraFlyRotationSpeed * timestep.GetTimeSeconds();
-			//m_Camera.position += glm::vec3(0.125f * timestep, 0, 0);
 		}
 
 		// Rigid object animations
