@@ -22,7 +22,7 @@ Build Instructions:
 2. Edit ```GenerateProject.bat``` to generate a solution for your version of Visual Studio (```vs2022``` or ```vs2019```).
 3. Run ```GenerateProject.bat```.
 4. Open ```hazel.sln``` and set to ```Release``` configuration
-5. Run program.
+5. Build and run program.
 
 Requirements:
 - Windows 10 or higher.
