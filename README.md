@@ -2,7 +2,7 @@
 A simple CPU ReSTIR DI raytracer application based on the paper by [Bitterli et. al.](https://benedikt-bitterli.me/restir/bitterli20restir.pdf) built during a few courses at Utrecht University.
 
 The program is built in C++ in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) and uses Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).\
-It is currently capable of running a 32M triangle scene at 5.1 fps in on a Ryzen 5 5600X vs a 400K triangles scene at 6 fps.
+It is currently capable of running a 32M triangle scene at 5.1 fps vs a 400K triangles scene at 6 fps on a Ryzen 5 5600X.
 
 <img src="./Images/ReSTIR_Engine_Zoom.gif" width="640" height="320">
 <img src="./Images/ReSTIR_Engine_Static.gif" width="640" height="320">
