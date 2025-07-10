@@ -1,4 +1,4 @@
-# ReSTIR Raytracer
+# ReSTIR DI Raytracer
 A simple CPU ReSTIR DI raytracer application based on the paper by [Bitterli et. al.](https://benedikt-bitterli.me/restir/bitterli20restir.pdf) built during a few courses at Utrecht University.
 
 The program is built in C++ in an early version of TheCherno's [Hazel Engine](https://github.com/TheCherno/Hazel) and uses Jacco Bikker's [tinybvh](https://github.com/jbikker/tinybvh).
