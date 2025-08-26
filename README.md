@@ -11,7 +11,6 @@ Features:
 - ReSTIR Direct Illumination
 - Rigid Animations
 - OBJ Mesh Importing
-- Mesh Instancing (Full Support Coming Soon)
 - Fast BVH Traversal
 
 **Warning:** The build system uses the ```.\vendor\bin\premake\premake5.exe``` executable included in the repository to build a visual studio solution.  
