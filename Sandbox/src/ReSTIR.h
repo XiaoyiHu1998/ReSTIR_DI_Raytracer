@@ -21,7 +21,8 @@ struct Sample
 	PointLight light;
 
 	glm::vec3 cameraPosition;
-	float BRDF;
+	static constexpr float BRDF = 1.0f / glm::pi<float>(); // lambertian BRDF for all materials
+	float geometryTerm;
 
 	// ReSTIR
 	float weight;
@@ -36,7 +37,9 @@ struct Sample
 private:
 	void SetContribution()
 	{
-		contribution = CalcContribution((BRDF * light.emmission) / (lightDistance * lightDistance));
+		// no need to consider angle with light normal due to point lights
+		geometryTerm = glm::dot(hitNormal, lightDirection) / (lightDistance * lightDistance);
+		contribution = CalcContribution((BRDF * light.emmission) * geometryTerm);
 	}
 
 	inline float CalcContribution(const glm::vec3& targetDistribution)

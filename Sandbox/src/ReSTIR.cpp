@@ -17,7 +17,6 @@ Sample::Sample(const HitInfo& hitInfo, const glm::vec3& cameraOrigin, const Poin
 	lightDirection = light.position - hitPosition;
 	lightDistance = glm::length(lightDirection);
 	lightDirection = glm::normalize(lightDirection);
-	BRDF = glm::dot(hitNormal, lightDirection);
 
 	SetContribution();
 }
@@ -37,7 +36,6 @@ Sample::Sample(const Sample& sample, float weight)
 
 	lightDirection = sample.lightDirection;
 	lightDistance = sample.lightDistance;
-	BRDF = sample.BRDF;
 
 	SetContribution();
 }
@@ -49,7 +47,6 @@ void Sample::ReplaceLight(const PointLight& newLight)
 	lightDirection = light.position - hitPosition;
 	lightDistance = glm::length(lightDirection);
 	lightDirection = glm::normalize(lightDirection);
-	BRDF = glm::dot(hitNormal, lightDirection);
 
 	SetContribution();
 }

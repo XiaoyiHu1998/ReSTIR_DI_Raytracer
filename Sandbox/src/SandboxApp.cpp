@@ -24,7 +24,7 @@ public:
 		// Lights
 		m_LightLocation = m_LightLocationSeed = 0;
 		m_LightColor = m_LightColorSeed = 0;
-		m_LightStrength = 0.65f;
+		m_LightStrength = 2.25f;
 		m_LightCount = 100;
 
 		m_LightBoxSize = glm::vec3(50.0f, 7.0f, 9.0f);
