@@ -140,12 +140,23 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	Sample pixelSample = pixelResevoir.GetSample();
 
 	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPrevPosition, seed);
+	if (!pixelResevoir.GetSampleCount())
+	{
+		prevPixel = pixel;
+	}
 	bool withinFrame = prevPixel.x >= 0 && prevPixel.y >= 0 && prevPixel.x < resolution.x && prevPixel.y < resolution.y;
 	if (!withinFrame || !m_ValidHistory)
 		return;
 
 	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
 	const Sample& prevSample = prevResevoir.GetSample();
+
+	if (!prevResevoir.GetSampleCount() || !pixelResevoir.GetSampleCount())
+	{
+		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
+		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = temporalResevoir;
+		return;
+	}
 
 	if (!prevSample.hit)
 		return;
@@ -181,6 +192,13 @@ void Renderer::CombineNeighbourPixel(Resevoir& pixelResevoir, const glm::i32vec2
 	glm::i32vec2 neighbourPixel = Utils::GetNeighbourPixel(pixel, resolution, m_Settings.SpatialPixelRadius, seed);
 	Resevoir& neighbourResevoir = m_ResevoirBuffers.GetCurrentBuffer()[neighbourPixel.x + neighbourPixel.y * resolution.x];
 	const Sample& neighbourSample = neighbourResevoir.GetSampleRef();
+
+	if (neighbourResevoir.GetSampleCount() == 0 || pixelResevoir.GetSampleCount() == 0)
+	{
+		Resevoir spatialResevoir = Resevoir::CombineBiased(pixelResevoir, neighbourResevoir, seed);
+		pixelResevoir = spatialResevoir;
+		return;
+	}
 
 	if (!neighbourSample.hit)
 		return;
@@ -245,13 +263,14 @@ void Renderer::RenderFrameBuffer()
 {
 	while (!m_Terminate)
 	{
+		//system("pause");
 		auto timeStart = std::chrono::system_clock::now();
 
 		m_FrameBufferLock.lock();
 		FrameBufferRef framebuffer = m_FrameBuffers.GetRenderBuffer();
 		m_FrameBufferLock.unlock();
 
-		if (SettingsUpdated)
+		if (m_SettingsUpdated)
 		{
 			m_SettingsLock.lock();
 
@@ -259,11 +278,11 @@ void Renderer::RenderFrameBuffer()
 				m_ValidHistory = false;
 
 			m_Settings = m_NewSettings;
-			SettingsUpdated = false;
+			m_SettingsUpdated = false;
 			m_SettingsLock.unlock();
 		}
 
-		if (SceneUpdated)
+		if (m_SceneUpdated)
 		{
 			m_SceneLock.lock();
 			m_PrevCamera = m_Scene.camera;
@@ -300,38 +319,50 @@ void Renderer::RenderFrameBuffer()
 		}
 		else
 		{
-			auto ReSTIRRender = [&](ReSTIRPass restirPass, TaskBatch& taskBatch) {
+			auto ReSTIRRender = [&](ReSTIRPass restirPass, TaskBatch& taskBatch, size_t frameNumber) {
+				uint32_t skipModifier = 1;
+				uint32_t startX[2] = { 0, 0 };
+
+				if (restirPass == ReSTIRPass::RIS && frameNumber > 1)
+				{
+					startX[0] = frameNumber % 2 == 0 ? 0 : m_Settings.TileSize;
+					startX[1] = frameNumber % 2 == 0 ? m_Settings.TileSize : 0;
+					skipModifier = 2;
+				}
+
 				for (uint32_t y = 0; y < height; y += m_Settings.TileSize)
 				{
 					int yOffset = y * width;
-					for (uint32_t x = 0; x < width; x += m_Settings.TileSize)
+					for (uint32_t x = startX[(y / m_Settings.TileSize) % 2]; x < width; x += m_Settings.TileSize * skipModifier)
 					{
-						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + yOffset); });
+						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + y + frameNumber); });
 					}
 				}
 				taskBatch.ExecuteTasks();
 			};
 
+			m_ResevoirBuffers.ResetCurrentBuffer();
 			TaskBatch taskBatch(m_Settings.ThreadCount);
-			ReSTIRRender(ReSTIRPass::RIS, taskBatch);
+			ReSTIRRender(ReSTIRPass::RIS, taskBatch, m_FrameNumber);
 
 			if (m_Settings.EnableVisibilityPass)
-				ReSTIRRender(ReSTIRPass::Visibility, taskBatch);
+				ReSTIRRender(ReSTIRPass::Visibility, taskBatch, m_FrameNumber);
 
 			if (m_Settings.EnableTemporalReuse && m_ValidHistory)
-				ReSTIRRender(ReSTIRPass::Temporal, taskBatch);
+				ReSTIRRender(ReSTIRPass::Temporal, taskBatch, m_FrameNumber);
 
 			if (m_Settings.EnableSpatialReuse)
 			{
-				ReSTIRRender(ReSTIRPass::Spatial, taskBatch);
+				ReSTIRRender(ReSTIRPass::Spatial, taskBatch, m_FrameNumber);
 				m_ResevoirBuffers.SwapSpatialBuffers();
 			}
 
-			ReSTIRRender(ReSTIRPass::Shading, taskBatch);
+			ReSTIRRender(ReSTIRPass::Shading, taskBatch, m_FrameNumber);
 		}
 
 		auto timeEnd = std::chrono::system_clock::now();
 		m_LastFrameTime = std::chrono::duration<float, std::ratio<1, 1000>>(timeEnd - timeStart).count();
+		m_FrameNumber++;
 
 		m_FrameBufferLock.lock();
 		m_FrameBuffers.SwapBuffers();

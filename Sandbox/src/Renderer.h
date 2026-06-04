@@ -68,6 +68,14 @@ public:
 		m_ResevoirBuffers[2] = std::vector<Resevoir>();
 	}
 
+	void ResetCurrentBuffer()
+	{
+		for (int i = 0; i < m_ResevoirBuffers[m_CurrentBuffer].size(); i++)
+		{
+			m_ResevoirBuffers[m_CurrentBuffer][i] = Resevoir();
+		}
+	}
+
 	void SwapTemporalBuffers()
 	{
 		std::swap(m_CurrentBuffer, m_PrevBuffer);
@@ -76,6 +84,10 @@ public:
 	void SwapSpatialBuffers()
 	{
 		std::swap(m_CurrentBuffer, m_SpatialReuseBuffer);
+		/*for (int i = 0; i < m_ResevoirBuffers[m_SpatialReuseBuffer].size(); i++)
+		{
+			m_ResevoirBuffers[m_SpatialReuseBuffer][i] = Resevoir();
+		}*/
 	}
 
 	std::vector<Resevoir>& GetCurrentBuffer() { return m_ResevoirBuffers[m_CurrentBuffer]; }
@@ -143,10 +155,12 @@ private:
 	std::mutex m_SettingsLock;
 	std::mutex m_SceneLock;
 
-	bool SettingsUpdated;
-	bool SceneUpdated;
+	bool m_SettingsUpdated;
+	bool m_SceneUpdated;
 
 	float m_LastFrameTime;
+
+	size_t m_FrameNumber;
 
 private:
 	void RenderFrameBuffer();
@@ -169,12 +183,14 @@ public:
 		m_FrameBuffers = DoubleFrameBuffer();
 		m_ResevoirBuffers = TripleResevoirBuffer();
 
-		SettingsUpdated = false;
-		SceneUpdated = false;
+		m_SettingsUpdated = false;
+		m_SceneUpdated = false;
 		m_ValidHistory = false;
 		m_ValidHistoryNextFrame = true;
 
 		m_Terminate = false;
+
+		m_FrameNumber = 0;
 	}
 
 	void Init(const RendererSettings& settings, const Scene& scene)
@@ -196,7 +212,7 @@ public:
 	{ 
 		m_SettingsLock.lock();
 		m_NewSettings = newRenderSettings;
-		SettingsUpdated = true;
+		m_SettingsUpdated = true;
 		m_SettingsLock.unlock();
 	}
 
@@ -204,7 +220,7 @@ public:
 	{
 		m_SceneLock.lock();
 		m_NewScene = newScene;
-		SceneUpdated = true;
+		m_SceneUpdated = true;
 		m_SceneLock.unlock();
 	}
 

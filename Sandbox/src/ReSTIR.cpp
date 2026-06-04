@@ -75,6 +75,15 @@ Resevoir Resevoir::CombineBiased(const Resevoir& originalResevoir, const Resevoi
 {
 	Resevoir combinedResevoir;
 
+	if (originalResevoir.GetSampleCount() == 0)
+	{
+		return newResevoir;
+	}
+	else if (newResevoir.GetSampleCount() == 0)
+	{
+		return originalResevoir;
+	}
+
 	const Sample& originalSample = originalResevoir.GetSample();
 	const Sample& newSample = newResevoir.GetSample();
 

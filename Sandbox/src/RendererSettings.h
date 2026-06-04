@@ -20,7 +20,7 @@ struct RendererSettings
 
 	uint32_t FrameWidth = 1920;
 	uint32_t FrameHeight = 1080;
-	int TileSize = 32;
+	int TileSize = 16;
 
 	uint32_t SamplesPerPixel = 1;
 
