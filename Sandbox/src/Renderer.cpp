@@ -335,7 +335,7 @@ void Renderer::RenderFrameBuffer()
 					int yOffset = y * width;
 					for (uint32_t x = startX[(y / m_Settings.TileSize) % 2]; x < width; x += m_Settings.TileSize * skipModifier)
 					{
-						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + y + frameNumber); });
+						taskBatch.EnqueueTask([=]() { RenderKernelReSTIR(framebuffer, width, height, x, y, restirPass, x + y * width + frameNumber); });
 					}
 				}
 				taskBatch.ExecuteTasks();

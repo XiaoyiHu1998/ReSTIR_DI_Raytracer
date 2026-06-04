@@ -212,7 +212,7 @@ public:
 			}
 			if (ImGui::InputInt("Tile size", &m_RendererSettingsUI.TileSize))
 			{
-				m_RendererSettingsUI.TileSize = std::min(std::max(4, m_RendererSettingsUI.TileSize), 256);
+				m_RendererSettingsUI.TileSize = std::min(std::max(1, m_RendererSettingsUI.TileSize), 256);
 			}
 			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);

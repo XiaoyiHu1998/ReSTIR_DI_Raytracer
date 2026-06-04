@@ -20,7 +20,7 @@ struct RendererSettings
 
 	uint32_t FrameWidth = 1920;
 	uint32_t FrameHeight = 1080;
-	int TileSize = 16;
+	int TileSize = 1;
 
 	uint32_t SamplesPerPixel = 1;
 
@@ -33,7 +33,7 @@ struct RendererSettings
 	// DI Rendering
 	bool OcclusionCheckDI = true;
 	bool SampleAllLightsDI = false;
-	int CandidateCountDI = 1;
+	int CandidateCountDI = 8;
 
 	// ReSTIR Rendering
 	// RIS
