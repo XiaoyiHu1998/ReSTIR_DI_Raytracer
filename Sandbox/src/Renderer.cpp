@@ -64,9 +64,9 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 			bool lightOccluded = m_Scene.tlas.IsOccluded(shadowRay);
 			if (!lightOccluded || !m_Settings.OcclusionCheckDI)
 			{
-				//glm::vec3 BRDF = ray.hitInfo.material.Albedo / M_PI;
-				float BRDF = glm::dot(ray.hitInfo.normal, lightDirection);
-				return BRDF * pointLight.emmission / (lightDistance * lightDistance);
+				constexpr glm::vec3 BRDF = glm::vec3(1.0f / M_PI);
+				float geometryFactor = glm::dot(ray.hitInfo.normal, lightDirection) / (lightDistance * lightDistance);
+				return BRDF * pointLight.emmission * geometryFactor;
 			}
 		}
 
@@ -221,22 +221,22 @@ void Renderer::SpatialReuse(const glm::i32vec2& pixel, const glm::i32vec2& resol
 glm::vec4 Renderer::RenderSample(uint32_t bufferIndex, uint32_t& seed)
 {
 	// Direct lighting calculation
-	glm::vec3 outputColor(0.0f);
+	glm::vec3 directLight(0.0f);
 	Resevoir resevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample sample = resevoir.GetSample();
 
-	if (sample.BRDF > 0.001f)
+	if (glm::dot(sample.hitNormal, sample.lightDirection) > 0.001f)
 	{
 		glm::vec3 shadowRayOrigin = sample.hitPosition + (m_Settings.Eta * sample.lightDirection);
 		Ray shadowRay = Ray(shadowRayOrigin, sample.lightDirection, sample.lightDistance - 2.0f * m_Settings.Eta);
 
 		if (!m_Scene.tlas.IsOccluded(shadowRay))
 		{
-			outputColor = sample.BRDF * sample.light.emmission / (sample.lightDistance * sample.lightDistance);
+			directLight = sample.BRDF * sample.light.emmission * sample.geometryTerm;
 		}
 	}
 
-	return glm::vec4(outputColor * resevoir.WeightSampleOut, 1.0f);
+	return glm::vec4(directLight * resevoir.WeightSampleOut, 1.0f);
 }
 
 // ================= Render Loop =================

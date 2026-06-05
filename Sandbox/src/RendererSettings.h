@@ -25,7 +25,7 @@ struct RendererSettings
 	uint32_t SamplesPerPixel = 1;
 
 	bool RandomSeed = true;
-	float Eta = 0.001f;
+	float Eta = 1.0E-5f;
 
 	// Normal Rendering
 	bool RenderPrevNormals = false;

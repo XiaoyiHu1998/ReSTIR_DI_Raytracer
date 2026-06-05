@@ -24,7 +24,7 @@ public:
 		// Lights
 		m_LightLocation = m_LightLocationSeed = 0;
 		m_LightColor = m_LightColorSeed = 0;
-		m_LightStrength = 0.65f;
+		m_LightStrength = 2.25f;
 		m_LightCount = 100;
 
 		m_LightBoxSize = glm::vec3(50.0f, 7.0f, 9.0f);
@@ -60,7 +60,7 @@ public:
 
 		m_Camera = Camera(m_CurrentWidth, m_CurrentHeight, 60);
 		m_Camera.position = glm::vec3(-0.195f, 2.07f, -0.195f);
-		m_Camera.rotation = glm::vec3(8.144f, 111.0f, 0.0f);
+		m_Camera.rotation = glm::vec3(8.144f, 111.0f, -2.15f);
 		m_MoveCamera = false;
 
 		m_CameraMoveSpeed = 0.25f;
@@ -214,7 +214,7 @@ public:
 			{
 				m_RendererSettingsUI.TileSize = std::min(std::max(4, m_RendererSettingsUI.TileSize), 256);
 			}
-			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.001f, 0.001f, 0.1f);
+			ImGui::DragFloat("Eta size", &m_RendererSettingsUI.Eta, 0.00001f, 0.00001f, 0.1f, "%.5f");
 			ImGui::Checkbox("Random Seed", &m_RendererSettingsUI.RandomSeed);
 			ImGui::Separator();
 
@@ -651,8 +651,8 @@ private:
 
 		if (Hazel::Input::IsKeyPressed(HZ_KEY_R))
 		{
-			m_Camera.position = glm::vec3(-0.195f, 1.5f, -0.195f);
-			m_Camera.rotation = glm::vec3(0.0f, 111.0f, 0.0f);
+			m_Camera.position = glm::vec3(-0.195f, 2.07f, -0.195f);
+			m_Camera.rotation = glm::vec3(8.144f, 111.0f, -2.15f);
 		}
 	}
 
