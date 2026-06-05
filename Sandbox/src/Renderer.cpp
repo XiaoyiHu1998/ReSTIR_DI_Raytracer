@@ -101,12 +101,12 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 	Resevoir resevoir;
 	Sample sample;
 
+	Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
+	m_Scene.tlas.Traverse(ray);
+
 	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
 	{
 		PointLight randomPointLight = m_Scene.pointLights[Utils::RandomInt(0, m_Scene.pointLights.size(), seed)];
-		Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
-		m_Scene.tlas.Traverse(ray);
-
 		sample = Sample(ray.hitInfo, m_Scene.camera.position, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
 		float weight = sample.contribution / sample.pdf;
 		resevoir.Update(sample, weight, seed);
