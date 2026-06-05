@@ -36,7 +36,7 @@ public:
 
 	FrameBufferRef GetFrameBuffer() { return m_FrameBuffers[m_CurrentBuffer]; }
 	FrameBufferRef GetRenderBuffer() { return m_FrameBuffers[m_NextBuffer]; }
-	void ResizeRenderBuffer(uint32_t bufferSize)
+	void Resize(uint32_t bufferSize)
 	{
 		uint32_t subPixelCount = bufferSize << 2;
 		if (m_FrameBuffers[m_NextBuffer]->size() != subPixelCount)
@@ -52,6 +52,28 @@ private:
 	FrameBufferRef m_FrameBuffers[2];
 	uint32_t m_CurrentBuffer;
 	uint32_t m_NextBuffer;
+};
+
+class HitInfoBuffer
+{
+public:
+	HitInfoBuffer()
+	{
+		m_Buffer = std::vector<HitInfo>();
+	}
+
+	void Resize(size_t size)
+	{
+		if (m_Buffer.size() != size)
+			m_Buffer.resize(size);
+	}
+
+	std::vector<HitInfo>& GetBuffer()
+	{
+		return m_Buffer;
+	}
+private:
+	std::vector<HitInfo> m_Buffer;
 };
 
 class TripleResevoirBuffer
@@ -84,17 +106,13 @@ public:
 	void SwapSpatialBuffers()
 	{
 		std::swap(m_CurrentBuffer, m_SpatialReuseBuffer);
-		/*for (int i = 0; i < m_ResevoirBuffers[m_SpatialReuseBuffer].size(); i++)
-		{
-			m_ResevoirBuffers[m_SpatialReuseBuffer][i] = Resevoir();
-		}*/
 	}
 
 	std::vector<Resevoir>& GetCurrentBuffer() { return m_ResevoirBuffers[m_CurrentBuffer]; }
 	std::vector<Resevoir>& GetPrevBuffer() { return m_ResevoirBuffers[m_PrevBuffer]; }
 	std::vector<Resevoir>& GetSpatialReuseBuffer() { return m_ResevoirBuffers[m_SpatialReuseBuffer]; }
 
-	void ResizeBuffers(uint32_t bufferSize) 
+	void Resize(uint32_t bufferSize) 
 	{
 		if (m_ResevoirBuffers[0].size() != bufferSize || m_ResevoirBuffers[1].size() != bufferSize || m_ResevoirBuffers[2].size() != bufferSize)
 		{
@@ -115,6 +133,7 @@ class Renderer
 public:
 	enum class ReSTIRPass
 	{
+		PrimaryRays,
 		RIS,
 		Visibility,
 		Temporal,
@@ -138,6 +157,7 @@ private:
 	std::vector<Sample> m_SampleBuffer;
 	DoubleFrameBuffer m_FrameBuffers;
 	TripleResevoirBuffer m_ResevoirBuffers;
+	HitInfoBuffer m_HitInfoBuffer;
 	bool m_ValidHistory;
 	bool m_ValidHistoryNextFrame;
 
@@ -170,6 +190,7 @@ private:
 	glm::vec4 RenderDI(Ray& ray, uint32_t& seed);
 
 	// ResTIR passes
+	inline void GeneratePrimaryHits(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
 	inline void GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed);
 	inline void VisibilityPass(uint32_t bufferIndex);
 	inline void TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resolution, uint32_t bufferIndex, uint32_t& seed);
@@ -182,6 +203,7 @@ public:
 	{
 		m_FrameBuffers = DoubleFrameBuffer();
 		m_ResevoirBuffers = TripleResevoirBuffer();
+		m_HitInfoBuffer = HitInfoBuffer();
 
 		m_SettingsUpdated = false;
 		m_SceneUpdated = false;
@@ -198,9 +220,10 @@ public:
 		m_Settings = settings;
 		m_Scene = scene; // Doesn't need to lock due to render thread not being spawned yet.
 		m_PrevCamera = scene.camera;
-		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
+		m_FrameBuffers.Resize(m_Settings.FrameWidth * m_Settings.FrameHeight);
 		m_FrameBuffers.SwapBuffers();
-		m_FrameBuffers.ResizeRenderBuffer(m_Settings.FrameWidth * m_Settings.FrameHeight);
+		m_FrameBuffers.Resize(m_Settings.FrameWidth * m_Settings.FrameHeight);
+		m_HitInfoBuffer.Resize(m_Settings.FrameWidth * m_Settings.FrameHeight);
 
 		// Start rendering
 		m_RenderThread = std::thread(&Renderer::RenderFrameBuffer, this);

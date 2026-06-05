@@ -96,6 +96,14 @@ glm::vec4 Renderer::RenderDI(Ray& ray, uint32_t& seed)
 
 // ================= ReSTIR rendering mode =================
 
+void Renderer::GeneratePrimaryHits(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed)
+{
+	Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
+	m_Scene.tlas.Traverse(ray);
+
+	m_HitInfoBuffer.GetBuffer()[bufferIndex] = ray.hitInfo;
+}
+
 void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, uint32_t& seed)
 {
 	Resevoir resevoir;
@@ -104,10 +112,8 @@ void Renderer::GenerateSample(const glm::i32vec2 pixel, uint32_t bufferIndex, ui
 	for (int i = 0; i < m_Settings.CandidateCountReSTIR; i++)
 	{
 		PointLight randomPointLight = m_Scene.pointLights[Utils::RandomInt(0, m_Scene.pointLights.size(), seed)];
-		Ray ray = m_Scene.camera.GetRay(pixel.x, pixel.y);
-		m_Scene.tlas.Traverse(ray);
-
-		sample = Sample(ray.hitInfo, m_Scene.camera.position, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
+		HitInfo& hitInfo = m_HitInfoBuffer.GetBuffer()[bufferIndex];
+		sample = Sample(hitInfo, m_Scene.camera.position, randomPointLight, m_Scene.pointLights.size(), 1.0f / m_Scene.pointLights.size());
 		float weight = sample.contribution / sample.pdf;
 		resevoir.Update(sample, weight, seed);
 	}
@@ -139,42 +145,39 @@ void Renderer::TemporalReuse(const glm::i32vec2& pixel, const glm::i32vec2 resol
 	const Resevoir& pixelResevoir = m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex];
 	Sample pixelSample = pixelResevoir.GetSample();
 
-	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(pixelSample.hitPrevPosition, seed);
-	if (!pixelResevoir.GetSampleCount())
-	{
-		prevPixel = pixel;
-	}
+	HitInfo hitInfo = m_HitInfoBuffer.GetBuffer()[bufferIndex];
+	glm::i32vec2 prevPixel = m_PrevCamera.WorldSpaceToScreenSpace(hitInfo.prevPosition, seed);
 	bool withinFrame = prevPixel.x >= 0 && prevPixel.y >= 0 && prevPixel.x < resolution.x && prevPixel.y < resolution.y;
 	if (!withinFrame || !m_ValidHistory)
 		return;
 
 	Resevoir& prevResevoir = m_ResevoirBuffers.GetPrevBuffer()[prevPixel.x + prevPixel.y * resolution.x];
 	const Sample& prevSample = prevResevoir.GetSample();
-
-	if (!prevResevoir.GetSampleCount() || !pixelResevoir.GetSampleCount())
+	if (pixelResevoir.GetSampleCount() == 0 || prevResevoir.GetSampleCount() == 0)
 	{
-		Resevoir temporalResevoir = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
-		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = temporalResevoir;
+		m_ResevoirBuffers.GetCurrentBuffer()[bufferIndex] = Resevoir::CombineBiased(pixelResevoir, prevResevoir, seed);
 		return;
 	}
 
 	if (!prevSample.hit)
 		return;
 
-	float cameraDistance = glm::length(pixelSample.hitPosition - m_Scene.camera.position);
+	float cameraDistance = glm::length(hitInfo.position - m_Scene.camera.position);
 	// Grow maxDistance with camera distance to make sure distant pixels don't always exceed maxDistance
 	float scaledMaxDistance = m_Settings.TemporalMaxDistance + (cameraDistance * m_Settings.TemporalMaxDistanceDepthScaling);
-	bool withinMaxDistance = glm::length(prevSample.hitPosition - pixelSample.hitPrevPosition) <= scaledMaxDistance;
-	bool sameNormals = glm::dot(prevSample.hitNormal, pixelSample.hitPrevNormal) >= m_Settings.TemporalMinNormalSimilarity;
+	bool withinMaxDistance = glm::length(prevSample.hitPosition - hitInfo.prevPosition) <= scaledMaxDistance;
+	bool sameNormals = glm::dot(prevSample.hitNormal, hitInfo.prevNormal) >= m_Settings.TemporalMinNormalSimilarity;
 
-	glm::vec3 shadowRayDirection = prevSample.light.position - pixelSample.hitPosition;
+	glm::vec3 shadowRayDirection = prevSample.light.position - hitInfo.position;
 	float shadowRayDistance = glm::length(shadowRayDirection);
 	shadowRayDirection = glm::normalize(shadowRayDirection);
-	glm::vec3 shadowRayOrigin = pixelSample.hitPosition + m_Settings.Eta * shadowRayDirection;
+	glm::vec3 shadowRayOrigin = hitInfo.position + m_Settings.Eta * shadowRayDirection;
 	bool notOccluded = !m_Scene.tlas.IsOccluded(Ray(shadowRayOrigin, shadowRayDirection, shadowRayDistance - 2 * m_Settings.Eta));
 
+	//if (prevResevoir.WeightSampleOut > 0.01f)
 	if (withinMaxDistance && sameNormals && notOccluded && prevResevoir.WeightSampleOut > 0.01f)
 	{
+
 		// Limit Temporal propogation
 		prevResevoir.SetSampleCount(std::min(m_Settings.TemporalSampleCountRatio * pixelResevoir.GetSampleCount(), prevResevoir.GetSampleCount()));
 
@@ -301,8 +304,9 @@ void Renderer::RenderFrameBuffer()
 
 		uint32_t bufferSize = width * height;
 		UpdateSampleBufferSize(bufferSize);
-		m_FrameBuffers.ResizeRenderBuffer(bufferSize);
-		m_ResevoirBuffers.ResizeBuffers(bufferSize);
+		m_FrameBuffers.Resize(bufferSize);
+		m_ResevoirBuffers.Resize(bufferSize);
+		m_HitInfoBuffer.Resize(bufferSize);
 
 		if (m_Settings.Mode != RendererSettings::RenderMode::ReSTIR)
 		{
@@ -343,6 +347,7 @@ void Renderer::RenderFrameBuffer()
 
 			m_ResevoirBuffers.ResetCurrentBuffer();
 			TaskBatch taskBatch(m_Settings.ThreadCount);
+			ReSTIRRender(ReSTIRPass::PrimaryRays, taskBatch, m_FrameNumber);
 			ReSTIRRender(ReSTIRPass::RIS, taskBatch, m_FrameNumber);
 
 			if (m_Settings.EnableVisibilityPass)
@@ -420,7 +425,6 @@ void Renderer::RenderKernelNonReSTIR(FrameBufferRef frameBuffer, uint32_t width,
 		}
 		break;
 	}
-
 }
 
 void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, uint32_t height, uint32_t xMin, uint32_t yMin, ReSTIRPass restirPass, uint32_t seed)
@@ -435,6 +439,16 @@ void Renderer::RenderKernelReSTIR(FrameBufferRef frameBuffer, uint32_t width, ui
 
 	switch (restirPass)
 	{
+	case ReSTIRPass::PrimaryRays:
+		for (uint32_t y = yMin; y < yMax; y++)
+		{
+			uint32_t yOffset = y * width;
+			for (uint32_t x = xMin; x < xMax; x++)
+			{
+				GeneratePrimaryHits(glm::i32vec2(x, y), x + yOffset, seed);
+			}
+		}
+		break;
 	case ReSTIRPass::RIS:
 		for (uint32_t y = yMin; y < yMax; y++)
 		{
